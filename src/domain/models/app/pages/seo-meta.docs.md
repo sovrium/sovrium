@@ -33,7 +33,7 @@ pages:
 
 **The character limits are schema constraints, not advice.** A `title` over 60 characters, or a `description` over 160, fails `sovrium validate`. This catches a runaway `$record.title` binding offline rather than in a search result.
 
-The numbers themselves are a practice rather than a search-engine rule: Google states no length limit for either, and truncates what it shows by pixel width, not by character count. Sixty and 160 are the lengths that usually survive that truncation on a desktop result, which is why Sovrium enforces them. A shorter title is never penalised, a longer one is simply cut.
+The numbers themselves are a practice rather than a search-engine rule: Google states no length limit for either, and truncates what it shows by pixel width, not by character count. Sixty and 160 are the lengths that usually survive that truncation on a desktop result, which is why Sovrium enforces them. A shorter title is never penalised, a longer one is cut.
 
 **`noindex` wins over `robots`.** A page with `noindex: true` says `noindex` in its robots tag whatever else its `robots` string asks: `robots: follow` beside it renders `noindex, follow`. The tag, the sitemap and the `X-Robots-Tag` of a Markdown twin read the same rule, so a page the sitemap leaves out never tells crawlers to index it. A `robots` string that asks for indexing (`index`, or `all`) beside `noindex: true` says two opposite things, and `sovrium validate` refuses it, naming both keys.
 

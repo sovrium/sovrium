@@ -72,6 +72,7 @@ function createDataSourceDbAdapter(
       run(repo.fetchSingleRecord(tableName, paramField, paramValue, options)),
     fetchManyToManyLinks: (tableName, recordId, fields) =>
       run(repo.fetchManyToManyLinks(tableName, recordId, fields)),
+    fetchOneToManyLinks: (input) => run(repo.fetchOneToManyLinks(input)),
     fetchUserAssignments: (userId, tableSlug, role) =>
       run(repo.fetchUserAssignments(userId, tableSlug, role)),
     // [internal ref] / a pages collection spec: overlay user_access roles onto the
@@ -137,12 +138,15 @@ const splitCallerReaders = (db: DataSourceDb, requestContext: RenderRequestConte
     readQueryMasks,
     signFileUrl,
     readPublicFile,
+    readSigningPage,
     specimen,
     specimenSeed,
     drawnAt,
     ...context
   } = requestContext ?? {}
   const readers: Partial<DataSourceDb> = {
+    // Kept in the context too: a page's own stages read through it as well.
+    fetchSystemRows: requestContext?.fetchSystemRows,
     readTableAsCaller,
     callerFieldReader,
     viewerIdentity,
@@ -153,6 +157,7 @@ const splitCallerReaders = (db: DataSourceDb, requestContext: RenderRequestConte
     readQueryMasks,
     signFileUrl,
     readPublicFile,
+    readSigningPage,
   }
   // Only the readers the route supplied: an absent one keeps the adapter's own.
   const callerDb: DataSourceDb = {

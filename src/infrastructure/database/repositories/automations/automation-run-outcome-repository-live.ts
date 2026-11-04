@@ -17,6 +17,7 @@ import {
   STREAK_TERMINAL_RUN_STATUSES,
   type FinalFailure,
 } from '@/domain/models/app/automations/automation-run-outcome-service'
+import { selectStreakRuns } from '@/infrastructure/database/automation-streak-runs'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   layerOverDatabase,
@@ -331,6 +332,8 @@ const members: MembersOverDatabase<typeof AutomationRunOutcomeRepository> = {
           .limit(limit)
         return rows.map((row) => row.status)
       }),
+
+  listStreakRuns: (db) => (input) => wrap(() => selectStreakRuns(db, input)),
 
   countRunsByAutomationBetween:
     (db) =>

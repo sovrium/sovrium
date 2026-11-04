@@ -87,14 +87,12 @@ fields:
       - { value: referral, label: Referral }
 ```
 
-### A dropdown opens on an empty choice
+### A dropdown starts with nothing chosen
 
-A dropdown (a standalone `select`, or a table-bound select column) opens on a leading empty choice labelled by the field's `placeholder`. Without one the first entry would be chosen, and the field would read as answered before the visitor has touched the page.
+A dropdown (a standalone `select`, or a table-bound select column) starts with nothing chosen, its `placeholder` shown on the closed control. Nothing is picked for the visitor: the field never reads as answered before they have touched the page.
 
-That empty choice is what makes the two obvious behaviours actually hold:
-
-- A **required** dropdown refuses to submit until the visitor picks something. Without it, `required` could never bite.
-- An **optional** dropdown left alone stores **no value at all**, rather than its first option.
+- A **required** dropdown lists only its real options, and refuses to submit until the visitor picks one.
+- An **optional** dropdown's list opens on a leading empty choice labelled by its `placeholder`, so an answer can be taken back. Left alone, it stores **no value at all**, rather than its first option.
 
 A value that already resolves (a default, or a prefill arriving from a query parameter) still wins outright and is never asked for twice. A free-text field is unaffected: an empty text box still stores an empty string. An empty email, link or phone number is no answer, and stores no value.
 
@@ -153,6 +151,8 @@ The computed value is submitted with the other answers and stored in the submiss
 <!-- sovrium:options SignatureFieldSchema -->
 
 A section renders its `heading` as a heading and its `description` as a paragraph beneath it, at the position it is declared, carries an optional whole-section visibility rule, and adds nothing to what the form submits. On a one-question or multi-step form, a section is shown with the field declared after it.
+
+A signature field shows its statement above a signing well, where the visitor draws her signature or types her name. The statement is `statement` when declared, else the field's label. The browser sends the drawing and the visitor's consent; the server stores the signature with her name, the instant, the method and the statement she was shown, never a value the browser composed. `bind` stores it besides the submission: `{ column }` in a `signature` field of the table the form writes to, or `{ flow, signer }` as a signer of a [signing flow](/en/docs/signing-flows). Bound to a column, the signature is written into that column of the row the submission creates, with its evidence recorded in the same write, and the drawing is kept in the column's bucket; the submission keeps its own copy of the answer. A form bound to a flow signs rather than collects: placed on the flow's signing page and submitted in its signing session, the signature is given as that session's signer, on the request's record, and no row is created. `signer` limits it to one signer of the flow; left out, it is whoever the link was sent to. Submitted outside the session with a signature, the form answers not found and stores nothing. A column a signing flow signs cannot be bound directly: the configuration is refused, naming the form, the field and the column, and a submission to such a column is refused naming it.
 
 ## Help text and descriptions
 

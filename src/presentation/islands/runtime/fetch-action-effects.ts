@@ -135,17 +135,20 @@ export function evaluateFetchEnvelope(
  * renderer is injected. A row action's message may name the row it acted on
  * (`$record.name paused`), filled from the same record its `url` was — so a
  * toast on a catalogue of many says WHICH one, rather than leaving the reader
- * to guess.
+ * to guess. A failure passes the `answer` that failed: its message may quote
+ * it (`$response.message`; without one, or for an absent path, that reads
+ * empty), and it carries the caller's `failureNote` on it.
  */
 export function renderActionToast(
   slot: ToastSlot,
   options: ExecuteFetchActionOptions,
   again?: () => void,
-  decorate?: ToastControls['decorate']
+  answer?: Pick<FetchActionResult, 'status' | 'body'>
 ): void {
   // An `onError` that answers with `status` declares no toast message.
   if (slot?.message !== undefined && options.renderToast) {
-    const message = substituteRecord(slot.message, options.record)
+    const message = substituteRecord(substituteResponse(slot.message, answer?.body), options.record)
+    const decorate = answer && options.failureNote?.(answer.status, answer.body)
     options.renderToast(message, slot.variant, undefined, { retry: retryOf(slot, again), decorate })
   }
 }
@@ -263,7 +266,8 @@ function clearAlert(target: Element): void {
  *
  * On failure the message is written into the element named by `target` (a
  * TEXT node, never markup — standing rule S2) and the element becomes a
- * `role="alert"` region; a `retryLabel` adds a button that clears the alert and
+ * `role="alert"` region (its `$response.<path>` read from the failed answer's
+ * `body`); a `retryLabel` adds a button that clears the alert and
  * runs `retry`. A prior success's `aria-label` is dropped, so the region is not
  * named by the answer it replaced. On success an alert still standing there is
  * cleared — unless `onSuccess.status` already wrote the same element, which it
@@ -271,7 +275,7 @@ function clearAlert(target: Element): void {
  */
 export function settleErrorStatus(
   action: FetchAction,
-  ok: boolean,
+  { ok, body }: { readonly ok: boolean; readonly body?: unknown },
   retry: () => void,
   record?: Record<string, unknown>
 ): void {
@@ -287,7 +291,7 @@ export function settleErrorStatus(
   }
   target.setAttribute('role', 'alert')
   target.removeAttribute('aria-label')
-  target.replaceChildren(substituteRecord(status.message, record))
+  target.replaceChildren(substituteRecord(substituteResponse(status.message, body), record))
   if (status.retryLabel === undefined) return
   const button = document.createElement('button')
   button.type = 'button'

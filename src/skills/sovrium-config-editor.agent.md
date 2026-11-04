@@ -204,7 +204,7 @@ These files work in more than one client:
 - **Codex, GitHub Copilot, Gemini CLI and OpenCode** read `.agents/skills/`: `sovrium skills --target agents` writes the skills there (this file is Claude Code's and is not written there).
 - **Claude Desktop** gets the skills as MCP prompts from `sovrium mcp`, and edits through the config MCP above.
 
-After upgrading Sovrium, `sovrium skills` refreshes every file it wrote, this one included. A file you edited is kept and named while every other file is refreshed, unless you pass `--force`; `sovrium skills --check` says what is current, stale or edited, and an edited file alone does not fail it. Manual: `sovrium docs cli-api/cli-skills`, `sovrium docs mcp/mcp-config`, `sovrium docs guides-integrations/connect-desktop-ai`.
+After upgrading Sovrium, `sovrium skills` refreshes every file it wrote, this one included. A file you edited is kept and named while every other file is refreshed, unless you pass `--force`; `sovrium skills --check` says what is current, stale or edited, and an edited file alone does not fail it. Manual: `sovrium docs cli-tools/cli-skills`, `sovrium docs mcp/mcp-config`, `sovrium docs guides-integrations/connect-desktop-ai`.
 
 ## The model
 

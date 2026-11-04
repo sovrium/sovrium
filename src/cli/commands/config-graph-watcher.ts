@@ -90,6 +90,17 @@ export interface ConfigGraphWatcher {
  * a poll: it stops after the last delay, and a file whose change WAS reported
  * by an event has already had its record updated, so it is never reported
  * twice. Linux (inotify) arms synchronously and never needs it.
+ *
+ * ## Why a file of the graph that does not exist yet is looked for until it does
+ *
+ * A refused `$ref` puts a path nobody has written yet into the graph, and its
+ * creation is the author's next save, made whenever they get to it. The
+ * directory watcher is meant to report it, but events can be lost after the
+ * stream is armed: on macOS with fseventsd saturated, a creation was measured
+ * going unreported for over 40 s, long after the re-checks above had ended,
+ * and an unreported creation is never delivered again. So while any file of
+ * the graph is absent, its existence is checked every {@link ABSENT_POLL_MS}.
+ * It costs one `stat` per absent path and stops once none is absent.
  */
 export interface ConfigGraphWatcherOptions {
   readonly watch?: WatchFunction
@@ -98,7 +109,12 @@ export interface ConfigGraphWatcherOptions {
    * a save the platform watcher was not yet armed to see.
    */
   readonly recheckDelaysMs?: ReadonlyArray<number>
+  /** How often a file of the graph that does not exist yet is looked for. */
+  readonly absentPollMs?: number
 }
+
+/** The interval of the absent-file check described under "looked for until it does". */
+const ABSENT_POLL_MS = 1000
 
 /**
  * The re-check schedule after the handles change: every 25 ms for the first
@@ -177,17 +193,66 @@ const isRecentDuplicate = (
   lastReportedAt !== undefined &&
   Date.now() - lastReportedAt < DUPLICATE_WINDOW_MS
 
+/** The tracked paths whose file did not exist when last looked at. */
+const absentIn = (known: ReadonlyMap<string, string | undefined>): ReadonlyArray<string> =>
+  [...known.entries()].filter(([, print]) => print === undefined).map(([path]) => path)
+
+/**
+ * The absent-file check described under "looked for until it does": returns
+ * the function that starts it while `known` tracks an absent file and stops it
+ * once none is. Each tick hands every absent path that is now readable to
+ * `onPresent`.
+ */
+const createAbsentPoll = (
+  known: ReadonlyMap<string, string | undefined>,
+  onPresent: (path: string) => void,
+  intervalMs: number
+): (() => void) => {
+  let poll: ReturnType<typeof setInterval> | undefined = undefined
+  return () => {
+    const wanted = absentIn(known).length > 0
+    if (wanted && poll === undefined) {
+      // Readable, not merely present: an unreadable file would be re-reported forever.
+      const tick = (): void =>
+        absentIn(known)
+          .filter((path) => fingerprintOf(path) !== undefined)
+          .forEach(onPresent)
+      poll = setInterval(tick, intervalMs)
+      // Like the re-checks, never what keeps the process alive.
+      poll.unref?.()
+    } else if (!wanted && poll !== undefined) {
+      clearInterval(poll)
+      poll = undefined
+    }
+  }
+}
+
+/** Make `known` track exactly `files`; a newly tracked file is fingerprinted now. */
+const retrack = (known: Map<string, string | undefined>, files: ReadonlyArray<string>): void => {
+  const wanted = new Set(files)
+  ;[...known.keys()].filter((path) => !wanted.has(path)).forEach((path) => known.delete(path))
+  // The report timestamps are left as they are: one older than the duplicate
+  // window is inert, and a path re-added within it IS the same save.
+  files.filter((path) => !known.has(path)).forEach((path) => known.set(path, fingerprintOf(path)))
+}
+
 const createReportingBackstop = (
   onChange: (changedPath: string) => void,
-  delaysMs: ReadonlyArray<number>
+  {
+    recheckDelaysMs: delaysMs = RECHECK_DELAYS_MS,
+    absentPollMs = ABSENT_POLL_MS,
+  }: ConfigGraphWatcherOptions
 ): ReportingBackstop => {
   const known = new Map<string, string | undefined>()
   const reportedAt = new Map<string, number>()
   let timers: ReadonlyArray<ReturnType<typeof setTimeout>> = []
 
+  const updateAbsentPoll = createAbsentPoll(known, (path) => report(path), absentPollMs)
+
   const announce = (path: string, fingerprint: string | undefined): void => {
     known.set(path, fingerprint)
     reportedAt.set(path, Date.now())
+    updateAbsentPoll()
     onChange(path)
   }
 
@@ -214,13 +279,8 @@ const createReportingBackstop = (
   return {
     report,
     track: (files) => {
-      const wanted = new Set(files)
-      ;[...known.keys()].filter((path) => !wanted.has(path)).forEach((path) => known.delete(path))
-      // `reportedAt` is left as it is: a timestamp older than the duplicate
-      // window is inert, and a path re-added within it IS the same save.
-      files
-        .filter((path) => !known.has(path))
-        .forEach((path) => known.set(path, fingerprintOf(path)))
+      retrack(known, files)
+      updateAbsentPoll()
     },
     schedule: () => {
       cancel()
@@ -268,8 +328,9 @@ const indexByDirectory = (files: ReadonlyArray<string>): ReadonlyMap<string, Rea
 
 export const createConfigGraphWatcher = (
   onChange: (changedPath: string) => void,
-  { watch: watchFn = watch, recheckDelaysMs = RECHECK_DELAYS_MS }: ConfigGraphWatcherOptions = {}
+  options: ConfigGraphWatcherOptions = {}
 ): ConfigGraphWatcher => {
+  const watchFn = options.watch ?? watch
   const watchers: WatcherRegistry = new Map()
   const dirWatchers: WatcherRegistry = new Map()
   /** Per directory, the basenames of the files of the graph that live in it. */
@@ -281,7 +342,7 @@ export const createConfigGraphWatcher = (
   const backstop = createReportingBackstop((path) => {
     if (!watchers.has(path)) watchFile(path)
     onChange(path)
-  }, recheckDelaysMs)
+  }, options)
   const { report } = backstop
 
   const watchFile = (path: string): void => {

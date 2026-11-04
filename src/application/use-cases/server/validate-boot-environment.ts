@@ -50,10 +50,16 @@ import { parseRendererEnv } from '@/domain/models/process-env/renderer'
 import {
   parseSovriumBindHost,
   parseSovriumIdleExitSeconds,
+  parseSovriumRequestIdleTimeoutSeconds,
   parseSovriumListenUnix,
   parseSovriumLogFormat,
   parseSovriumStrictPort,
 } from '@/domain/models/process-env/server-lifecycle'
+import {
+  missingOtpSecretRefusal,
+  parseSignatureEnv,
+  signatureEnvRefusal as sealEnvRefusal,
+} from '@/domain/models/process-env/signatures'
 import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import type { MissingRequiredEnvVarError } from '@/application/errors/missing-required-env-var-error'
 import type { App } from '@/domain/models/app'
@@ -161,6 +167,58 @@ const scimTokenRefusalOf = (
   )
 }
 
+/**
+ * Why the `SIGNATURE_*` variables refuse the boot, or `undefined`: an invalid
+ * value, a seal key without its chain (or the reverse), or a flow declaring
+ * `verify` with no code secret to derive its codes from.
+ */
+const signatureEnvRefusal = (
+  validatedApp: App,
+  env: Readonly<Record<string, string | undefined>>
+): string | undefined => {
+  const parsed = parseSignatureEnv(env)
+  if (!parsed.ok) return parsed.error
+  // A seal key the seal cannot sign with, or a chain that is not its own.
+  const seal = sealEnvRefusal(env)
+  if (seal !== undefined) return seal
+  const verifying = (validatedApp.signatures ?? [])
+    .filter((flow) => flow.verify !== undefined)
+    .map((flow) => flow.name)
+  return missingOtpSecretRefusal(parsed.config, verifying)
+}
+
+/**
+ * Every operator variable whose parser throws on a bad value, read once at boot so
+ * the first invalid one refuses the start naming the variable.
+ */
+const parseOperatorEnvVars = (
+  env: Readonly<Record<string, string | undefined>>
+): Effect.Effect<void, InvalidEnvVarError> =>
+  Effect.try({
+    try: () => [
+      parseSovriumNotifyAutomations(env),
+      parseSovriumNotifyTo(env),
+      parseSovriumAutomationAutopause(env),
+      parseSovriumNotifyDigest(env),
+      parseSovriumNotifyDigestCron(env),
+      parseSovriumAutomationDefaultTimeoutMs(env),
+      parseSovriumAutomationRunRetentionDays(env),
+      parseApiIpRateLimit(env),
+      parseRateLimitWindowSeconds(env),
+      parseRecordsRateLimits(env),
+      parseSovriumDevClock(env),
+      parseEmailTransport(env),
+      parseSovriumBundlePublicKeys(env),
+      parseSovriumStrictPort(env),
+      parseSovriumBindHost(env),
+      parseSovriumListenUnix(env),
+      parseSovriumIdleExitSeconds(env),
+      parseSovriumRequestIdleTimeoutSeconds(env),
+      parseSovriumLogFormat(env),
+    ],
+    catch: (error) => new InvalidEnvVarError(error),
+  }).pipe(Effect.asVoid)
+
 /** What {@link validateBootEnvironment} refuses a boot with. */
 export type BootEnvironmentError =
   MissingRequiredEnvVarError | InvalidOperatorTimezoneError | InvalidEnvVarError
@@ -195,31 +253,7 @@ export const validateBootEnvironment = (
             catch: (error) => new InvalidOperatorTimezoneError(error),
           })
         ),
-        Effect.andThen(
-          Effect.try({
-            try: () => [
-              parseSovriumNotifyAutomations(env),
-              parseSovriumNotifyTo(env),
-              parseSovriumAutomationAutopause(env),
-              parseSovriumNotifyDigest(env),
-              parseSovriumNotifyDigestCron(env),
-              parseSovriumAutomationDefaultTimeoutMs(env),
-              parseSovriumAutomationRunRetentionDays(env),
-              parseApiIpRateLimit(env),
-              parseRateLimitWindowSeconds(env),
-              parseRecordsRateLimits(env),
-              parseSovriumDevClock(env),
-              parseEmailTransport(env),
-              parseSovriumBundlePublicKeys(env),
-              parseSovriumStrictPort(env),
-              parseSovriumBindHost(env),
-              parseSovriumListenUnix(env),
-              parseSovriumIdleExitSeconds(env),
-              parseSovriumLogFormat(env),
-            ],
-            catch: (error) => new InvalidEnvVarError(error),
-          })
-        ),
+        Effect.andThen(parseOperatorEnvVars(env)),
         // The `instance/*` operator gate, boot half: an instance step without the
         // switch, or code with it, refuses before the port binds.
         Effect.andThen(
@@ -230,6 +264,8 @@ export const validateBootEnvironment = (
         Effect.andThen(refusePreviewMisconfiguration(env)),
         // A SCIM token short enough to guess stops the start.
         Effect.andThen(refuseWhen(() => scimTokenRefusalOf(validatedApp, env))),
+        // A signing seal half set or unusable, or a verifying flow with no code secret, stops the start.
+        Effect.andThen(refuseWhen(() => signatureEnvRefusal(validatedApp, env))),
         Effect.andThen(refuseUndersizedDatabaseBudget(validatedApp)),
         Effect.asVoid
       )

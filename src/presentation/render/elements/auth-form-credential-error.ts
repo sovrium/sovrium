@@ -8,13 +8,7 @@
 import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import type { Languages } from '@/domain/models/app/languages'
-
-/** What a sign-in form says when the email and password do not match, in the page language. */
-export interface CredentialRefusal {
-  readonly title: string
-  readonly description?: string
-  readonly recovery?: { readonly label: string; readonly href: string }
-}
+import type { CredentialRefusal } from '@/domain/models/app/pages/components/action-operations'
 
 /** The refusal the page pass stamped (`_credentialError`), before its words are localized. */
 export interface StampedCredentialError {

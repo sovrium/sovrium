@@ -4,7 +4,7 @@
 
 Set `MCP_CONFIG_WRITE=1` and four more tools appear, able to change the config file itself. It is off by default, and it is an **environment variable rather than a config key** on purpose: a config that could authorise its own editing would be a config that authorises itself.
 
-It is honoured only when **both** hold: the variable is set, **and** the project directory was named explicitly, by `--project` or an inherited `SOVRIUM_PROJECT_DIR`. A session that fell back to the working directory gets the reads only and says so on stderr. A write surface confines itself to one folder, so the folder has to be one somebody chose on purpose rather than one a client happened to start in.
+It is honoured only when **both** hold: the variable is set, **and** the project directory was named explicitly, by `--project` or an inherited `SOVRIUM_PROJECT_DIR`. A session that fell back to the working directory gets the reads only and says so on stderr. A write surface confines itself to one folder, so the folder has to be one somebody chose on purpose, and not wherever a client happened to start.
 
 ```json
 {
@@ -29,7 +29,7 @@ It is honoured only when **both** hold: the variable is set, **and** the project
 
 The two readers carry `readOnlyHint`. **Both writers are marked destructive**, so a client that asks you before running a destructive tool will ask. Overwriting a file is a destructive update of that file whatever the tool then refuses to do to a table, and undo overwrites several at once.
 
-**Whole file bytes, never a patch.** There is no config writer here and no serialiser: `content` replaces the file, so your comments, key order, anchors and blank lines survive an edit untouched. The cost is that the caller must read before it writes, and `expectedSha` is what makes that cost real rather than advisory.
+**Whole file bytes, never a patch.** There is no config writer here and no serialiser: `content` replaces the file, so your comments, key order, anchors and blank lines survive an edit untouched. The cost is that the caller must read before it writes, and `expectedSha` is what enforces it.
 
 ## What a write is refused for
 
@@ -37,9 +37,9 @@ Every write runs the same ordered checks, and each refusal names what it refused
 
 - **Outside the project.** The path is resolved against the project directory and must land inside it.
 - **Not a config file.** `.yaml`, `.yml` and `.json` only, and never a symlink, because a symlink can point anywhere, including out of the folder. A path whose folder is a link leading out of the project is refused the same way: the check follows the folders to where they really are.
-- **A protected location.** `.env` and friends, `.git/`, `.claude/`, the data directory, and the template marker. A tool that can write `.env` is a credential-writing tool; one that can write `.git/` rewrites history.
+- **A protected location.** `.env` and its variants, `.git/`, `.claude/`, the data directory, and the template marker. A tool that can write `.env` is a credential-writing tool; one that can write `.git/` rewrites history.
 - **A stale `expectedSha`.** The digest you edited against no longer matches the file, so something else saved over it, very possibly you, in your own editor. The refusal says to re-read, because an assistant told only "no" retries the identical call forever.
-- **It would not decode.** The candidate is overlaid in memory onto the resolved `$ref` graph and the **whole app** is decoded before anything is written. An invalid config never reaches the disk; the findings come back instead, in the vocabulary `_config_validate` already speaks. This is what makes editing one split-out partial safe: it is judged as part of the app it belongs to rather than as a document that happens to parse.
+- **It would not decode.** The candidate is overlaid in memory onto the resolved `$ref` graph and the **whole app** is decoded before anything is written. An invalid config never reaches the disk; the findings come back instead, in the vocabulary `_config_validate` already speaks. This is what makes editing one split-out partial safe: it is judged as part of the app it belongs to, and not as a lone document that happens to parse.
 - **A new reference out of the folder.** A candidate that introduces a `$ref` resolving outside the project directory is refused, or the file being **read** could walk out of the folder the file being written may not leave.
 - **The live database would reject it.** Where a server is running, the change is put through the same migration planner `sovrium migrate --dry-run` reports from, and a refusal there is the write's refusal, **before** the file changes rather than after the server has stopped trying to apply it.
 - **It drops data.** A candidate that introduces `allowDestructive: true` needs `acknowledgeDataLoss: true` alongside it, and the tool never sets either flag for itself. Dropping a column deletes the rows in it, and that is your decision every time.
@@ -47,7 +47,7 @@ Every write runs the same ordered checks, and each refusal names what it refused
 
 ## Going back
 
-An accepted write copies the **pre-write** state into the history described in **Undo and Reset** before it changes a byte, so `_config_undo` has somewhere to go even when no server is running and nothing has ever reached "accepted". It skips the copy when the newest entry already holds those exact bytes, which is why a watched project ends up with one entry before the edit and one after rather than three.
+An accepted write copies the **pre-write** state into the history described in **Undo and Reset** before it changes a byte, so `_config_undo` has somewhere to go even when no server is running and nothing has ever reached "accepted". It skips the copy when the newest entry already holds those exact bytes, which is why a watched project ends up with two entries (one before the edit, one after) and not three.
 
 `_config_undo` restores **the most recent snapshot whose files differ from what is on disk**, and answers with the files it changed. When none differs there is nothing to go back to, and it refuses rather than reporting a success that changed nothing.
 

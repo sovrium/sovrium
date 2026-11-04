@@ -81,8 +81,8 @@ const formatShortDate = (
   )
 
 /** The `datetime` format's options: a short date and a two-digit time. */
-const DATE_TIME = { ...MONTH_DAY, ...YEAR, hour: '2-digit', minute: '2-digit' } as const
-const TIME = { hour: '2-digit', minute: '2-digit' } as const
+export const DATE_TIME = { ...MONTH_DAY, ...YEAR, hour: '2-digit', minute: '2-digit' } as const
+export const TIME = { hour: '2-digit', minute: '2-digit' } as const
 
 /**
  * A value through the `datetime` column format — its short date and two-digit
@@ -312,6 +312,7 @@ export function formatCellValue(
     'short-date': () => formatShortDate(value, tag, timeZone, now),
     'long-date': () => formatDate(value, tag, { ...MONTH_DAY, ...YEAR, month: 'long' }, timeZone),
     datetime: () => formatDateTimeColumn(value, tag, timeZone),
+    time: () => formatDate(value, tag, TIME, timeZone),
     'time-ms': () => formatDate(value, 'en-US', TIME_MS, timeZone),
     'yes-no': () => formatYesNo(value, tag),
     'check-cross': () => (value ? '✓' : '✗'),

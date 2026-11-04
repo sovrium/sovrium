@@ -95,6 +95,7 @@ export const forms = defineSection({
         'US-FORMS-FIELDS-OPTION-SUBSET',
         'US-FORMS-INLINE-RELATIONSHIP-CREATE',
         'US-FORMS-PREFILL',
+        'US-FORMS-SIGNATURE-FIELDS',
       ],
     }),
   ],

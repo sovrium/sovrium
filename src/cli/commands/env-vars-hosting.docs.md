@@ -4,12 +4,13 @@
 
 Everything here is optional, and a server started by hand needs none of it. They matter once an app runs under something that restarts it (a systemd unit, a container orchestrator, a socket-activation proxy), with a reverse proxy or a load balancer in front that expects to find it in one exact place.
 
-| Variable                    | Default       | Description                                                                                                                                |
-| --------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `SOVRIUM_STRICT_PORT`       | unset         | `1` or `true` makes a busy default port refuse to start instead of falling back to a free one; implied under systemd                       |
-| `SOVRIUM_LISTEN_UNIX`       | unset         | Path of a Unix socket to serve HTTP on instead of a TCP port, created with mode `0660`; refuses to start alongside a `PORT`                |
-| `SOVRIUM_IDLE_EXIT_SECONDS` | unset (never) | Exit cleanly after this many seconds with no request, no running automation and no scheduled automation due; a whole number, at least `30` |
-| `SOVRIUM_LOG_FORMAT`        | `text`        | `json` writes one JSON object per line instead of text; any other value but `text` refuses to start                                        |
+| Variable                         | Default       | Description                                                                                                                                |
+| -------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SOVRIUM_STRICT_PORT`            | unset         | `1` or `true` makes a busy default port refuse to start instead of falling back to a free one; implied under systemd                       |
+| `SOVRIUM_LISTEN_UNIX`            | unset         | Path of a Unix socket to serve HTTP on instead of a TCP port, created with mode `0660`; refuses to start alongside a `PORT`                |
+| `SOVRIUM_IDLE_EXIT_SECONDS`      | unset (never) | Exit cleanly after this many seconds with no request, no running automation and no scheduled automation due; a whole number, at least `30` |
+| `SOVRIUM_LOG_FORMAT`             | `text`        | `json` writes one JSON object per line instead of text; any other value but `text` refuses to start                                        |
+| `SOVRIUM_REQUEST_IDLE_TIMEOUT_S` | `10`          | Seconds a request may wait for its answer before the server closes its connection; a whole number from `1` to `255`                        |
 
 ## A busy port
 
@@ -46,6 +47,16 @@ The `listening on` line prints as soon as the port is held, suffixed `(degraded:
 ## Exiting when idle
 
 `SOVRIUM_IDLE_EXIT_SECONDS` lets an instance give its memory back when nobody is using it. Once that many seconds pass with no request in flight or recently finished, no automation running, and no scheduled automation or agent due within the window, the server stops exactly as it does on `SIGTERM` and exits `0`. A socket-activation proxy in front of it then starts it again on the next connection, which takes a few seconds. The engine's own maintenance schedules do not keep an instance awake; they catch up at the next start. An automation waiting on a delay is not running, and resumes then too. The value is a whole number of at least `30`; anything else refuses to start.
+
+## A slow answer
+
+The server closes the connection of any request that has waited `SOVRIUM_REQUEST_IDLE_TIMEOUT_S` seconds without an answer, `10` by default. The caller sees the connection drop, and a reverse proxy in front answers its own `502`. Each cut writes one warning in the server log naming the request, how long it had run and the guard that cut it:
+
+```text
+Warning: [server] request cut after 12034 ms by the 10 s idle guard: GET /api/automations/monthly-report/webhook (raise SOVRIUM_REQUEST_IDLE_TIMEOUT_S)
+```
+
+The guard counts in coarse steps, so a cut lands a little after the limit rather than exactly on it. A route that is slow on purpose, such as a webhook automation that builds a large report before it answers, needs a wider guard. The value is a whole number of seconds from `1` to `255`, the longest the server can hold a quiet connection; anything else refuses to start. A request also stops at `API_TIMEOUT_MS` (30 seconds by default), which answers `504`: whichever of the two is shorter ends a slow API call, so widening the guard past 30 seconds also needs a larger `API_TIMEOUT_MS`. Event streams and WebSocket connections are not affected: they keep their connection open on their own.
 
 ## A memory limit
 

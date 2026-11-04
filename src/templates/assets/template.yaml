@@ -8,6 +8,9 @@ intro: |
   count, due back today or overdue, a warranty ending). An asset opens in a drawer with its
   check-outs and its history. Lifecycle is the board by stage, Gallery the assets in service as
   cards, Locations the places they sit.
+audience: >-
+  A small firm that lends out its equipment: the people who hold kit, hand it over and take it
+  back, and the office manager who keeps the register.
 glance:
   - '**Tables** (4): locations, assets, check_outs, asset_events'
   - '**Pages** (5): register (`/`), lifecycle, gallery, locations, sign-in'

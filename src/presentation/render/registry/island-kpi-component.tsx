@@ -20,12 +20,16 @@ import { toneTextClass } from '@/presentation/design/tone-classes'
 import { resolveLucideIconNode } from '@/presentation/render/elements/lucide-resolver'
 import { isSpecimenDrawing } from '@/presentation/render/page/specimen-drawing'
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
+import { DRAWN_CONTENT_KEY } from '@/presentation/render/resolve/drawn-island-content'
+import { drawnKpiCard } from './drawn-kpi-card'
 import { islandFallback, renderSpecimenDash } from './specimen-island-states'
 import { isWithheldKpi, withheldKpiCard } from './withheld-kpi-card'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 import type { Tone } from '@/domain/models/app/pages/components/shared-schemas'
 import type { ResponsiveValues } from '@/presentation/design/responsive-classes'
+import type { DrawnFigure } from '@/presentation/render/resolve/drawn-island-content'
+import type { ReactElement } from 'react'
 
 /**
  * The value's classes, resolved here where the class merger is: `valueClassName`
@@ -93,6 +97,26 @@ function extractKpiProps(
   }
 }
 
+/**
+ * The tile drawn with the figure the server read for its reader
+ * (`drawn-island-content.ts`), or `undefined` when none was read.
+ */
+const drawnKpiOf = (
+  elementProps: Record<string, unknown>,
+  parts: PartClassMap | undefined,
+  currentLang: string | undefined
+): ReactElement | undefined => {
+  const drawn = elementProps[DRAWN_CONTENT_KEY] as DrawnFigure | undefined
+  if (drawn === undefined) return undefined
+  const props = extractKpiProps(elementProps, parts)
+  return drawnKpiCard(elementProps, {
+    ...kpiValueClasses(elementProps, parts),
+    props,
+    metric: drawn.metric,
+    currentLang,
+  })
+}
+
 /** The skeleton's status name: `kpi.loading` in the page language, English when they agree. */
 const kpiLoadingLabel = (elementProps: Record<string, unknown>): string =>
   (elementProps.uiStrings as Readonly<Record<string, string>> | undefined)?.['kpi.loading'] ??
@@ -103,8 +127,14 @@ const kpiLoadingLabel = (elementProps: Record<string, unknown>): string =>
  * server-rendered beside the skeleton — or, over a table its visitor may not
  * read, the withheld static card (`withheld-kpi-card.tsx`).
  */
-export const islandKpiComponent: ComponentRenderer = ({ elementProps, designStyles }) => {
+export const islandKpiComponent: ComponentRenderer = ({
+  elementProps,
+  designStyles,
+  currentLang,
+}) => {
   if (isWithheldKpi(elementProps)) return withheldKpiCard(elementProps)
+  const drawn = drawnKpiOf(elementProps, designStyles?.parts, currentLang)
+  if (drawn !== undefined) return drawn
   const propsJson = JSON.stringify(extractKpiProps(elementProps, designStyles?.parts))
   // GAP-I1: server-render the KPI label as visible text in the SSR skeleton.
   // The label is a static, public binding (not record data), so it can paint

@@ -21,6 +21,7 @@ import { parseJsonObjectCell } from '@/domain/kernel/sql/sqlite-json-cell'
 import { parseBucketFileUrl } from '@/domain/kernel/url/bucket-file-url'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
+import { isSignatureEvidenceKey } from '@/domain/models/app/signatures/signature-capture-service'
 import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import { logError } from '@/infrastructure/logging/logger'
@@ -79,6 +80,8 @@ function signatureImageKey(value: unknown): string | undefined {
  * each paired with the bucket its column declares (falling back to the
  * built-in `system`, the same resolution the read path uses for the URL).
  * Handles both plain string keys and storeMetadata objects (url-embedded key).
+ * A key under the signature evidence namespace is never collected: that file
+ * is kept until its request's retention ends, whatever happens to the record.
  */
 export function collectAttachmentKeys(
   record: Readonly<Record<string, unknown>>,
@@ -96,7 +99,9 @@ export function collectAttachmentKeys(
           : extractAttachmentKey(record[f.name]),
       bucket: resolveFieldBucket(app, tableName, f.name) ?? SYSTEM_BUCKET_NAME,
     }))
-    .filter((ref): ref is AttachmentRef => ref.key !== undefined)
+    .filter(
+      (ref): ref is AttachmentRef => ref.key !== undefined && !isSignatureEvidenceKey(ref.key)
+    )
 }
 
 /** The record a purge addresses, as its caller reads it. */

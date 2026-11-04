@@ -19,11 +19,15 @@
  * A run nobody started keeps resolving its filter over the whole table as the
  * system (`resolveActionTargetIds`), and an explicit id — or an `id equals`
  * filter — still goes straight to the caller write gate, whose refusal of a
- * hidden row is the records API's own.
+ * hidden row is the records API's own, and the same for a row that does not
+ * exist. In a run nobody started, an `id equals` filter naming no live row
+ * targets nothing, as any filter matching nothing does.
  */
 
 import { Effect } from 'effect'
+import { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import { logError } from '@/infrastructure/logging/logger'
+import { buildGuestSession } from '../../build-guest-session'
 import { runReadAccess, type RunReadAccess } from './caller-gate'
 import { declaredFilterFields, extractIdFromFilter, toQueryFilter } from './filter-shape'
 import { filterFieldRefusal, resolveActionTargetIds, rowIdsOf, type ActionTargets } from './filters'
@@ -31,10 +35,7 @@ import { listableFields, listForRun, READ_REFUSAL, scopedListFilter } from './re
 import type { AutomationContext } from '../shared'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
-import type {
-  TableReadError,
-  TableRepository,
-} from '@/application/ports/repositories/tables/table-repository'
+import type { TableReadError } from '@/application/ports/repositories/tables/table-repository'
 import type { App } from '@/domain/models/app'
 
 type StarterRequirements = AuthRepository | DataSourceRepository | TableRepository
@@ -83,6 +84,30 @@ export const starterTargetIds = (input: {
   )
 
 /**
+ * The row an `id equals` filter names, confirmed by its primary key — `[]` when
+ * no live row has that id, so the filter reads as one matching nothing rather
+ * than as a write to a missing record. Still no list query: one SELECT by id.
+ * A lookup that cannot run keeps the id, and the write reports what the
+ * database says, as it did before this check.
+ */
+const liveRowIds = (
+  tableName: string,
+  recordId: string
+): Effect.Effect<readonly string[], never, TableRepository> =>
+  Effect.gen(function* () {
+    const repo = yield* TableRepository
+    return yield* repo.getRecord(buildGuestSession(), tableName, recordId).pipe(
+      Effect.map((row): readonly string[] => (row === null ? [] : [recordId])),
+      Effect.tapCause((cause) =>
+        Effect.sync(() => logError('[automations] filter id not confirmed', cause))
+      ),
+      // effect-swallow: an unconfirmed id is kept, so the write itself reports
+      // the database's answer — the behaviour before the row was confirmed.
+      Effect.catchTag('DatabaseError', () => Effect.succeed([recordId] as const))
+    )
+  })
+
+/**
  * The row ids a record write's `filter` targets for the run, or the outcome
  * refusing it — {@link resolveActionTargetIds} with a hand-started run's filter
  * resolved as its starter's list resolves it. A lookup that fails reads as
@@ -104,8 +129,14 @@ export const resolveRunTargetIds = (input: {
       ...{ operator: input.operator, tableName, filter, idFastPath },
       declared: declaredFilterFields(app, tableName),
     })
-    const explicit = idFastPath !== undefined && idFastPath !== ''
-    if (explicit || extractIdFromFilter(filter) !== undefined) return yield* system
+    if (idFastPath !== undefined && idFastPath !== '') return yield* system
+    const filterId = extractIdFromFilter(filter)
+    // A hand-started run hands the id to the caller gate, which refuses a hidden
+    // row and a missing one alike; any other run targets only a live row.
+    if (filterId !== undefined && automation.startedByHand === true) return yield* system
+    if (filterId !== undefined) {
+      return { resolved: true, ids: yield* liveRowIds(tableName, filterId) } as const
+    }
     const access = yield* runReadAccess(app, automation, tableName)
     if (access.kind === 'system') return yield* system
     if (access.kind === 'refused') return { resolved: false, outcome: READ_REFUSAL } as const

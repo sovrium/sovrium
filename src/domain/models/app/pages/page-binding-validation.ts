@@ -20,6 +20,7 @@ import {
   visibilityPolarityViolations,
 } from './component-rule-validation'
 import { derivedColumnViolations } from './derived-columns-validation'
+import { fetchChannelViolations } from './fetch-channel-validation'
 import { compactFileUploadViolations } from './file-upload-compact-validation'
 import { openDialogTargetViolations } from './open-dialog-target-validation'
 import {
@@ -199,6 +200,7 @@ export function collectPageBindingViolations(page: unknown): readonly string[] {
     ...routeParamAllowListViolations(page, declared, label),
     ...queryVisibilityViolations(page, label),
     ...actionPlacementViolations(nodes, label),
+    ...fetchChannelViolations(nodes, label),
     ...compactFileUploadViolations(nodes, label),
     ...openDialogTargetViolations(page, label),
     ...readStateGateViolations(nodes, label),

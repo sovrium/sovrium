@@ -73,7 +73,7 @@ export const BuiltInAnalyticsSchema = Schema.Union([
       Schema.Array(
         Schema.String.annotate({
           description:
-            'One glob pattern. A path matching it records no event: `/admin/*` excludes everything beneath `/admin`.',
+            'One glob pattern. A path matching it records no event: `/admin/*` excludes everything beneath `/admin`. On a multilingual app, `/en/pricing` excludes the English page only, and `/pricing` excludes that page in every language.',
         })
       ).pipe(
         Schema.annotate({
@@ -138,7 +138,8 @@ export const BuiltInAnalyticsSchema = Schema.Union([
       Schema.Finite.pipe(
         Schema.annotate({
           title: 'Session Timeout',
-          description: 'Session timeout in minutes (1-120)',
+          description:
+            'The session window in minutes (1-120) for page views, outbound clicks, short-link clicks and QR scans: events of one visitor in one window count as one session.',
           defaultNote: '30',
         }),
         Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1, maximum: 120 }))

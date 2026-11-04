@@ -8,6 +8,7 @@
 import { computeTableFillShellClasses } from '@/presentation/design/table-default-classes'
 import { InlineExpandProvider } from '../../inline-expand/inline-expand-state'
 import { ArmedConfirmProvider } from '../../row-actions/armed-confirm-provider'
+import { drawsCompactFill } from '../fill-empty'
 import { useViewProps } from '../use-view-props'
 import { ResultCountAnnouncer } from './result-count-announcer'
 import { StatusBanners } from './status-banners'
@@ -30,6 +31,13 @@ import type { DataTableViewProps } from '../view-props'
  */
 export function DataTableView(props: DataTableViewProps) {
   const regions = useViewProps(props)
+  // A filling grid holding no row draws at its natural height (see `fill-empty.ts`).
+  const compact = drawsCompactFill(props.layout, {
+    rowCount: props.table.getRowModel().rows.length,
+    isLoading: props.isLoading,
+    narrowed: props.narrowed,
+    globalFilter: props.globalFilter,
+  })
 
   return (
     <ArmedConfirmProvider>
@@ -55,7 +63,7 @@ export function DataTableView(props: DataTableViewProps) {
           // It carries the floor as well as the height, from the row height the
           // rows are drawn at, so the frame's minimum tracks their rhythm.
           className={`w-full overflow-hidden${
-            props.layout === 'fill'
+            props.layout === 'fill' && !compact
               ? ` ${computeTableFillShellClasses({ rowHeight: props.currentRowHeight })}`
               : ''
           }`}
@@ -64,6 +72,7 @@ export function DataTableView(props: DataTableViewProps) {
           // page section can render a connection indicator. Absent when the data
           // source is not in `realtime` refresh mode.
           data-connection-status={props.connectionStatus}
+          data-fill-empty={compact ? 'true' : undefined}
         >
           <StatusBanners {...regions.banners} />
           <TableSurface {...regions.surface} />

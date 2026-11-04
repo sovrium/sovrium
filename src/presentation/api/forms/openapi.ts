@@ -81,6 +81,28 @@ const routes: readonly RouteSpec[] = [
     },
   },
   {
+    method: 'post',
+    pathTemplate: '/api/forms/{formSlug}/steps/{stepId}/keep',
+    summary: 'Keep the answers of a form step',
+    description:
+      'Keeps the answers given on a step of a multi-step form without checking them, as going back to the previous step does.',
+    operationIdBase: 'keepFormStep',
+
+    parameters: effectParameters(
+      Schema.Struct({
+        stepId: Schema.String.annotate({ description: 'Form step identifier' }),
+      }),
+      'path'
+    ),
+    request: {
+      body: { content: { 'application/json': { schema: effectSchema(Schema.Unknown) } } },
+    },
+    responses: {
+      204: { description: 'Answers kept' },
+      404: errorResponse('Form or step not found'),
+    },
+  },
+  {
     method: 'get',
     pathTemplate: '/api/forms/{formSlug}/steps/{stepId}',
     summary: 'Get a form step fragment',

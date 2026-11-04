@@ -17,28 +17,34 @@
  * them into a loop; telling them "something broke" is simply untrue.
  *
  * A 404 therefore says the action is unavailable and stops. Only a genuine
- * fault — a 5xx, or a request that never completed — invites a retry.
+ * fault — a 5xx, or a request that never completed — invites a retry. A 202
+ * is neither: the run was accepted and goes on (it waits for a slot, or runs
+ * longer than a request is held), so the reader is told it is under way.
  */
 
 /** The button's `action.*` words in the page language, where they differ from English. */
 export type ButtonStrings = Readonly<Record<string, string>> | undefined
 
 /**
- * The four sentences, each the page's when the host sent it: a denial or an
+ * The five sentences, each the page's when the host sent it: a denial or an
  * absent record (one sentence for both, as the API does), a run that did not
  * finish cleanly, a request that never produced a usable answer (the one case
- * worth retrying), and a clean run.
+ * worth retrying), a run accepted and still going, and a clean run.
  */
-const say = (strings: ButtonStrings) => ({
-  unavailable: strings?.['action.unavailable'] ?? 'This action is not available on this record.',
-  unfinished: strings?.['action.unfinished'] ?? 'The action ran but did not complete.',
-  unreachable: strings?.['action.unreachable'] ?? 'The action could not be run. Try again.',
-  completed: strings?.['action.completed'] ?? 'Action completed.',
-})
+const say = (strings: ButtonStrings) => {
+  const word = (key: string, english: string): string => strings?.[key] ?? english
+  return {
+    unavailable: word('action.unavailable', 'This action is not available on this record.'),
+    unfinished: word('action.unfinished', 'The action ran but did not complete.'),
+    unreachable: word('action.unreachable', 'The action could not be run. Try again.'),
+    accepted: word('action.accepted', 'The action is under way.'),
+    completed: word('action.completed', 'Action completed.'),
+  }
+}
 
 export interface ButtonOutcome {
   readonly message: string
-  readonly variant: 'success' | 'error'
+  readonly variant: 'success' | 'info' | 'error'
   /**
    * Whether the automation got far enough to have touched the record. Drives
    * the host surface's refresh, so it is true for a run that failed part-way
@@ -92,6 +98,7 @@ export async function classifyButtonResponse(
     return { message: words.unavailable, variant: 'error', changed: false }
   }
   if (!response.ok) return buttonRequestFailed(strings)
+  if (response.status === 202) return { message: words.accepted, variant: 'info', changed: true }
   const runStatus = await readRunStatus(response)
   return INCOMPLETE_RUN_STATUSES.has(runStatus)
     ? { message: words.unfinished, variant: 'error', changed: true }

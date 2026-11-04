@@ -22,9 +22,10 @@ import { usePageMetadata } from '@/presentation/render/page/page-metadata'
 import { groupScriptsByPosition } from '@/presentation/render/page/page-scripts'
 import { PageSidebar } from '@/presentation/render/page/page-sidebar'
 import { PageSpaNavMount } from '@/presentation/render/page/page-spa-nav-mount'
+import { pageToastAttributes } from '@/presentation/render/page/page-toast-attributes'
+import { PageToastContainer } from '@/presentation/render/page/page-toast-container'
 import { PlatformChrome } from '@/presentation/render/page/platform-chrome'
 import { PresenceIndicatorMount } from '@/presentation/render/page/presence-indicator-mount'
-import { getToastDismissLabel } from '@/presentation/render/page/toast-dismiss-labels'
 // Island detection: page-island-detection.ts; here only interactive-runtime detection.
 import { DynamicPageHead, type DynamicPageHeadProps } from './dynamic-page-head'
 import { hasInteractiveFeatures, mergeComponentMetaIntoPage } from './page-interactivity'
@@ -178,14 +179,6 @@ function buildDataAttributes(
   }, {})
 }
 
-/** Stable identity for the toast container's flex stack to satisfy react-perf. */
-const TOAST_CONTAINER_STYLE = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '8px',
-  minHeight: '1px',
-} as const
-
 /**
  * Returns the resolved sidebar sections only when the page actually
  * declares a sidebar AND the resolver produced at least one section.
@@ -200,36 +193,6 @@ function selectSidebarSections(
   if (resolvedSidebar === undefined || resolvedSidebar.length === 0) return undefined
   if (page.layout?.sidebar === undefined) return undefined
   return resolvedSidebar
-}
-
-/**
- * Renders the toast container element when page.toasts is configured.
- *
- * The container is the page's ONE standing toast container, and no live region:
- * each toast is its own (`role="status"`, or `role="alert"` when urgent —
- * `islands/runtime/toast-accessibility.ts`), so a toast is announced once.
- *
- * `data-dismiss-label` is the server→client channel for the dismiss control's
- * accessible name. The renderers that build that control run in the browser and
- * cannot see the page's locale, so the locale-resolved word is handed to them
- * here — the same way every other island label crosses that boundary.
- */
-function PageToastContainer({
-  toasts,
-  lang,
-}: {
-  readonly toasts: NonNullable<DynamicPageBodyProps['page']['toasts']>
-  readonly lang: string
-}): Readonly<ReactElement> {
-  return (
-    <div
-      data-sonner-toaster=""
-      data-toast-container=""
-      data-dismiss-label={getToastDismissLabel(lang)}
-      {...(toasts.position !== undefined && { 'data-position': toasts.position })}
-      style={TOAST_CONTAINER_STYLE}
-    />
-  )
 }
 
 /**
@@ -303,6 +266,7 @@ function DynamicPageBody({
         <PageToastContainer
           toasts={page.toasts}
           lang={lang}
+          languages={languages}
         />
       )}
       <PlatformChrome
@@ -367,7 +331,7 @@ export function DynamicPage({
     lang: langConfig.lang,
     frontmatter: markdownPayload?.frontmatter,
   })
-  const scripts = groupScriptsByPosition(page, components, builtInAnalyticsSettings)
+  const scripts = groupScriptsByPosition(page, components, builtInAnalyticsSettings, tables)
   const pageWithMeta = mergeComponentMetaIntoPage(page, components)
   // On a window-high shell, a footer badge closes its scrolling inset instead.
   const placed = placeFooterBadge(page, badgePlacement)
@@ -379,6 +343,9 @@ export function DynamicPage({
       // The operator timezone and the date-time glue, stamped for the islands:
       // they format dates with them without ever reading the environment.
       {...pageClockAttributes(langConfig.lang)}
+      // The toast close button's name and `design.components.toast`, read back
+      // by every toast renderer in the browser.
+      {...pageToastAttributes(design, langConfig.lang, languages)}
       // The density step this page runs at — its zone's, else the app's, else compact,
       // written for compact too; the ladder's `[data-density]` blocks make it paint.
       data-density={resolveDensityStep(

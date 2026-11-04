@@ -20,6 +20,7 @@ import { FailureAlertHoldBack } from '@/application/ports/services/failure-alert
 import {
   EMPTY_HOLD_BACK,
   decideHoldBack,
+  recordRunSuccess,
   takeHeldBack,
   type HoldBackState,
 } from '@/domain/models/app/automations/automation-run-outcome-service'
@@ -50,10 +51,12 @@ export const FailureAlertHoldBackLive = Layer.succeed(
         writeState(next.state)
         return next.decision
       }),
+    recordSuccess: (automationName, at) =>
+      Effect.sync(() => writeState(recordRunSuccess(readState(), automationName, at))),
     take: Effect.sync(() => {
-      const taken = takeHeldBack(readState())
-      writeState(taken.state)
-      return { groups: taken.groups, overflow: taken.overflow }
+      const { state, ...taken } = takeHeldBack(readState())
+      writeState(state)
+      return taken
     }),
   })
 )

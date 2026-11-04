@@ -32,7 +32,7 @@ import { AdminFormsRepository } from '@/application/ports/repositories/forms/adm
 import { TablesOverviewRepository } from '@/application/ports/repositories/tables/tables-overview-repository'
 import { UsersOverviewRepository } from '@/application/ports/repositories/tables/users-overview-repository'
 import { StorageService } from '@/application/ports/services/storage-service'
-import { buildConnectionsList } from '@/application/use-cases/admin/connections'
+import { buildConnectionsListFor } from '@/application/use-cases/admin/connections'
 import { sanitizeTableName } from '@/domain/kernel/sql/table-naming'
 import { coerceTimestampToMs } from '@/domain/kernel/time/time-series-bucketing'
 import { summariseRunError } from '@/domain/models/app/automations/failure-summary-service'
@@ -267,20 +267,19 @@ export const databaseBytesBlock: Effect.Effect<number, never, StorageFootprintRe
  * status the connections list derives, so an OAuth2 connection nobody has
  * authorized (`not-connected`) is not counted healthy.
  */
-export const connectionsBlock: Effect.Effect<
-  Connections,
-  never,
-  ConnectionRepository | ConnectionTokenRepository | Logger
-> = buildConnectionsList.pipe(
-  Effect.map((outcome) => {
-    if (outcome._tag !== 'Ok') return { healthy: 0, total: 0 }
-    const { connections } = outcome.body
-    const healthy = connections.filter((connection) => connection.status === 'active').length
-    return { healthy, total: connections.length }
-  }),
-  orZero('connections', { healthy: 0, total: 0 }),
-  Effect.withSpan('notifications.weekly-digest.connections')
-)
+export const connectionsBlock = (
+  app: App
+): Effect.Effect<Connections, never, ConnectionRepository | ConnectionTokenRepository | Logger> =>
+  buildConnectionsListFor(app.connections).pipe(
+    Effect.map((outcome) => {
+      if (outcome._tag !== 'Ok') return { healthy: 0, total: 0 }
+      const { connections } = outcome.body
+      const healthy = connections.filter((connection) => connection.status === 'active').length
+      return { healthy, total: connections.length }
+    }),
+    orZero('connections', { healthy: 0, total: 0 }),
+    Effect.withSpan('notifications.weekly-digest.connections')
+  )
 
 /** The engine version changes the boot ledger recorded in the period, oldest first. */
 export const versionChangesBlock = (

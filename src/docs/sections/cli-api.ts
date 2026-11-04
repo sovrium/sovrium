@@ -10,17 +10,10 @@ import cliLifecycleBody from '@/cli/commands/cli-lifecycle.docs.md' with { type:
 import cliMigrateBody from '@/cli/commands/cli-migrate.docs.md' with { type: 'file' }
 import cliProjectBody from '@/cli/commands/cli-project.docs.md' with { type: 'file' }
 import cliSeedBody from '@/cli/commands/cli-seed.docs.md' with { type: 'file' }
-import cliValidateBody from '@/cli/commands/cli-validate.docs.md' with { type: 'file' }
 import cliBody from '@/cli/commands/cli.docs.md' with { type: 'file' }
 import configSnapshotHistoryBody from '@/cli/commands/config-snapshot-history.docs.md' with { type: 'file' }
 import devBody from '@/cli/commands/dev.docs.md' with { type: 'file' }
-import docsBody from '@/cli/commands/docs.docs.md' with { type: 'file' }
-import libraryBody from '@/cli/commands/library.docs.md' with { type: 'file' }
-import reportBody from '@/cli/commands/report.docs.md' with { type: 'file' }
-import skillsBody from '@/cli/commands/skills.docs.md' with { type: 'file' }
-import { importCliArticles } from './cli-api-import'
 import { operateCliArticles } from './cli-api-operate'
-import { cliReferenceArticles } from './cli-reference'
 import { defineArticle, defineSection } from './define'
 
 /**
@@ -220,7 +213,6 @@ export const section = defineSection({
         'US-CLI-SEEDING-INVITATIONS',
       ],
     }),
-    ...importCliArticles,
     ...operateCliArticles,
     defineArticle({
       slug: 'cli-flags',
@@ -250,117 +242,6 @@ export const section = defineSection({
         'US-CLI-STARTING-SERVER-WATCH-DEV-EXPERIENCE',
         'US-CLI-TEMPLATE-CLAUDE-BUNDLE',
       ],
-    }),
-    defineArticle({
-      slug: 'cli-validate',
-      title: 'Validation & Schema Generation',
-      description:
-        'Check a config without starting anything, read its --json report, emit the JSON Schema that describes every config, and export the design system for an agent.',
-      keywords: [
-        'sovrium validate',
-        'sovrium validate --json',
-        'machine-readable validation',
-        'sovrium schema',
-        'sovrium design-system',
-        'validateConfig',
-        'JSON Schema',
-        'config validation',
-        'DTCG',
-      ],
-      order: 1480,
-      sidebarLabel: 'Validation & Schema',
-      body: cliValidateBody,
-      documents: [],
-      stories: [
-        'US-CLI-CONFIG-VALIDATION',
-        'US-CLI-CONFIG-VALIDATION-REPORT',
-        'US-CLI-DESIGN-SYSTEM',
-        'US-CLI-STARTING-SERVER-CONFIG-SOURCES',
-      ],
-    }),
-    defineArticle({
-      slug: 'docs',
-      title: 'Reading the Manual Offline',
-      description:
-        '`sovrium docs` prints this manual from the binary, offline, with no config, database or network, so what you read describes the engine you run.',
-      keywords: [
-        'sovrium docs',
-        'offline documentation',
-        'llms.txt',
-        'llms-full.txt',
-        'AI agent',
-        'machine-readable documentation',
-        'determinism',
-      ],
-      order: 1490,
-      sidebarLabel: 'Reading the Manual',
-      body: docsBody,
-      documents: [],
-      stories: ['US-CLI-DOCS-COMMAND'],
-    }),
-    defineArticle({
-      slug: 'cli-skills',
-      title: 'Agent Skills',
-      description:
-        'Write the agent skills that match your Sovrium version into a project, refresh them after an upgrade without touching what you edited, and check them in CI.',
-      keywords: [
-        'sovrium skills',
-        'agent skills',
-        'SKILL.md',
-        '.claude/skills',
-        '.agents/skills',
-        '.sovrium-skills.json',
-        'Claude Code',
-        'Cursor',
-        'Codex',
-        'MCP prompts',
-      ],
-      order: 1495,
-      sidebarLabel: 'Agent Skills',
-      body: skillsBody,
-      documents: [],
-      stories: ['US-CLI-COMMANDS-SKILLS'],
-    }),
-    defineArticle({
-      slug: 'cli-report',
-      title: 'Reporting a Problem',
-      description:
-        '`sovrium report` prints a new-issue address prefilled with the facts maintainers need and no secret, or the private vulnerability form. It sends nothing.',
-      keywords: [
-        'sovrium report',
-        'bug report',
-        'issue',
-        'vulnerability',
-        'security advisory',
-        'request id',
-        '--last-error',
-      ],
-      order: 1498,
-      sidebarLabel: 'Reporting a Problem',
-      body: reportBody,
-      documents: [],
-      stories: ['US-CLI-COMMANDS-REPORT'],
-    }),
-    ...cliReferenceArticles,
-    defineArticle({
-      slug: 'cli-library',
-      title: 'The Library of Ready-Made Pieces',
-      description:
-        '`sovrium library` ships blocks, connections and automation recipes inside the binary, and copies the one you pick into your config as a file you own.',
-      keywords: [
-        'sovrium library',
-        'library add',
-        'ready-made blocks',
-        'connection presets',
-        'automation recipes',
-        'copy-in',
-        '$ref',
-      ],
-      order: 1500,
-      sidebarLabel: 'Library',
-      body: libraryBody,
-      documents: [],
-      stories: ['US-CLI-COMMANDS-LIBRARY', 'US-CLI-LIBRARY-CATALOGUE'],
     }),
   ],
 })

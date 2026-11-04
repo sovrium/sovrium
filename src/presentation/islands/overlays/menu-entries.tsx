@@ -6,10 +6,9 @@
  */
 
 import { Menu } from '@base-ui/react/menu'
-import { computeMenuItemClasses } from './menu-default-classes'
 import { isRunnableMenuAction, runMenuItemAction } from './menu-item-actions'
 import { MenuItemBody } from './menu-popup-body'
-import { useMenuKind } from './menu-slot-context'
+import { useMenuItemClasses, useMenuKind } from './menu-slot-context'
 import type { MenuItem, MenuSurface } from './menu-item-types'
 import type { ReactElement } from 'react'
 
@@ -52,7 +51,7 @@ export function PlainMenuItem({
       disabled={item.disabled}
       onClick={isRunnableMenuAction(item.action) ? run : undefined}
       data-click-modal={item.action?.action === 'openDialog' ? item.action.component : undefined}
-      className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
+      className={useMenuItemClasses({ variant: item.variant ?? 'default', surface })}
     >
       <MenuItemBody item={item} />
     </Menu.Item>
@@ -89,7 +88,7 @@ export function NavigateMenuItem({
       data-variant={item.variant ?? 'default'}
       disabled={item.disabled}
       render={anchor}
-      className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
+      className={useMenuItemClasses({ variant: item.variant ?? 'default', surface })}
     >
       <MenuItemBody item={item} />
     </Menu.Item>

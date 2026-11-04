@@ -30,6 +30,7 @@ import forms from './forms'
 import links from './links'
 import organisation from './organisation'
 import pages from './pages'
+import signatures from './signatures'
 import tables from './tables'
 import templates from './templates'
 import users from './users'
@@ -58,6 +59,7 @@ export const dataPages: readonly PageConfig[] = [
   ...tables,
   ...forms,
   ...buckets,
+  ...signatures,
   ...templates,
   ...agents,
   ...links,

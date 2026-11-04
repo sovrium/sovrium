@@ -23,7 +23,7 @@
  * decision is made.
  */
 
-import { evaluateFormAccess } from '@/domain/models/app/forms/form-access-flow'
+import { evaluateFormAccess, toFormAccessSession } from '@/domain/models/app/forms/form-access-flow'
 import { readEmbeddedFormRef } from '@/domain/models/app/pages/embedded-form-ref'
 import { collectFromComponentTree } from '@/presentation/render/resolve/component-walker'
 import { isComponentHiddenForSession } from '@/presentation/render/resolve/visibility-filter'
@@ -50,19 +50,6 @@ function collectFormRefs(
   })
 }
 
-function toFormAccessSession(
-  session: SessionInfo | undefined
-):
-  | { readonly userId: string; readonly role: string; readonly groups?: readonly string[] }
-  | undefined {
-  if (session === undefined) return undefined
-  return {
-    userId: session.userId,
-    role: session.role,
-    ...(session.groups !== undefined ? { groups: session.groups } : {}),
-  }
-}
-
 /**
  * Evaluate every embedded `formRef`'s access gate against the session.
  *
@@ -85,7 +72,7 @@ export function evaluateEmbeddedFormRefsAccess(
 ): 'allow' | 'denied' {
   const refs = collectFormRefs(page.components, session, app)
   if (refs.length === 0) return 'allow'
-  const formSession = toFormAccessSession(session)
+  const formSession = session === undefined ? undefined : toFormAccessSession(session, app)
   const anyDenied = refs.some((ref) => {
     const form = app.forms?.find((f) => f.name === ref)
     if (form === undefined) return false

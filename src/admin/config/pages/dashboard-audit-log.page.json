@@ -285,6 +285,21 @@
                   "text": "$t:admin.auditLog.filter.showReads"
                 }
               ]
+            },
+            {
+              "type": "button",
+              "label": "$t:admin.common.exportCsv",
+              "variant": "outline",
+              "action": {
+                "type": "fetch",
+                "mode": "download",
+                "url": "/api/admin/audit-log?format=csv&reads=false",
+                "filename": "audit-log.csv",
+                "bindTo": "audit-log-filter"
+              },
+              "props": {
+                "className": "sm:ml-auto"
+              }
             }
           ]
         },
@@ -345,6 +360,7 @@
                   "config.schema.queried": "$t:admin.auditLog.action.config.schema.queried",
                   "config.env.queried": "$t:admin.auditLog.action.config.env.queried",
                   "config.design.queried": "$t:admin.auditLog.action.config.design.queried",
+                  "audit.export.queried": "$t:admin.auditLog.action.audit.export.queried",
                   "table.overview.queried": "$t:admin.auditLog.action.table.overview.queried",
                   "table.record.created": "$t:admin.auditLog.action.table.record.created",
                   "table.record.updated": "$t:admin.auditLog.action.table.record.updated",

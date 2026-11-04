@@ -88,26 +88,28 @@ export const CONNECTION_EXPIRING_SOON_WINDOW_MS = 7 * 24 * 60 * 60 * 1000
  * Derived per-connection authorization health, computed from the soonest token
  * `expiresAt` across the connection's `system.connection_tokens` rows:
  *
- *   - `active`        — has token(s) all comfortably in the future, OR is a
- *     static-secret connection with no token rows (apiKey / basic / bearer
- *     connections generate zero `connection_tokens`; they are configured and
- *     usable, so they read `active`, NEVER `expired`).
- *   - `not-connected` — an `oauth2` connection nobody has authorized: it holds
+ *   - `active`        — has token(s) all comfortably in the future, OR token(s)
+ *     the app renews on its own whatever their expiry (each carries a refresh
+ *     token, or the connection uses the `clientCredentials` grant, before its
+ *     first call too), OR is a static-secret connection with no token rows
+ *     (apiKey / basic / bearer connections generate zero `connection_tokens`;
+ *     they are configured and usable, so they read `active`, NEVER `expired`).
+ *   - `not-connected` — an `oauth2` authorization-code connection nobody has authorized: it holds
  *     no token at all, so nothing can call the provider yet. Reading it as
  *     `active` would print a healthy badge over a connection that cannot work.
  *   - `not-configured` — a static-secret connection (apiKey / basic / bearer)
  *     whose credential reads a `$env.` variable that resolves to nothing on
  *     this instance: every run that needs it is skipped until it is set, so it
  *     must not read `active` either.
- *   - `expiring-soon` — has token(s); the soonest `expiresAt` is in the future
- *     but within `CONNECTION_EXPIRING_SOON_WINDOW_MS` (7 days).
- *   - `expired`       — has token(s); the soonest `expiresAt` is already in the
- *     past.
+ *   - `expiring-soon` — has token(s) nothing renews; the soonest `expiresAt` is
+ *     in the future but within `CONNECTION_EXPIRING_SOON_WINDOW_MS` (7 days).
+ *   - `expired`       — has token(s) nothing renews; the soonest `expiresAt` is
+ *     already in the past.
+ *   A token the app renews on its own is never `expiring-soon` or `expired`:
+ *   its access token's expiry only means the next call renews it.
  *   - `reconnect-needed` — has a token the provider gave NO refresh token for
  *     (LinkedIn, Meta) whose expiry is past or within the same 7-day window:
- *     nothing will renew it, so someone has to authorize again. Takes
- *     precedence over `expiring-soon` / `expired`, which describe tokens the
- *     runtime can still refresh on its own.
+ *     nothing will renew it, so someone has to authorize again.
  *
  * Mirrors + extends `deriveAdminStatus` in
  * `src/presentation/api/routes/connections/users-handler.ts` (which derives
@@ -123,7 +125,7 @@ export const connectionStatusSchema = Schema.Literals([
   'reconnect-needed',
 ]).annotate({
   description:
-    'Derived connection health. `active` = tokens all in the future, OR a static-secret connection (apiKey, basic, bearer) that holds no token and whose credential resolves; `not-connected` = an oauth2 connection nobody has authorized yet, holding no token; `not-configured` = a static-secret connection whose credential reads an environment variable that is not set on this instance, so every run that needs it is skipped until it is; `expiring-soon` = soonest token expiry within 7 days; `expired` = soonest token expiry in the past; `reconnect-needed` = a token with no refresh token expires within 7 days or has expired, so only a new authorization will restore it.',
+    'Derived connection health. `active` = tokens all in the future, OR tokens the app renews on its own whatever their expiry (each carries a refresh token, or the connection uses the clientCredentials grant, before its first call too), OR a static-secret connection (apiKey, basic, bearer) that holds no token and whose credential resolves; `not-connected` = an oauth2 authorization-code connection nobody has authorized yet, holding no token; `not-configured` = a static-secret connection whose credential reads an environment variable that is not set on this instance, so every run that needs it is skipped until it is; `expiring-soon` = soonest token expiry within 7 days; `expired` = soonest token expiry in the past; `reconnect-needed` = a token with no refresh token expires within 7 days or has expired, so only a new authorization will restore it.',
 })
 
 /** @public */
@@ -148,7 +150,8 @@ export type ConnectionStatus = typeof connectionStatusSchema.Type
  *   - `disconnect` — an `oauth2` connection with healthy (`active`) token(s):
  *     the only action is to revoke + clear them.
  *   - `none`       — a non-oauth2 connection (`apiKey` / `basic` / `bearer`):
- *     a static secret has nothing to connect.
+ *     a static secret has nothing to connect; and an `oauth2` connection using
+ *     the `clientCredentials` grant, which nobody authorizes.
  *
  * Render-only: it never carries secret material, so it rides inside the same
  * `.strict()` allow-list as `status` (it is a derived enum, not a DB column).
@@ -160,11 +163,34 @@ export const connectionRowActionSchema = Schema.Literals([
   'none',
 ]).annotate({
   description:
-    'Derived per-row connect affordance: `connect` (oauth2, no tokens) / `reconnect` (oauth2, expiring, expired or reconnect-needed tokens) / `disconnect` (oauth2, healthy tokens) / `none` (non-oauth2). Server-computed display hint for config-driven action gating.',
+    'Derived per-row connect affordance: `connect` (oauth2, no tokens) / `reconnect` (oauth2, expiring, expired or reconnect-needed tokens) / `disconnect` (oauth2, healthy tokens) / `none` (non-oauth2, or an oauth2 connection using the clientCredentials grant, which nobody authorizes). Server-computed display hint for config-driven action gating.',
 })
 
 /** @public */
 export type ConnectionRowAction = typeof connectionRowActionSchema.Type
+
+// ─── Connection Renewal ──────────────────────────────────────────────────────
+
+/**
+ * Who renews the connection's token when it expires — a SERVER-COMPUTED hint so
+ * the console can say that an expiry needs no one, next to the expiry itself:
+ *
+ *   - `automatic` — the app renews it on its own: every token the connection
+ *     holds carries a refresh token, or the connection uses the
+ *     `clientCredentials` grant (which simply asks again, and holds no token
+ *     before its first call).
+ *   - `manual`    — at least one token carries no refresh token: only a new
+ *     authorization replaces it.
+ *   - `none`      — nothing to renew: a static-secret connection, or an
+ *     authorization-code connection holding no token yet.
+ */
+export const connectionRenewalSchema = Schema.Literals(['automatic', 'manual', 'none']).annotate({
+  description:
+    "Who renews the connection's token when it expires: `automatic` = the app does, on its own (every token carries a refresh token, or the connection uses the clientCredentials grant); `manual` = a token carries no refresh token, so only a new authorization replaces it; `none` = there is no token to renew (a static-secret connection, or an authorization-code connection nobody has authorized yet).",
+})
+
+/** @public */
+export type ConnectionRenewal = typeof connectionRenewalSchema.Type
 
 // ─── Connection List Item ────────────────────────────────────────────────────
 
@@ -214,6 +240,7 @@ export const connectionListItemSchema = Schema.Struct({
   ),
   status: connectionStatusSchema,
   rowAction: connectionRowActionSchema,
+  renewal: connectionRenewalSchema,
   createdAt: looseIsoDateTime({
     description:
       'ISO 8601 UTC timestamp the connection row was created (`system.connections.created_at`).',

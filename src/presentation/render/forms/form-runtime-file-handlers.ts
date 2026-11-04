@@ -194,7 +194,7 @@ export const FORM_RUNTIME_FILE_HANDLERS_SCRIPT = `
     var stashName = input.type === 'file' ? input.getAttribute('data-form-file-input') : null
     if (stashName) {
       return input.required && (fileStash[stashName] || []).length === 0
-        ? requiredMessage(labelOf(input))
+        ? requiredMessage()
         : null
     }
     return input.checkValidity() ? null : fieldErrorMessage(input)

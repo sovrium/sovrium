@@ -48,8 +48,12 @@ const reachableInPage = (
   storage.catalogBuckets(keys).pipe(
     Effect.map((rows) =>
       keys.filter((key) =>
-        // No row: a key the store holds out of band, which no bucket serves.
-        starterMayReach(judge.app, judge.automation, { key, bucket: rows.get(key) }, standing)
+        starterMayReach(
+          judge.app,
+          judge.automation,
+          { key, bucket: rows.get(key), recorded: rows.has(key) },
+          standing
+        )
       )
     ),
     Effect.tapCause((cause) =>

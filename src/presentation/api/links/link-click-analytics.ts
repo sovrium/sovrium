@@ -35,6 +35,7 @@ import {
   requestDeclinesTracking,
   resolvePrivacySignals,
 } from '@/domain/models/app/analytics/privacy-signals-service'
+import { resolveSessionTimeout } from '@/domain/models/app/analytics/session-timeout-service'
 import { PROXY_COUNTRY_HEADERS, parseAcceptLanguage } from '@/domain/models/app/links/link-resolver'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
@@ -46,9 +47,6 @@ import type { Context } from 'hono'
 /** Analytics is off unless the app declares it — the same gate page views use. */
 const analyticsEnabled = (app: App): boolean =>
   app.analytics !== undefined && app.analytics !== false
-
-const sessionTimeout = (app: App): number =>
-  typeof app.analytics === 'object' ? (app.analytics.sessionTimeout ?? 30) : 30
 
 /**
  * How many clicks this link has already been credited with.
@@ -183,7 +181,7 @@ export const recordClick = (
             address: getRequestClientIp(c),
             userAgent,
             timeZone,
-            sessionTimeoutMinutes: sessionTimeout(app),
+            sessionTimeoutMinutes: resolveSessionTimeout(app.analytics),
             profile: 'full',
           })
         : SHARED_IDENTIFIERS

@@ -1,0 +1,352 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "1970-01-01T00:00:00Z",
+  "title": "Design System: halden-expenses",
+  "extensions": {
+    "colorMeta": {
+      "background": {
+        "role": "neutral",
+        "dark": "oklch(0.16 0.006 160)",
+        "provenance": "declared",
+        "source": "design.colors.background"
+      },
+      "foreground": {
+        "role": "neutral",
+        "dark": "oklch(0.95 0.005 160)",
+        "provenance": "declared",
+        "source": "design.colors.foreground"
+      },
+      "card": {
+        "role": "neutral",
+        "dark": "oklch(0.21 0.008 160)",
+        "provenance": "inherited"
+      },
+      "card-foreground": {
+        "role": "neutral",
+        "dark": "oklch(0.985 0 0)",
+        "provenance": "inherited"
+      },
+      "popover": {
+        "role": "neutral",
+        "dark": "oklch(0.23 0.008 160)",
+        "provenance": "inherited"
+      },
+      "popover-foreground": {
+        "role": "neutral",
+        "dark": "oklch(0.985 0 0)",
+        "provenance": "inherited"
+      },
+      "primary": {
+        "role": "primary",
+        "dark": "oklch(0.78 0.12 160)",
+        "provenance": "declared",
+        "source": "design.colors.primary"
+      },
+      "primary-foreground": {
+        "role": "primary",
+        "dark": "oklch(0.16 0.006 160)",
+        "provenance": "declared",
+        "source": "design.colors.primary-foreground"
+      },
+      "secondary": {
+        "role": "secondary",
+        "dark": "oklch(0.269 0 0)",
+        "provenance": "inherited"
+      },
+      "secondary-foreground": {
+        "role": "secondary",
+        "dark": "oklch(0.985 0 0)",
+        "provenance": "inherited"
+      },
+      "muted": {
+        "role": "neutral",
+        "dark": "oklch(0.19 0.007 160)",
+        "provenance": "inherited"
+      },
+      "muted-foreground": {
+        "role": "neutral",
+        "dark": "oklch(0.75 0.01 160)",
+        "provenance": "inherited"
+      },
+      "accent": {
+        "role": "tertiary",
+        "dark": "oklch(0.269 0 0)",
+        "provenance": "inherited"
+      },
+      "accent-foreground": {
+        "role": "tertiary",
+        "dark": "oklch(0.985 0 0)",
+        "provenance": "inherited"
+      },
+      "destructive": {
+        "role": "status",
+        "dark": "oklch(0.72 0.14 25)",
+        "provenance": "inherited"
+      },
+      "border": {
+        "role": "neutral",
+        "dark": "oklch(0.3 0.01 160)",
+        "provenance": "declared",
+        "source": "design.colors.border"
+      },
+      "input": {
+        "role": "neutral",
+        "dark": "oklch(1 0 0 / 0.4)",
+        "provenance": "inherited"
+      },
+      "ring": {
+        "role": "neutral",
+        "dark": "oklch(0.72 0.13 160)",
+        "provenance": "declared",
+        "source": "design.colors.ring"
+      },
+      "primary-hover": {
+        "dark": "oklch(0.83 0.09 160)",
+        "provenance": "declared",
+        "source": "design.colors.primary-hover"
+      },
+      "primary-active": {
+        "dark": "oklch(0.87 0.07 160)",
+        "provenance": "declared",
+        "source": "design.colors.primary-active"
+      },
+      "primary-subtle": {
+        "dark": "oklch(0.28 0.06 160)",
+        "provenance": "declared",
+        "source": "design.colors.primary-subtle"
+      },
+      "primary-subtle-foreground": {
+        "dark": "oklch(0.9 0.06 160)",
+        "provenance": "declared",
+        "source": "design.colors.primary-subtle-foreground"
+      },
+      "background-inset": {
+        "dark": "oklch(0.13 0.005 160)",
+        "provenance": "declared",
+        "source": "design.colors.background-inset"
+      },
+      "foreground-subtle": {
+        "dark": "oklch(0.68 0.012 160)",
+        "provenance": "declared",
+        "source": "design.colors.foreground-subtle"
+      },
+      "foreground-disabled": {
+        "dark": "oklch(0.45 0.01 160)",
+        "provenance": "declared",
+        "source": "design.colors.foreground-disabled"
+      },
+      "foreground-inverse": {
+        "dark": "oklch(0.16 0.006 160)",
+        "provenance": "declared",
+        "source": "design.colors.foreground-inverse"
+      },
+      "success": {
+        "dark": "oklch(0.75 0.12 205)",
+        "provenance": "declared",
+        "source": "design.colors.success"
+      },
+      "warning": {
+        "dark": "oklch(0.8 0.12 75)",
+        "provenance": "declared",
+        "source": "design.colors.warning"
+      },
+      "destructive-foreground": {
+        "dark": "oklch(0.16 0.006 160)",
+        "provenance": "declared",
+        "source": "design.colors.destructive-foreground"
+      },
+      "chart-1": {
+        "dark": "oklch(0.7 0.12 250)",
+        "provenance": "declared",
+        "source": "design.colors.chart-1"
+      },
+      "chart-2": {
+        "dark": "oklch(0.7 0.12 290)",
+        "provenance": "declared",
+        "source": "design.colors.chart-2"
+      },
+      "chart-3": {
+        "dark": "oklch(0.7 0.12 50)",
+        "provenance": "declared",
+        "source": "design.colors.chart-3"
+      },
+      "chart-4": {
+        "dark": "oklch(0.7 0.12 115)",
+        "provenance": "declared",
+        "source": "design.colors.chart-4"
+      },
+      "chart-5": {
+        "dark": "oklch(0.7 0.12 330)",
+        "provenance": "declared",
+        "source": "design.colors.chart-5"
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "rung": "display"
+      },
+      "headline": {
+        "rung": "h1"
+      },
+      "title": {
+        "rung": "h2"
+      },
+      "h3": {
+        "rung": "h3"
+      },
+      "lead": {
+        "rung": "lead"
+      },
+      "body": {
+        "rung": "body"
+      },
+      "bodySmall": {
+        "rung": "bodySmall"
+      },
+      "label": {
+        "rung": "caption"
+      },
+      "overline": {
+        "rung": "overline"
+      },
+      "sans": {
+        "fontFamily": "Geist Variable, sans-serif",
+        "purpose": "The default sans, which the `font-sans` utility names."
+      },
+      "mono": {
+        "fontFamily": "Geist Mono Variable, ui-monospace, SF Mono, Menlo, Consolas, monospace",
+        "purpose": "Code, keys and figures set in monospace."
+      }
+    },
+    "shadows": [
+      {
+        "name": "sm",
+        "value": "0 1px 2px rgb(20 20 30 / 0.06)"
+      },
+      {
+        "name": "md",
+        "value": "0 4px 12px rgb(20 20 30 / 0.08)"
+      },
+      {
+        "name": "lg",
+        "value": "0 12px 32px rgb(20 20 30 / 0.14)"
+      },
+      {
+        "name": "none",
+        "value": "none"
+      }
+    ],
+    "motion": [
+      {
+        "name": "duration-fast",
+        "value": "120ms"
+      },
+      {
+        "name": "duration-base",
+        "value": "180ms"
+      },
+      {
+        "name": "duration-slow",
+        "value": "260ms"
+      },
+      {
+        "name": "ease-default",
+        "value": "cubic-bezier(0.2, 0, 0, 1)"
+      },
+      {
+        "name": "ease-enter",
+        "value": "cubic-bezier(0, 0, 0.2, 1)"
+      },
+      {
+        "name": "ease-exit",
+        "value": "cubic-bezier(0.4, 0, 1, 1)"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "40rem"
+      },
+      {
+        "name": "md",
+        "value": "48rem"
+      },
+      {
+        "name": "lg",
+        "value": "64rem"
+      },
+      {
+        "name": "xl",
+        "value": "80rem"
+      },
+      {
+        "name": "2xl",
+        "value": "96rem"
+      }
+    ],
+    "typeLadder": [
+      "display",
+      "h1",
+      "h2",
+      "h3",
+      "lead",
+      "body",
+      "bodySmall",
+      "caption",
+      "overline"
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "html": "<button class=\"ds-button-primary\">Save changes</button>",
+      "css": ".ds-button-primary { display: inline-flex; align-items: center; height: 2rem; padding: 0 0.625rem; border: 1px solid transparent; border-radius: var(--radius-lg, 0.375rem); background: var(--primary, oklch(0.52 0.16 160)); color: var(--primary-foreground, oklch(0.985 0.003 160)); font: 500 0.875rem/1.25rem var(--font-sans, \"Geist Variable\", sans-serif); cursor: pointer; transition: background 0.15s; } .ds-button-primary:hover { background: color-mix(in oklch, var(--primary, oklch(0.52 0.16 160)) 80%, transparent); } .ds-button-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.6 0.16 160)) 50%, transparent); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "html": "<button class=\"ds-button-secondary\">Save changes</button>",
+      "css": ".ds-button-secondary { display: inline-flex; align-items: center; height: 2rem; padding: 0 0.625rem; border: 1px solid transparent; border-radius: var(--radius-lg, 0.375rem); background: var(--secondary, oklch(0.97 0 0)); color: var(--secondary-foreground, oklch(0.205 0 0)); font: 500 0.875rem/1.25rem var(--font-sans, \"Geist Variable\", sans-serif); cursor: pointer; transition: background 0.15s; } .ds-button-secondary:hover { background: color-mix(in oklch, var(--secondary, oklch(0.97 0 0)) 80%, transparent); } .ds-button-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.6 0.16 160)) 50%, transparent); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "html": "<input class=\"ds-input\" placeholder=\"Search projects\" />",
+      "css": ".ds-input { height: 2rem; padding: 0.25rem 0.625rem; border: 1px solid var(--input, oklch(0.65 0 0)); border-radius: var(--radius-lg, 0.375rem); background: transparent; color: var(--foreground, oklch(0.21 0.008 160)); font: 400 0.875rem/1.25rem var(--font-sans, \"Geist Variable\", sans-serif); } .ds-input:hover { border-color: var(--ring, oklch(0.6 0.16 160)); } .ds-input:focus-visible { outline: none; border-color: var(--ring, oklch(0.6 0.16 160)); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.6 0.16 160)) 50%, transparent); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "html": "<div class=\"ds-card\" tabindex=\"0\"><p class=\"ds-card-title\">Quarterly report</p><p class=\"ds-card-description\">Updated two days ago.</p></div>",
+      "css": ".ds-card { padding: 1rem; border-radius: var(--radius-xl, 0.875rem); background: var(--card, oklch(1 0 0)); color: var(--card-foreground, oklch(0.145 0 0)); box-shadow: 0 0 0 1px color-mix(in oklch, var(--foreground, oklch(0.21 0.008 160)) 10%, transparent); font-family: var(--font-sans, \"Geist Variable\", sans-serif); } .ds-card-title { margin: 0; font-size: 1rem; font-weight: 500; } .ds-card-description { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--muted-foreground, oklch(0.45 0.012 160)); } .ds-card:hover { background: var(--muted, oklch(0.967 0.005 160)); } .ds-card:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.6 0.16 160)) 50%, transparent); }"
+    },
+    {
+      "name": "Badge",
+      "kind": "chip",
+      "refersTo": "badge",
+      "html": "<span class=\"ds-badge\" tabindex=\"0\">New</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; height: 1.25rem; padding: 0.125rem 0.5rem; border-radius: var(--radius-4xl, 1.625rem); background: var(--primary, oklch(0.52 0.16 160)); color: var(--primary-foreground, oklch(0.985 0.003 160)); font: 500 0.75rem/1rem var(--font-sans, \"Geist Variable\", sans-serif); } .ds-badge:hover { background: color-mix(in oklch, var(--primary, oklch(0.52 0.16 160)) 80%, transparent); } .ds-badge:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.6 0.16 160)) 50%, transparent); }"
+    }
+  ],
+  "narrative": {
+    "overview": "This app is rendered by the Sovrium binary from its configuration, on shadcn/ui base-nova on Base UI, set in Geist unless its `design` key names another face.",
+    "dos": [
+      "**Do** change a colour, radius, spacing step or type rung in the app's `design` key, then regenerate this file.",
+      "**Do** restyle a component everywhere through `design.components`.",
+      "**Do** adjust one element through its `classes` or `className`, with the token utilities this file names.",
+      "**Do** build pages from shadcn/ui components, by their shadcn names.",
+      "**Do** refer to colours, radii and spacing by the token names in the front matter."
+    ],
+    "donts": [
+      "**Don't** write a CSS, HTML or font file: the Sovrium binary renders every page and does not load one.",
+      "**Don't** invent a new visual world: this app is shadcn/ui base-nova on Base UI.",
+      "**Don't** paste a literal colour or size into a page: name its token.",
+      "**Don't** edit this file outside its narrative blocks: the next export rewrites it."
+    ]
+  }
+}

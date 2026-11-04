@@ -16,7 +16,12 @@ import { automationIntegrations } from './automation-integrations'
 import { automationTriggers } from './automation-triggers'
 import { automations } from './automations'
 import { section as cliApi } from './cli-api'
+import { cliMigration } from './cli-api-import'
+import { cliShip } from './cli-api-operate'
+import { cliTools } from './cli-reference'
 import { section as components } from './components'
+import { componentsPresentation } from './components-presentation'
+import { componentsMore } from './components-primitives'
 import { configuration } from './configuration'
 import { section as dataComponents } from './data-components'
 import { section as fields } from './fields'
@@ -35,6 +40,7 @@ import { section as pagesSeo } from './pages-seo'
 import { platformApis } from './platform-apis'
 import { records } from './records'
 import { section as search } from './search'
+import { signatures } from './signatures'
 import { buckets, fileAccess, files, images } from './storage'
 import { tables } from './tables'
 import { section as theming } from './theming'
@@ -50,8 +56,13 @@ import type { DocSection } from './define'
  */
 export const SECTIONS: readonly DocSection[] = [
   cliApi,
+  cliShip,
+  cliMigration,
+  cliTools,
   fields,
   components,
+  componentsPresentation,
+  componentsMore,
   dataComponents,
   formControls,
   getStarted,
@@ -72,6 +83,7 @@ export const SECTIONS: readonly DocSection[] = [
   automationTriggers,
   automationActions,
   automationIntegrations,
+  signatures,
   ai,
   agents,
   mcp,

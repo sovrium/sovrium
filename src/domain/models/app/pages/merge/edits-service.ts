@@ -25,6 +25,7 @@
  * - literal text, a variant, a size and a layout on the scale are written.
  */
 
+import { TEXT_ELEMENTS } from '../components/component-types/content/text'
 import { digestChanges, fillsPlaceholders } from './digest-service'
 import {
   editedLength,
@@ -664,4 +665,43 @@ export const addedLayout = (id: string, drawn: DrawnNode, spacing: SpacingSteps)
   )
   // A new node's layout is part of the addition the report names, not a change.
   return { findings: { ...edits.findings, changes: [] }, apply: edits.apply }
+}
+
+/** The element a text is drawn as by default, which a new text then names nothing for. */
+const DEFAULT_TEXT_ELEMENT = 'span'
+
+/** The element a new text names: the one it is drawn as, but for the default and a non-text tag. */
+const textElementOf = (element: string | undefined): string | undefined =>
+  element !== undefined &&
+  element !== DEFAULT_TEXT_ELEMENT &&
+  (TEXT_ELEMENTS as readonly string[]).includes(element)
+    ? element
+    : undefined
+
+/** The props a new text or link is drawn with: a link's address, and the class list of both. */
+const drawnPropsOf = (type: string, drawn: DrawnNode): Node => {
+  const { className, href } = drawn.drawnAs ?? {}
+  if (type !== 'text' && type !== 'link') return {}
+  return {
+    ...(type === 'link' && href !== undefined ? { href } : {}),
+    ...(className === undefined ? {} : { className }),
+  }
+}
+
+/**
+ * A new node with what its drawing says beyond its kit type: a text names the
+ * element it is drawn as (none for the default `span`), a link leads to the
+ * address its `data-sovrium-href` names, and both keep their class list.
+ */
+export const withDrawnAs = (node: Node, drawn: DrawnNode): Node => {
+  const type = String(node['type'])
+  const element = type === 'text' ? textElementOf(drawn.drawnAs?.element) : undefined
+  const props = drawnPropsOf(type, drawn)
+  return {
+    ...node,
+    ...(element === undefined ? {} : { element }),
+    ...(Object.keys(props).length === 0
+      ? {}
+      : { props: { ...((node['props'] as Node | undefined) ?? {}), ...props } }),
+  }
 }

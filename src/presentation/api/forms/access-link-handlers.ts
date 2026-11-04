@@ -108,7 +108,7 @@ export const handleGetEditPage = <E>(
       const form = findFormByName(app, c.req.param('name') ?? '')
       const token = c.req.param('token') ?? ''
       if (form?.editAfterSubmit === undefined) return yield* answerNotFound(c)
-      const { decision } = yield* evaluateFormAccessForRequest(c, form)
+      const { decision } = yield* evaluateFormAccessForRequest(c, form, app)
       const denied = denyFormAccess(c, form.name, decision, 'html')
       if (denied !== undefined) return yield* awaitForm(() => denied)
       const row = yield* openEditableSubmissionProgram({
@@ -139,7 +139,7 @@ export const handleEditSubmission = (
     Effect.gen(function* () {
       const form = findFormByName(app, c.req.param('name') ?? '')
       if (form?.editAfterSubmit === undefined) return formNotFound(c)
-      const { decision, session } = yield* evaluateFormAccessForRequest(c, form)
+      const { decision, session } = yield* evaluateFormAccessForRequest(c, form, app)
       const denied = denyFormAccess(c, form.name, decision, 'json')
       if (denied !== undefined) return yield* awaitForm(() => denied)
       const isJsonClient = detectJsonClient(c)
@@ -198,7 +198,7 @@ export const handlePostDraft = (
     Effect.gen(function* () {
       const form = findFormByName(app, c.req.param('name') ?? '')
       if (form?.saveAndResume?.enabled !== true) return formNotFound(c)
-      const { decision, session } = yield* evaluateFormAccessForRequest(c, form)
+      const { decision, session } = yield* evaluateFormAccessForRequest(c, form, app)
       const denied = denyFormAccess(c, form.name, decision, 'json')
       if (denied !== undefined) return yield* awaitForm(() => denied)
       const { email, answers } = readDraftRequest(yield* awaitForm(() => readers.read(c)))

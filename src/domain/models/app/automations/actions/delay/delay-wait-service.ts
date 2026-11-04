@@ -18,6 +18,7 @@
 
 import { DateTime, Option } from 'effect'
 import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
+import { durationToMs } from '@/domain/kernel/time/parse-duration'
 
 /** Waits up to this long sleep inside the run; longer ones park it. */
 export const PARK_THRESHOLD_MS = 60_000
@@ -28,25 +29,13 @@ export const MAX_DELAY_MS = 90 * 86_400_000
 /** The ceiling, as the refusals word it. */
 export const MAX_DELAY_LABEL = '90 days'
 
-const DURATION_PATTERN = /^(\d+)\s*(ms|s|m|h|d)$/
-
-const UNIT_MS: Readonly<Record<string, number>> = {
-  ms: 1,
-  s: 1000,
-  m: 60_000,
-  h: 3_600_000,
-  d: 86_400_000,
-}
-
 /**
- * A `"<n><unit>"` duration (`30s`, `24h`, `7d`) in milliseconds; `0` for a
+ * A `"<n><unit>"` duration (`30s`, `24h`, `7d`, `1y`) in milliseconds; `0` for a
  * malformed or absent value — a missing delay is a no-op, not an error.
  */
 export const parseDelayDurationMs = (value: unknown): number => {
   if (typeof value !== 'string') return 0
-  const match = DURATION_PATTERN.exec(value.trim())
-  if (match === null) return 0
-  return Number(match[1]) * (UNIT_MS[match[2] as string] ?? 0)
+  return durationToMs(value) ?? 0
 }
 
 /** A date-time that names its own offset (`Z`, `+02:00`, `-0500`). */

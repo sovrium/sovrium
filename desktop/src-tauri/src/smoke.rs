@@ -214,25 +214,33 @@ pub fn spawn<R: Runtime>(app: &AppHandle<R>, config: SmokeConfig) {
 }
 
 /// Scaffold, start, and wait for a healthy instance.
+///
+/// The failure report is boxed: both variants carry a whole `SmokeReport`, and
+/// boxing the error side keeps the `Result` small (`clippy::result_large_err`).
 fn execute<R: Runtime>(
     app: &AppHandle<R>,
     config: &SmokeConfig,
-) -> Result<SmokeReport, SmokeReport> {
+) -> Result<SmokeReport, Box<SmokeReport>> {
     let started = Instant::now();
     let project_dir = config.project_dir();
-    let fail = |message: String, tail: Vec<String>| SmokeReport {
-        ok: false,
-        template: config.template.clone(),
-        project_dir: project_dir.to_string_lossy().into_owned(),
-        port: 0,
-        origin: String::new(),
-        elapsed_ms: started.elapsed().as_millis(),
-        failure: Some(message),
-        tail,
+    let fail = |message: String, tail: Vec<String>| {
+        Box::new(SmokeReport {
+            ok: false,
+            template: config.template.clone(),
+            project_dir: project_dir.to_string_lossy().into_owned(),
+            port: 0,
+            origin: String::new(),
+            elapsed_ms: started.elapsed().as_millis(),
+            failure: Some(message),
+            tail,
+        })
     };
 
     if let Err(error) = std::fs::create_dir_all(&config.dir) {
-        return Err(fail(format!("the run directory is unusable: {error}"), vec![]));
+        return Err(fail(
+            format!("the run directory is unusable: {error}"),
+            vec![],
+        ));
     }
 
     // The engine's own scaffolder, exactly as `create_project` uses it. The
@@ -250,7 +258,12 @@ fn execute<R: Runtime>(
         None,
     ));
     match init {
-        Err(error) => return Err(fail(format!("the bundled engine did not run: {error}"), vec![])),
+        Err(error) => {
+            return Err(fail(
+                format!("the bundled engine did not run: {error}"),
+                vec![],
+            ))
+        }
         Ok((false, stdout, stderr)) => {
             let detail = if stderr.is_empty() { stdout } else { stderr };
             return Err(fail(
@@ -263,7 +276,10 @@ fn execute<R: Runtime>(
 
     let project = ProjectRef::new(project_dir.clone(), Some(config.template.clone()));
     if let Err(error) = sidecar::start(app, project) {
-        return Err(fail(format!("the engine could not be started: {error}"), vec![]));
+        return Err(fail(
+            format!("the engine could not be started: {error}"),
+            vec![],
+        ));
     }
 
     let deadline = Instant::now() + config.timeout;
@@ -395,7 +411,10 @@ mod tests {
         // The alternative is a temp-dir default, which would have the shell
         // writing somewhere the caller never named.
         assert_eq!(config_from(vars(&[(VAR_ENABLED, "1")])), None);
-        assert_eq!(config_from(vars(&[(VAR_ENABLED, "1"), (VAR_DIR, "")])), None);
+        assert_eq!(
+            config_from(vars(&[(VAR_ENABLED, "1"), (VAR_DIR, "")])),
+            None
+        );
     }
 
     #[test]
@@ -440,7 +459,10 @@ mod tests {
     fn every_path_it_writes_is_inside_the_run_directory() {
         let c = config_from(vars(&[(VAR_ENABLED, "1"), (VAR_DIR, "/tmp/run")])).expect("armed");
         for path in [c.project_dir(), c.report_path(), c.quit_path()] {
-            assert!(is_inside(&c.dir, &path), "{path:?} escaped the run directory");
+            assert!(
+                is_inside(&c.dir, &path),
+                "{path:?} escaped the run directory"
+            );
         }
         assert_eq!(c.project_dir(), PathBuf::from("/tmp/run/project"));
         assert_eq!(c.report_path(), PathBuf::from("/tmp/run/smoke-report.json"));

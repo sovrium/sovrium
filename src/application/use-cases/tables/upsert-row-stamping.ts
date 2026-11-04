@@ -57,7 +57,7 @@ export const stampUpsertRows = (
   userId: string,
   app: App | undefined,
   tableName: string,
-  recordsData: readonly Record<string, unknown>[]
+  recordsData: readonly Readonly<Record<string, unknown>>[]
 ): {
   readonly recordsData: readonly Record<string, unknown>[]
   readonly insertOnlyFields: readonly string[]

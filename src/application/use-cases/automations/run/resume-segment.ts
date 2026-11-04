@@ -38,6 +38,7 @@ import { resolveRunTimeoutMs, runActionsWithTimeout } from './action-loop'
 import { buildAutomationInvoker } from './automation-call-invoker'
 import { resolveConcurrencyLimit } from './concurrency-limit'
 import { finaliseOnAbandon } from './defect-finaliser'
+import { clearBodyUnderWay } from './run-body-storage'
 import { restoreRunLedgers, type RunLedgers } from './run-ledger-persistence'
 import { finalisePausableRun, stepRowOf } from './run-persistence'
 import { withPriorTolerated } from './run-status'
@@ -212,6 +213,8 @@ export const runResumedSegment = (
 ): Effect.Effect<RunAccumulator, never, RunRequirements> =>
   Effect.gen(function* () {
     const { run, automation } = input
+    // Under way again: a minimal or none run takes its body off the row, and runs on this one.
+    yield* clearBodyUnderWay(runEntryOf(input), run.id, run.triggerData)
     // The canceller is registered by the caller before its claim (`resume-delayed-runs.ts`).
     // The slot belongs to this segment's scope: interrupted while it waits, it takes none.
     const releaseSlot = yield* (yield* AutomationScheduler).admit(

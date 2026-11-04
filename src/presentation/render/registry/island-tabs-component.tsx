@@ -16,6 +16,12 @@ import { hostComponentType } from '@/presentation/render/registry/island-host-at
 import { LAZY_PANEL_PARAM_KEY } from '@/presentation/render/resolve/tabs-lazy-resolver'
 import { asRecord, baseProps } from './island-form-props'
 import {
+  tabsArrivalBands,
+  tabsArrivalOverridesOf,
+  type TabsArrivalBand,
+  type TabsArrivalOverrides,
+} from './island-tabs-arrival'
+import {
   exportedPanelAttributes,
   renderExportedTabPanels,
   type ExportedTabs,
@@ -40,6 +46,60 @@ interface TabsModel {
   readonly layout: TabsLayout | undefined
   readonly lazyParam: string | undefined
   readonly variant: 'line' | 'default'
+  /** The `responsive.<bp>.defaultTab` overrides naming a real panel, if any. */
+  readonly arrival: TabsArrivalOverrides | undefined
+  /** The panels the server draws as markup: the addressed one, or one per width band. */
+  readonly served: readonly ServedTabPanel[]
+}
+
+/** A panel the server draws as markup, hidden by CSS outside its widths when banded. */
+interface ServedTabPanel {
+  readonly id: string
+  readonly html: string
+  readonly className: string | undefined
+}
+
+/**
+ * The panels drawn as markup. Without a per-breakpoint `defaultTab` it is the
+ * one addressed panel; with one, a panel per band of widths, each shown by CSS
+ * only at its widths, so the tab the island opens is the one already painted.
+ */
+const servedPanelsOf = (
+  items: TabsModel['items'],
+  addressed: TabsModel['addressed'],
+  bands: readonly TabsArrivalBand[] | undefined
+): readonly ServedTabPanel[] => {
+  if (bands === undefined) {
+    return addressed === undefined ? [] : [{ ...addressed, className: undefined }]
+  }
+  return bands.flatMap((band) => {
+    const html = items.find((item) => item.id === band.id)?.content ?? ''
+    return html.length === 0 ? [] : [{ id: band.id, html, className: band.className || undefined }]
+  })
+}
+
+/**
+ * The per-width tabs open on arrival, and the bands of widths they cover. An
+ * address and a page export each name ONE tab, so neither reads the overrides:
+ * the address decides, and an export has no width.
+ */
+const arrivalOf = (
+  c: Record<string, unknown>,
+  items: TabsModel['items'],
+  defaultTab: string | undefined,
+  singleTab: boolean
+): {
+  readonly arrival: TabsArrivalOverrides | undefined
+  readonly bands: readonly TabsArrivalBand[] | undefined
+  /** The tab drawn first: the narrowest band's, else the base `defaultTab`. */
+  readonly opening: string | undefined
+} => {
+  const ids = items.map((item) => item.id)
+  const arrival = singleTab ? undefined : tabsArrivalOverridesOf(c['responsive'], ids)
+  const base = ids.find((id) => id === defaultTab) ?? ids[0]
+  const bands =
+    arrival === undefined || base === undefined ? undefined : tabsArrivalBands(base, arrival)
+  return { arrival, bands, opening: bands?.[0]?.id ?? defaultTab }
 }
 
 /**
@@ -64,8 +124,15 @@ const tabsModelOf = (
   const c = asRecord(component)
   const items = buildTabsItems(c['panels'], renderedChildren, currentLang, languages)
   const defaultTab = c['defaultTab'] as string | undefined
-  const addressed = resolveAddressedPanel(items, defaultTab)
   const node = exportNodeIdOf(component)
+  const lazyParam = c[LAZY_PANEL_PARAM_KEY] as string | undefined
+  const { arrival, bands, opening } = arrivalOf(
+    c,
+    items,
+    defaultTab,
+    lazyParam !== undefined || node !== undefined
+  )
+  const addressed = resolveAddressedPanel(items, opening)
   return {
     items,
     defaultTab,
@@ -73,8 +140,10 @@ const tabsModelOf = (
     exported: node === undefined ? undefined : { node, selected: addressed?.id ?? items[0]?.id },
     orientation: c['tabsOrientation'] === 'vertical' ? 'vertical' : 'horizontal',
     layout: c['layout'] as TabsLayout | undefined,
-    lazyParam: c[LAZY_PANEL_PARAM_KEY] as string | undefined,
+    lazyParam,
     variant: c['tabsVariant'] === 'line' ? 'line' : 'default',
+    arrival,
+    served: servedPanelsOf(items, addressed, bands),
   }
 }
 
@@ -98,6 +167,7 @@ const tabsIslandProps = (
   ),
   defaultTab: model.defaultTab,
   lazyParam: model.lazyParam,
+  ...(model.arrival === undefined ? {} : { arrivalTabs: model.arrival }),
   tabsOrientation: model.orientation,
   tabsVariant: model.variant,
   layout: model.layout,
@@ -115,7 +185,9 @@ const tabsIslandProps = (
 function inertTabPanels(model: TabsModel): readonly ReactElement[] {
   if (model.lazyParam !== undefined || model.exported !== undefined) return []
   return model.items
-    .filter((item) => item.id !== model.addressed?.id && item.content.length > 0)
+    .filter(
+      (item) => !model.served.some((panel) => panel.id === item.id) && item.content.length > 0
+    )
     .map((item) => (
       <template
         key={item.id}
@@ -141,17 +213,23 @@ function renderTabsPanels(model: TabsModel, inert: readonly ReactElement[]): Rea
   const { addressed, exported } = model
   return (
     <>
-      {addressed === undefined ? (
+      {model.served.length === 0 ? (
         <div className="bg-muted h-24 animate-pulse rounded" />
       ) : (
-        <div
-          data-tab-panel-ssr="true"
-          data-tab-panel-id={addressed.id}
-          {...exportedPanelAttributes(exported, addressed.id)}
-          className={computeTabsFillPanelClasses(model.layout) || undefined}
-          // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
-          dangerouslySetInnerHTML={{ __html: addressed.html }}
-        />
+        model.served.map((panel, index) => (
+          <div
+            key={index}
+            data-tab-panel-ssr="true"
+            data-tab-panel-id={panel.id}
+            {...exportedPanelAttributes(exported, panel.id)}
+            className={
+              resolveClasses(computeTabsFillPanelClasses(model.layout), panel.className) ||
+              undefined
+            }
+            // eslint-disable-next-line sovrium/require-sanitized-html -- server-rendered markup: renderToStaticMarkup output, which escapes every text and attribute value
+            dangerouslySetInnerHTML={{ __html: panel.html }}
+          />
+        ))
       )}
       {renderExportedTabPanels(model.items, addressed?.id, exported)}
       {inert}
@@ -211,7 +289,7 @@ export const islandTabsComponent: ComponentRenderer = ({
       data-island="tabs"
       data-component-type={hostComponentType(elementProps)}
       data-island-props={JSON.stringify(tabsIslandProps(model, elementProps, designStyles))}
-      data-island-ssr={model.addressed === undefined && inert.length === 0 ? undefined : 'true'}
+      data-island-ssr={model.served.length === 0 && inert.length === 0 ? undefined : 'true'}
       data-testid={elementProps['data-testid'] as string | undefined}
       className={fillShell}
     >

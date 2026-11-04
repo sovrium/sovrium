@@ -70,7 +70,7 @@ An object with no record at all (one an automation wrote straight into the store
 
 The two failures look alike and are handled deliberately differently.
 
-A missing required variable is yours to fix before the process is any use, so the boot is refused and the variable is named. A store that is configured correctly and simply does not answer (the endpoint is down, a credential was rotated, the name is a typo only the provider can see) is a condition that can clear itself while the server runs. Failing the boot over it would take the whole app offline, including every page that never touches a file.
+A missing required variable is yours to fix before the process is any use, so the boot is refused and the variable is named. A store that is configured correctly but does not answer (the endpoint is down, a credential was rotated, the name is a typo only the provider can see) is a condition that can clear itself while the server runs. Failing the boot over it would take the whole app offline, including every page that never touches a file.
 
 So the store is probed **once per process**, a warning naming it is logged, and serving continues:
 

@@ -24,7 +24,7 @@ The last one saves you: before deleting bytes during a purge, Sovrium checks whe
 
 The hard-delete row is the trap. It drops the row **without touching storage**. Purge is what you want when the file must go too, and it cleans both sides. Both are reserved for an admin-equivalent role (see Roles & RBAC); the ordinary `delete` grant only ever trashes.
 
-Purge is irreversible, with no intermediate state. The bytes go only once the row's removal has committed, so a purge the table's business rules refuse, or one that fails, leaves every file in place. A record already in the trash can be purged too, and takes its files with it. A plain delete is the reversible one; reach for purge when you mean erasure rather than tidying up.
+Purge is irreversible, with no intermediate state. The bytes go only once the row's removal has committed, so a purge the table's business rules refuse, or one that fails, leaves every file in place. A record already in the trash can be purged too, and takes its files with it. A plain delete is the reversible one; reach for purge only when you mean erasure.
 
 ## Size caps
 
@@ -37,7 +37,7 @@ Two operator limits bound uploads, and both are validated at boot: set either to
 
 An oversized upload answers `413`; one that would push the total past the quota answers `507`. With no total set there is no quota check at all.
 
-**Uploads are buffered, not streamed.** The request body is read into memory before the size check runs, so a 100 MB cap means a 100 MB allocation on an accepted request. Set the per-file cap to the smallest number your app can actually live with, and treat it as a **memory budget** rather than a policy preference.
+**Uploads are buffered, not streamed.** The request body is read into memory before the size check runs, so a 100 MB cap means a 100 MB allocation on an accepted request. Set the per-file cap to the smallest number your app can actually live with, and treat it as a **memory budget** instead of a policy preference.
 
 **The same caps bound every request body.** A route that takes a file accepts a body as large as the largest upload the deployment allows (the highest bucket `maxFileSize`, or `STORAGE_MAX_FILE_SIZE`, whichever is larger), plus 1 MB for the multipart envelope, and never less than 25 MB, so a file over a small limit is still refused by its route with an answer naming that limit; with the defaults that is 101 MB. Every other API route, sign-in included, accepts at most `API_BODY_LIMIT_BYTES`, 1 MB by default. A larger body answers `413` before the route reads it, so a sign-in form or a public endpoint cannot be made to buffer more than a JSON call needs.
 
@@ -50,7 +50,7 @@ curl https://app.example.com/api/admin/buckets/overview \
 
 The endpoint is open to the admin and operator roles, and reports what is stored **right now** rather than what is allowed. Compare the total against your own quota to know how much headroom is left.
 
-Both the byte total and the file count are read live from the storage backend rather than tracked in a counter, so deleting files lowers them immediately. The bucket count is the built-in `system` bucket plus every bucket the configuration declares, and one whose provider does not resolve reports zero.
+Both the byte total and the file count are read live from the storage backend instead of being tracked in a counter, so deleting files lowers them immediately. The bucket count is the built-in `system` bucket plus every bucket the configuration declares, and one whose provider does not resolve reports zero.
 
 `GET /api/admin/buckets` lists those buckets one per row, each with its own file count and bytes under `_admin.metadata`, and with the upload rules it declares: `public`, `maxFileSize` in bytes and `allowedMimeTypes` verbatim, wildcards such as `image/*` included. A rule a bucket leaves out reads `false`, `null` and `null` (`maxFileSize: null` means `STORAGE_MAX_FILE_SIZE` applies, `allowedMimeTypes: null` that every type is accepted), and the built-in `system` bucket always reads that way. A console states the rules beside an upload before a file is refused.
 

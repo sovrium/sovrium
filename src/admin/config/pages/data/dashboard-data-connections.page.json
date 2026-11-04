@@ -206,6 +206,25 @@
                 "width": 140
               },
               {
+                "field": "renewal",
+                "label": "$t:admin.connections.col.renewal",
+                "sortable": false,
+                "valueLabels": {
+                  "automatic": "$t:admin.connections.renewal.automatic",
+                  "manual": "$t:admin.connections.renewal.manual",
+                  "none": "—"
+                },
+                "cellStyle": [
+                  {
+                    "when": {
+                      "eq": "none"
+                    },
+                    "className": "text-muted-foreground"
+                  }
+                ],
+                "minWidth": 170
+              },
+              {
                 "field": "tokenCount",
                 "label": "$t:admin.connections.col.tokens",
                 "valueLabels": {
@@ -235,7 +254,12 @@
                       "mode": "oauth",
                       "method": "POST",
                       "redirectKey": "authorizationUrl",
-                      "callbackPath": "/api/admin/connections/$record.name/callback"
+                      "callbackPath": "/api/admin/connections/$record.name/callback",
+                      "onError": {
+                        "type": "toast",
+                        "message": "$t:admin.connections.action.authorizeFailed",
+                        "variant": "error"
+                      }
                     },
                     "visibleWhen": {
                       "field": "rowAction",
@@ -251,7 +275,12 @@
                       "mode": "oauth",
                       "method": "POST",
                       "redirectKey": "authorizationUrl",
-                      "callbackPath": "/api/admin/connections/$record.name/callback"
+                      "callbackPath": "/api/admin/connections/$record.name/callback",
+                      "onError": {
+                        "type": "toast",
+                        "message": "$t:admin.connections.action.authorizeFailed",
+                        "variant": "error"
+                      }
                     },
                     "visibleWhen": {
                       "field": "rowAction",
@@ -264,7 +293,12 @@
                     "action": {
                       "type": "fetch",
                       "url": "/api/admin/connections/$record.id/disconnect",
-                      "method": "POST"
+                      "method": "POST",
+                      "onError": {
+                        "type": "toast",
+                        "message": "$t:admin.connections.action.disconnectFailed",
+                        "variant": "error"
+                      }
                     },
                     "confirm": {
                       "title": "$t:admin.connections.action.disconnectConfirm",

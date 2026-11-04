@@ -6,6 +6,9 @@ intro: |
   receipt and sees only their own claims, on the server; finance reviews with the receipt beside
   the claim and decides in the app; approved claims wait on Reimburse until they are marked
   repaid.
+audience: >-
+  A small team that pays for things and claims them back: everyone who files claims and sees only
+  their own, and finance, who reads every claim, decides and repays.
 glance:
   - '**Tables** (2): expenses, bank_transactions (filled by the Qonto recipe)'
   - '**Forms** (1): add-expense (opened from the Add expense button)'

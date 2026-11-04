@@ -269,11 +269,23 @@ export const chatTurnSpec = (input: ChatTurnInput, options: ChatTurnSpecOptions)
  * Render a chat-turn provider failure, and record it. `code` follows the
  * status: 502 is BAD_GATEWAY, 504 GATEWAY_TIMEOUT, and only the 503 keeps
  * SERVICE_UNAVAILABLE.
+ *
+ * The caller reads only the fixed sentence for the status; the operator's log
+ * reads why the model call failed (the provider's status and the start of its
+ * answer, as the adapter summarised them), since this is where the failure
+ * stops travelling. The raw cause is not logged: it holds the request.
  */
 export const chatProviderFailure = (c: Context, failure: ChatProviderError, actorName: string) => {
   const status = chatErrorStatus(failure)
-  return Effect.as(
-    recordChatActivity({ action: 'ai.chat.error', actorName }),
-    c.json(errorBody({ error: chatErrorMessage(status), code: chatErrorCode(status) }), status)
+  return Effect.sync(() =>
+    logError(
+      `[ai-chat] the model call failed, answered ${String(status)}`,
+      new Error(`${failure._tag}: ${failure.message}`)
+    )
+  ).pipe(
+    Effect.andThen(recordChatActivity({ action: 'ai.chat.error', actorName })),
+    Effect.as(
+      c.json(errorBody({ error: chatErrorMessage(status), code: chatErrorCode(status) }), status)
+    )
   )
 }

@@ -39,6 +39,19 @@ broken document rather than as an absent description.
 
 `title` and `description` may be translation keys (`$t:llms.title`). Each route resolves them in its own language from `languages.translations`: the root routes in `languages.default`, `/{lang}/llms.txt` in that language.
 
+## Listing your config pages
+
+A product site's own pages (what it costs, why it exists, which apps it offers) answer the questions an assistant is most often asked, yet they are not content-directory articles, so `/llms.txt` leaves them out. Opt in to list them:
+
+```yaml
+llms:
+  includeConfigPages: true
+```
+
+A config page is then listed when three things hold: a signed-out visitor can open it, its path has no dynamic segment other than `:lang` (`/pricing` and `/:lang/pricing` qualify, `/customers/:slug` does not; a `:lang` segment is filled with the route's language), and it declares a `meta.description`. The description is your statement that the page deserves a line, so a page without one stays out. Each is listed as `- [title](path): description`, from the page's `meta.title` and `meta.description`, in a section of its own after the content sections. On a language route, only the config pages of that language are listed, by the same `/{lang}/` prefix rule as the articles.
+
+The option adds lines to the index only: `/llms-full.txt` stays the concatenated article bodies, because a config page has no markdown body to add. It also does not create the routes: an app with no content-directory page still serves neither.
+
 Turning `full` off is the usual adjustment for a large corpus: the index stays useful while the concatenated body, which can run to thousands of lines, is not served.
 
 ```yaml

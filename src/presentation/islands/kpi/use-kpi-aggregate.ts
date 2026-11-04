@@ -7,11 +7,16 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { useCallback } from 'react'
+import {
+  aggregateKpi,
+  type KpiAggregateConfig,
+} from '@/domain/models/app/pages/components/component-types/data/kpi/kpi-figure-service'
+import { settledReadState } from '@/domain/models/app/pages/read-state-gate-service'
 import { createRecordsClient } from '@/presentation/islands/runtime/rpc-client'
 import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
+import { useReadState } from '../hooks/use-read-state'
 import { useLiveRefresh } from '../hooks/use-realtime-subscription'
 import { retryFaultsOnly } from '../runtime/read-failure'
-import { aggregateKpi, type KpiAggregateConfig } from './kpi-compute'
 import {
   buildFilterParam,
   requestRecords,
@@ -162,6 +167,16 @@ export function useKpiAggregate(
 }
 
 /**
+ * Whether the tile is still loading — not while the figure the server drew
+ * stands in for its first read, which it then shows.
+ */
+const whileFirstRead = (
+  loading: boolean,
+  drawn: number | null | undefined
+): { readonly isLoading: boolean; readonly metric?: number | null } =>
+  loading && drawn !== undefined ? { isLoading: false, metric: drawn } : { isLoading: loading }
+
+/**
  * What a table-bound KPI card draws: its figure (from the aggregate read when
  * the server resolved it can answer, else reduced from a page of records) and
  * the records a sparkline reads. Both reads are made only when needed.
@@ -172,6 +187,8 @@ export function useKpiTileFigure(
     readonly aggregate: KpiAggregateConfig
     readonly aggregateRead: boolean
     readonly sparkline: boolean
+    /** The figure the server drew: the tile shows it while its first read is out. */
+    readonly drawn?: number | null
   }
 ) {
   // `aggregateRead` is the server's: never for a view-bound tile, save a ratio,
@@ -191,12 +208,28 @@ export function useKpiTileFigure(
   }, [aggregateRead, readsRecords, refetchFigure, refetchRecords])
   useLiveRefresh(source, retry)
   const error = figure.error ?? listed.error
-  return {
+  const tile = {
     rows,
     ...(aggregateRead ? (figure.data ?? { metric: 0 }) : { metric: aggregateKpi(rows, aggregate) }),
-    isLoading: figure.isLoading || listed.isLoading,
+    ...whileFirstRead(figure.isLoading || listed.isLoading, options.drawn),
     error,
     isError: error !== null,
     retry,
   }
+  useKpiReadState(source.bindTo, tile)
+  return tile
+}
+
+/**
+ * What the tile last read, for the buttons that follow it (`hiddenWhenRead`):
+ * a figure that is absent or zero reads `empty`.
+ */
+function useKpiReadState(
+  channel: string | undefined,
+  tile: { readonly isLoading: boolean; readonly isError: boolean; readonly metric: number | null }
+): void {
+  useReadState(
+    channel,
+    settledReadState(tile.isError, tile.isLoading ? undefined : tile.metric ? 1 : 0)
+  )
 }

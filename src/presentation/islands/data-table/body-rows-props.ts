@@ -149,4 +149,6 @@ export interface TableBodyRowsProps {
    * role that cannot create sees neither: absent, not disabled.
    */
   readonly addRow?: AddRowConfig
+  /** The empty state of a grid drawn inside another component: compact, from its left edge. */
+  readonly compactEmpty?: boolean
 }

@@ -103,6 +103,8 @@ export interface DataTableViewProps {
    * rendered, at the natural height of its rows.
    */
   readonly layout?: DataTableLayout
+  /** Drawn inside another component: an empty grid is compact and headerless. */
+  readonly embedded?: boolean
   /** `rows` draws each row as a two-line item below the `sm` breakpoint. */
   readonly phoneLayout?: 'scroll' | 'rows'
   /** Where the reader's view options sit; `toolbar` draws one View menu above the rows. */

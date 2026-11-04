@@ -2,7 +2,7 @@
 
 > The `graph` component: nodes laid out in ordered columns or in lanes of chained steps, with the edges running between them.
 
-The other way to read the same graph a `matrix` reads. Where a matrix crosses two sets and draws what sits at each intersection, a graph draws the **connections themselves**. A pair with no edge is a visible empty cell in a matrix; in a graph it is simply nothing.
+The other way to read the same graph a `matrix` reads. Where a matrix crosses two sets and draws what sits at each intersection, a graph draws the **connections themselves**. A pair with no edge is a visible empty cell in a matrix; a graph draws nothing for it.
 
 Reach for it when the question is _how_ something is reached rather than _whether_ it is: a path a reader can follow with a finger, through whatever stands in the middle. Reach for a `matrix` when the answer is a lookup, and for a `chart` when the answer is a quantity: no `chartType` draws nodes and edges, because every one of them plots a value against an axis.
 

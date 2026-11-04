@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { defaultActionHandlers } from './action-handlers'
 import { toleratedInRows } from './run/resume-plan'
+import { clearBodyUnderWay } from './run/run-body-storage'
 import { dropEndedRunHistory } from './run/run-history-drop'
 import { restoreRunLedgers } from './run/run-ledger-persistence'
 import { executeAutomationRun, resolveAutomationId } from './run-automation'
@@ -53,6 +54,8 @@ export const resumePastApproval = (
       target.automation.actions as readonly { readonly name?: unknown }[],
       target.stepIndex
     )
+    // The resumed run reads the body from memory: a minimal or none parent takes it off its row.
+    yield* clearBodyUnderWay(target.trigger, runId, target.triggerData)
     const stored = yield* runRepo.findStepsByRunId(runId)
     const before = stored.filter((row) => row.stepIndex < target.stepIndex)
     // The files the run stored and read before it paused, less any changed meanwhile.

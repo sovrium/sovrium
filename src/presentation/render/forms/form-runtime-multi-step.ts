@@ -36,13 +36,18 @@ export const FORM_RUNTIME_MULTI_STEP_SCRIPT = `
   //     validates the current step and returns { nextStepId } JSON. The
   //     runtime then GETs the next step's HTML fragment and replaces the
   //     active form-step container with the response.
-  //   - Previous click GETs /api/forms/NAME/steps/PREVIOUSSTEPID; server
-  //     returns the previous step's HTML with prefilled values.
-  // A step is fetched in the language its page was served in.
+  //   - Previous click posts the step's answers, unchecked, to
+  //     /api/forms/NAME/steps/STEPID/keep, then GETs
+  //     /api/forms/NAME/steps/PREVIOUSSTEPID; server returns the previous
+  //     step's HTML with prefilled values.
+  // A step is fetched in the language its page was served in, with the page's
+  // query string, so a prefill read from the link fills every step.
   function stepUrl(id) {
+    var params = new URLSearchParams(window.location.search)
     var lang = document.documentElement.getAttribute('lang')
-    var url = '/api/forms/' + formName + '/steps/' + id
-    return lang ? url + '?lang=' + encodeURIComponent(lang) : url
+    if (lang) params.set('lang', lang)
+    var query = params.toString()
+    return '/api/forms/' + formName + '/steps/' + id + (query ? '?' + query : '')
   }
   function getActiveStepEl() {
     return form.querySelector('.form-step[data-step-active="true"]')
@@ -97,19 +102,47 @@ export const FORM_RUNTIME_MULTI_STEP_SCRIPT = `
     document.dispatchEvent(new Event('sovrium:mount-islands'))
   }
   // A control disabled by a false visibleWhen is skipped: the field is off
-  // screen, so its answer is neither sent nor kept.
+  // screen, so its answer is neither sent nor kept. A radio sends the option
+  // checked, and nothing when none is; a name repeated (a set of choices, one
+  // input per value) sends every value, not only the last.
   function collectStepValues() {
-    var inputs = namedInputs()
     var payload = {}
-    inputs.forEach(function (input) {
+    namedInputs().forEach(function (input) {
       if (input.disabled) return
       if (input.type === 'checkbox') {
         payload[input.name] = input.checked
         return
       }
-      payload[input.name] = input.value
+      if (input.type === 'radio') {
+        if (input.checked) payload[input.name] = input.value
+        return
+      }
+      payload[input.name] = Object.prototype.hasOwnProperty.call(payload, input.name)
+        ? [].concat(payload[input.name], [input.value])
+        : input.value
     })
     return payload
+  }
+  function keepStepValues(stepValues) {
+    Object.keys(stepValues).forEach(function (k) {
+      accumulatedValues[k] = stepValues[k]
+    })
+  }
+  // A refused step draws each reason under its field, in the page language,
+  // and puts the focus on the first; a refusal naming no field shown here is
+  // the form's notice.
+  function showStepRefusal(body) {
+    var refused = (body && Array.isArray(body.fieldErrors) ? body.fieldErrors : [])
+      .map(function (entry) {
+        var input = form.querySelector('[name="' + entry.name + '"]')
+        if (!input) return null
+        var required = entry.message === entry.name + ' is required'
+        showFieldError(input, required ? requiredMessage() : entry.message)
+        return input
+      })
+      .filter(Boolean)
+    if (refused.length > 0) return controlOf(refused[0]).focus()
+    renderOnError(body && body.message)
   }
   // Next stays pending — disabled, busy, the spinner and the built-in word —
   // until the step is checked AND the next one has arrived, so a second press
@@ -117,10 +150,15 @@ export const FORM_RUNTIME_MULTI_STEP_SCRIPT = `
   function handleNext(event) {
     var stepId = getActiveStepId()
     if (!stepId) return
+    clearFieldErrors()
+    // The step's own fields are checked here first, as a submit checks the form.
+    var validation = validateForm()
+    if (!validation.ok) {
+      if (validation.firstError) controlOf(validation.firstError).focus()
+      return
+    }
     var stepValues = collectStepValues()
-    Object.keys(stepValues).forEach(function (k) {
-      accumulatedValues[k] = stepValues[k]
-    })
+    keepStepValues(stepValues)
     holdWhile(event && event.currentTarget, S['form.sending'] || 'Sending…', function () {
       return fetch('/api/forms/' + formName + '/steps/' + stepId + '/advance', {
         method: 'POST',
@@ -134,7 +172,7 @@ export const FORM_RUNTIME_MULTI_STEP_SCRIPT = `
         })
         .then(function (result) {
           if (!result.ok) {
-            renderOnError(result.body && result.body.message)
+            showStepRefusal(result.body)
             return
           }
           var nextStepId = result.body && result.body.nextStepId
@@ -167,10 +205,24 @@ export const FORM_RUNTIME_MULTI_STEP_SCRIPT = `
     var idx = stepIds.indexOf(stepId)
     if (idx <= 0) return
     var previousId = stepIds[idx - 1]
-    fetch(stepUrl(previousId), {
-      method: 'GET',
-      headers: { Accept: 'text/html' },
+    // The answers of the step left are kept, unchecked, so the way back loses none.
+    var stepValues = collectStepValues()
+    keepStepValues(stepValues)
+    clearFieldErrors()
+    fetch('/api/forms/' + formName + '/steps/' + stepId + '/keep', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(stepValues),
     })
+      .catch(function () {
+        return null
+      })
+      .then(function () {
+        return fetch(stepUrl(previousId), {
+          method: 'GET',
+          headers: { Accept: 'text/html' },
+        })
+      })
       .then(function (r) {
         return r.text()
       })

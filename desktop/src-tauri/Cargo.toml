@@ -1,6 +1,6 @@
 [package]
 name = "sovrium-desktop"
-version = "0.46.1"
+version = "0.47.0"
 description = "The Sovrium desktop shell — a native window and tray supervising the Sovrium binary as a sidecar."
 authors = ["ESSENTIAL SERVICES"]
 edition = "2021"
@@ -92,3 +92,8 @@ lto = true
 opt-level = "s"
 panic = "abort"
 strip = true
+
+[lints.clippy]
+# `cargo clippy --all-targets -- -D warnings` must exit 0 on this crate. The
+# default `clippy::all` group is the bar; nothing is silenced crate-wide.
+all = { level = "warn", priority = -1 }

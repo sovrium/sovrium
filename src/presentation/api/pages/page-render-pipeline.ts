@@ -28,6 +28,7 @@ import {
   recordPageCacheOutcome,
   type PageCacheOutcome,
 } from '@/infrastructure/process/page-cache-telemetry'
+import { admittedSigningPage } from '@/presentation/api/middleware/signing-session'
 import { isPartialRequest } from '@/presentation/api/runtime/content-partial'
 import { microphonePolicyHeaders } from '@/presentation/api/runtime/microphone-permission'
 import { throwIfPageFaultInjected } from '@/presentation/api/runtime/page-fault-injection'
@@ -65,9 +66,7 @@ import type {
 } from '@/application/ports/services/page-renderer'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 
-/**
- * Renders an access error page with a visible error message
- */
+/** Renders an access error page with a visible error message */
 function renderAccessErrorPage(message: string): string {
   return `<!DOCTYPE html><html><head><title>Access Error</title></head><body><p>${message}</p></body></html>`
 }
@@ -75,10 +74,7 @@ function renderAccessErrorPage(message: string): string {
 type ResolvedPage =
   PageRedirect | { readonly html: string } | { readonly unauthorized: true } | undefined
 
-/**
- * Resolves a PageRenderResult into one of: redirect URL, error HTML, page HTML,
- * unauthorized signal, or undefined (404)
- */
+/** A PageRenderResult as a redirect, error or page HTML, unauthorized, or undefined (404). */
 function resolvePageResult(result: PageRenderResult): ResolvedPage {
   if (typeof result === 'string') return { html: result }
   if (!result || typeof result !== 'object') return undefined
@@ -151,6 +147,7 @@ export interface PageRequestContext {
   readonly readReadPosition?: ReadReadPosition
   readonly readReaderRows?: ReadReaderRows
   readonly signFileUrl?: SignFileUrl // the `file-preview` signer, attached beside the readers
+  readonly readSigningPage?: () => ReturnType<typeof admittedSigningPage> // what its gate admitted
 }
 
 /**
@@ -291,6 +288,7 @@ export async function renderWithCache(
     // its reader; a `file-preview` draws its file through an address signed for her.
     ...callerTableReaders(c),
     signFileUrl: fileUrlSigner(app, reqCtx.session),
+    readSigningPage: () => admittedSigningPage(c), // a flow's signing page renders only in its session
   }
 
   const decision = decidePageCache(app, path, reqCtx)

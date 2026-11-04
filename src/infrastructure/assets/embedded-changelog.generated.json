@@ -3,6 +3,685 @@
   "schemaVersion": 1,
   "releases": [
     {
+      "version": "0.47.0",
+      "date": "2026-11-04",
+      "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.46.1...v0.47.0",
+      "sections": [
+        {
+          "kind": "breaking",
+          "heading": "BREAKING CHANGES",
+          "entries": [
+            {
+              "scope": "tables",
+              "text": "sign a record through the server and refuse client-written signature values"
+            }
+          ]
+        },
+        {
+          "kind": "features",
+          "heading": "Features",
+          "entries": [
+            {
+              "scope": "admin",
+              "text": "the audit log exports every entry its filters select as CSV"
+            },
+            {
+              "scope": "pages",
+              "text": "a download or navigation button can carry a filter channel's current filters"
+            },
+            {
+              "scope": "pages",
+              "text": "a KPI tile over a system read can poll on an interval"
+            },
+            {
+              "scope": "automations",
+              "text": "an email step can allow extra link schemes such as sovrium:"
+            },
+            {
+              "scope": "auth",
+              "text": "carry a value of the page address through an auth form's destination"
+            },
+            {
+              "scope": "automations",
+              "text": "email a failure only after several failures in a row when an automation asks for it"
+            },
+            {
+              "scope": "pages",
+              "text": "let a component template place another template with its own vars"
+            },
+            {
+              "scope": "design",
+              "text": "draw success-page actions as the app's buttons and style a form's error banner"
+            },
+            {
+              "scope": "pages",
+              "text": "rename the docs phone menu per language and style its drawer by part"
+            },
+            {
+              "scope": "pages",
+              "text": "let a container render as an HTML list"
+            },
+            {
+              "scope": "pages",
+              "text": "draw the docs rail's group chevron as an icon with its own part"
+            },
+            {
+              "scope": "design",
+              "text": "style a menu's open panel and its rows with the content and item parts"
+            },
+            {
+              "scope": "admin",
+              "text": "read signing requests and evidence in the console"
+            },
+            {
+              "scope": "templates",
+              "text": "sign an employment contract in the People template"
+            },
+            {
+              "scope": "forms",
+              "text": "write a form's signature into its bound column"
+            },
+            {
+              "scope": "server",
+              "text": "log requests cut by the idle guard and make the guard configurable"
+            },
+            {
+              "scope": "signatures",
+              "text": "remind signers and verify them by text message"
+            },
+            {
+              "scope": "signatures",
+              "text": "seal the signed document and timestamp it"
+            },
+            {
+              "scope": "signatures",
+              "text": "sign from a declared page with a signing link"
+            },
+            {
+              "scope": "signatures",
+              "text": "verify a signer by email code before signing"
+            },
+            {
+              "scope": "signatures",
+              "text": "end expired requests at their deadline and link signers to accounts"
+            },
+            {
+              "scope": "signatures",
+              "text": "draw signer marks and build the proof file"
+            },
+            {
+              "scope": "signatures",
+              "text": "expire signing evidence and erase signers on request"
+            },
+            {
+              "scope": "signatures",
+              "text": "run a signing request from send to completion"
+            },
+            {
+              "scope": "cli",
+              "text": "verify a signing evidence export offline"
+            },
+            {
+              "scope": "signatures",
+              "text": "keep a tamper-evident evidence chain for signing flows"
+            },
+            {
+              "scope": "pages",
+              "text": "describe a list page's records as an ItemList in its structured data"
+            },
+            {
+              "scope": "pages",
+              "text": "list configuration pages in llms.txt on request"
+            },
+            {
+              "scope": "pages",
+              "text": "total a kanban column and label its card footer"
+            },
+            {
+              "scope": "pages",
+              "text": "choose a tab per screen width"
+            },
+            {
+              "scope": "cli",
+              "text": "write PRODUCT.md, DESIGN.md and its sidecar into every new project"
+            },
+            {
+              "scope": "design-system",
+              "text": "export the design system as a DESIGN.md with token front matter, a sidecar and one surface brief per zone"
+            },
+            {
+              "scope": "forms",
+              "text": "let a form signature field state its statement and bind a column or signer"
+            },
+            {
+              "scope": "design-system",
+              "text": "import colours, radius, spacing and type from a DESIGN.md"
+            },
+            {
+              "scope": "signatures",
+              "text": "add signature/send, signature/cancel and a signature trigger"
+            },
+            {
+              "scope": "signatures",
+              "text": "declare signing flows under a signatures root key"
+            },
+            {
+              "scope": "automations",
+              "text": "accept a year unit in durations"
+            }
+          ]
+        },
+        {
+          "kind": "fixes",
+          "heading": "Bug Fixes",
+          "entries": [
+            {
+              "scope": "design-system",
+              "text": "draw a navigation menu's links once in a played prototype board"
+            },
+            {
+              "scope": "automations",
+              "text": "only the backup, release and bundle steps read stored files Sovrium keeps no record of"
+            },
+            {
+              "scope": "templates",
+              "text": "let the People template start with no environment"
+            },
+            {
+              "scope": "automations",
+              "text": "a hand-started run reads again the bundles and archives the operator put in storage"
+            },
+            {
+              "scope": "cli",
+              "text": "keep looking for a watched config file that does not exist yet"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a paged list's way to its next page while it shows the page the server drew"
+            },
+            {
+              "scope": "server",
+              "text": "publish one status update per watched save, carrying its verdict"
+            },
+            {
+              "scope": "admin",
+              "text": "name every console control by its visible text first"
+            },
+            {
+              "scope": "pages",
+              "text": "name a composed menu trigger by what it shows, then its label"
+            },
+            {
+              "scope": "pages",
+              "text": "name the two-language toggle by its visible code first"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a list bound to a table's view on the server"
+            },
+            {
+              "scope": "pages",
+              "text": "give a grid row or list item that navigates a real link"
+            },
+            {
+              "scope": "automations",
+              "text": "keep recipient addresses out of a run's send failure text"
+            },
+            {
+              "scope": "pages",
+              "text": "pin a flowing grid's header row below a sticky page header"
+            },
+            {
+              "scope": "admin",
+              "text": "the Runs figure cards refresh with the run history"
+            },
+            {
+              "scope": "automations",
+              "text": "a called run can read the files its caller wrote, and hand its own back in sync mode"
+            },
+            {
+              "scope": "ai",
+              "text": "log why the AI provider call failed when a chat request answers 502, 503 or 504"
+            },
+            {
+              "scope": "pages",
+              "text": "name an attachment after its file when its stored name is the upload key"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a truncated grid column's second line under its value"
+            },
+            {
+              "scope": "design",
+              "text": "style a sign-in form's error summary with the form summary part"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a sheet closed until its opener is drawn"
+            },
+            {
+              "scope": "pages",
+              "text": "name a docs zone once in the synthesised breadcrumb"
+            },
+            {
+              "scope": "pages",
+              "text": "let the docs phone menu open on a press made before the page's scripts run"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the element of a text written as an empty string"
+            },
+            {
+              "scope": "design",
+              "text": "apply design.components.form root classes to a form placed with formRef"
+            },
+            {
+              "scope": "pages",
+              "text": "record-field and description-list name attachment links after the file"
+            },
+            {
+              "scope": "pages",
+              "text": "keep a grid's column headers when its first read fails"
+            },
+            {
+              "scope": "pages",
+              "text": "edit forms that list their fields show locked fields and allowed moves before saving"
+            },
+            {
+              "scope": "i18n",
+              "text": "name every toast's close button in the page language"
+            },
+            {
+              "scope": "pages",
+              "text": "draw toasts in their variant's colours and apply design.components.toast to them"
+            },
+            {
+              "scope": "design",
+              "text": "let an author's keyboard outline draw on links and buttons"
+            },
+            {
+              "scope": "admin",
+              "text": "authorizing a connection with no consent step answers a 4xx"
+            },
+            {
+              "scope": "pages",
+              "text": "a refused oauth action shows its onError message"
+            },
+            {
+              "scope": "admin",
+              "text": "connections that renew their own token read active"
+            },
+            {
+              "scope": "design",
+              "text": "key the invalid state on the refusal a form reports"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a page's closing footer after its main landmark"
+            },
+            {
+              "scope": "pages",
+              "text": "fill an article's front matter into the components of its page"
+            },
+            {
+              "scope": "pages",
+              "text": "keep the docs sidebar search inside its own collection"
+            },
+            {
+              "scope": "forms",
+              "text": "keep a required Select's placeholder out of its list"
+            },
+            {
+              "scope": "pages",
+              "text": "close the sheet a record-writing form sits in when close is unset"
+            },
+            {
+              "scope": "pages",
+              "text": "close the sheet a form sits in when the form asks to close"
+            },
+            {
+              "scope": "tables",
+              "text": "answer a queued button press as accepted instead of letting it time out"
+            },
+            {
+              "scope": "forms",
+              "text": "answer a rate-limited post without JavaScript with its page in its language"
+            },
+            {
+              "scope": "pages",
+              "text": "let the keyboard drive the page search and say when nothing matched"
+            },
+            {
+              "scope": "automations",
+              "text": "spread the hourly maintenance jobs over the hour per instance"
+            },
+            {
+              "scope": "forms",
+              "text": "carry a redirect's toast to the page it lands on when that page is the form's own"
+            },
+            {
+              "scope": "forms",
+              "text": "announce a field's hint and a Select's error on the control a reader focuses"
+            },
+            {
+              "scope": "automations",
+              "text": "report recoveries and held-back failures exactly in the hourly summary"
+            },
+            {
+              "scope": "docs",
+              "text": "keep an article's earlier section address answering after it moves"
+            },
+            {
+              "scope": "i18n",
+              "text": "name the docs layout's search, outline, breadcrumb, pager and copy button in the page language"
+            },
+            {
+              "scope": "automations",
+              "text": "read multipart form bodies in webhook triggers"
+            },
+            {
+              "scope": "forms",
+              "text": "apply a link's prefill on every step of a multi-step form"
+            },
+            {
+              "scope": "forms",
+              "text": "keep every multi-step answer and refuse an empty step in the page language"
+            },
+            {
+              "scope": "library",
+              "text": "address installed Brevo operations under the v3 API root"
+            },
+            {
+              "scope": "admin",
+              "text": "swap the authenticator field for the recovery one on the console code step"
+            },
+            {
+              "scope": "admin",
+              "text": "mark automations that still need setup in the console catalogue"
+            },
+            {
+              "scope": "admin",
+              "text": "show the code syntax colours on the design system's Foundations page"
+            },
+            {
+              "scope": "pages",
+              "text": "name two-step forms and say a refused password or code on its field"
+            },
+            {
+              "scope": "pages",
+              "text": "keep data components below the fold readable to find-in-page and print"
+            },
+            {
+              "scope": "pages",
+              "text": "draw an empty filling grid compactly, without a bottom bar"
+            },
+            {
+              "scope": "migrations",
+              "text": "rename tables and fields the same way on every platform"
+            },
+            {
+              "scope": "pages",
+              "text": "warn at validate when a navigation menu nests a third level"
+            },
+            {
+              "scope": "admin",
+              "text": "stop the console error page from moving when its report appears"
+            },
+            {
+              "scope": "admin",
+              "text": "keep the Footprint page's explanations to a readable line length"
+            },
+            {
+              "scope": "analytics",
+              "text": "store the page path as the event name of every page view"
+            },
+            {
+              "scope": "forms",
+              "text": "stop repeating the label in a required field's message"
+            },
+            {
+              "scope": "automations",
+              "text": "replay a failed run from the step that failed"
+            },
+            {
+              "scope": "pages",
+              "text": "return focus after a consent choice and keep a scrolling column clear"
+            },
+            {
+              "scope": "i18n",
+              "text": "show a local-zone datetime in each reader's own zone and add a time-only format"
+            },
+            {
+              "scope": "tables",
+              "text": "apply a datetime field's date and time formats wherever it is displayed"
+            },
+            {
+              "scope": "pages",
+              "text": "let design.components style the consent banner"
+            },
+            {
+              "scope": "admin",
+              "text": "let an administrator with two-factor enabled sign in to the console"
+            },
+            {
+              "scope": "ai",
+              "text": "name the environment variable when an AI setting is out of range"
+            },
+            {
+              "scope": "pages",
+              "text": "admit admin-equivalent roles where a page or form requires admin"
+            },
+            {
+              "scope": "pages",
+              "text": "fetch only the shown copy of an image with a dark variant"
+            },
+            {
+              "scope": "auth",
+              "text": "keep recipient addresses out of mail-failure logs"
+            },
+            {
+              "scope": "tables",
+              "text": "filter a view on a date or number column on PostgreSQL"
+            },
+            {
+              "scope": "desktop",
+              "text": "tell the import screen which road a fetch or refusal came from"
+            },
+            {
+              "scope": "docs",
+              "text": "describe which writes the operator console offers"
+            },
+            {
+              "scope": "docs",
+              "text": "the analytics manual no longer claims multi-tenant row scoping"
+            },
+            {
+              "scope": "docs",
+              "text": "tell init users to add auth before importing collaborators"
+            },
+            {
+              "scope": "i18n",
+              "text": "render an empty translation value as empty text"
+            },
+            {
+              "scope": "forms",
+              "text": "show the closed notice where a page embeds a closed form"
+            },
+            {
+              "scope": "pages",
+              "text": "read one-to-many links on a page bound to one record"
+            },
+            {
+              "scope": "pages",
+              "text": "crud buttons inside a container bound to one record act on that record"
+            },
+            {
+              "scope": "pages",
+              "text": "draw a flex or a grid placed in a gallery card with its children"
+            },
+            {
+              "scope": "pages",
+              "text": "make a navigation menu work before its script loads"
+            },
+            {
+              "scope": "pages",
+              "text": "draw an empty grid inside a section as one compact line, without a header row"
+            },
+            {
+              "scope": "design",
+              "text": "read a canvas back as unchanged right after a write that inserted nodes"
+            },
+            {
+              "scope": "design",
+              "text": "write a new text's element and a new link's address from the canvas"
+            },
+            {
+              "scope": "design",
+              "text": "read a drawn engine version as unchanged after an upgrade"
+            },
+            {
+              "scope": "design",
+              "text": "read every copy a repeat draws as one page node"
+            },
+            {
+              "scope": "design",
+              "text": "draw a page closed to custom roles as a reader it admits"
+            },
+            {
+              "scope": "design",
+              "text": "carry a colour role's own light and dark values into the exported bundle"
+            },
+            {
+              "scope": "pages",
+              "text": "refresh a region held back by a confirmation once it closes"
+            },
+            {
+              "scope": "pages",
+              "text": "let responsive text alignment and wrapping override their base utilities"
+            },
+            {
+              "scope": "automations",
+              "text": "build each scheduled job afresh at every tick"
+            },
+            {
+              "scope": "pages",
+              "text": "let a list, a KPI, a chart or a message thread drive a button's read gate"
+            },
+            {
+              "scope": "design-system",
+              "text": "stop reporting a live table key as retired"
+            },
+            {
+              "scope": "automations",
+              "text": "keep a run cancelled while it waits on a browser confirmation"
+            },
+            {
+              "scope": "pages",
+              "text": "fill a table row action's irreversible confirm button in solid destructive"
+            },
+            {
+              "scope": "automations",
+              "text": "keep no request body on a minimal run's row while it runs"
+            },
+            {
+              "scope": "pages",
+              "text": "ignore a press on a button its read disables before the data scripts load"
+            },
+            {
+              "scope": "automations",
+              "text": "decode form-encoded and plain-text webhook bodies"
+            },
+            {
+              "scope": "analytics",
+              "text": "judge excluded paths against the language-prefixed path a visitor is served"
+            },
+            {
+              "scope": "analytics",
+              "text": "sweep stored events only on the first start after switching to audience-only"
+            },
+            {
+              "scope": "analytics",
+              "text": "delete a person's form-submission events when the account is erased"
+            },
+            {
+              "scope": "analytics",
+              "text": "send no page view from a prerendered page until it is opened"
+            },
+            {
+              "scope": "analytics",
+              "text": "apply sessionTimeout to page views and outbound clicks"
+            },
+            {
+              "scope": "analytics",
+              "text": "honour Global Privacy Control and Do Not Track on form-submission events"
+            },
+            {
+              "scope": "automations",
+              "text": "a hand-started run reaches only the temporary files it wrote itself"
+            },
+            {
+              "scope": "cli",
+              "text": "a hot config reload keeps the pages a missing capability hides"
+            },
+            {
+              "scope": "cli",
+              "text": "the crash-report link no longer blanks a config key on the line after an auth block"
+            },
+            {
+              "scope": "auth",
+              "text": "a social sign-in no longer joins an account on a domain an identity provider owns"
+            },
+            {
+              "scope": "users",
+              "text": "the account directory lists only people the caller may pick"
+            },
+            {
+              "scope": "records",
+              "text": "filter a relationship by a date, number or translated label on PostgreSQL"
+            },
+            {
+              "scope": "tables",
+              "text": "create a view that lists a button field on both engines"
+            },
+            {
+              "scope": "admin",
+              "text": "swap a link's Disable and Enable at once after either action"
+            },
+            {
+              "scope": "automations",
+              "text": "an update whose data template reads an absent key no longer builds invalid SQL"
+            },
+            {
+              "scope": "automations",
+              "text": "an update filtered on id alone completes with nothing updated when no row matches"
+            },
+            {
+              "scope": "tables",
+              "text": "keep a stored signature on every write road and check its image key"
+            },
+            {
+              "scope": "admin",
+              "text": "show an agent conversation in full when one message has an unexpected status"
+            },
+            {
+              "scope": "admin",
+              "text": "keep an operator font stylesheet at its own address on console pages"
+            }
+          ]
+        },
+        {
+          "kind": "performance",
+          "heading": "Performance Improvements",
+          "entries": [
+            {
+              "scope": "pages",
+              "text": "build the page search's article index once per content change"
+            }
+          ]
+        }
+      ]
+    },
+    {
       "version": "0.46.1",
       "date": "2026-11-01",
       "compareUrl": "https://github.com/sovrium/sovrium/compare/v0.46.0...v0.46.1",

@@ -17,6 +17,7 @@ import { presentsApiKeyOnly } from '@/presentation/api/middleware/request-creden
 import { answerFailures, runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
 import { refuseFullQueue } from './webhook-admission'
 import { headersToRecord, recordedHeaders, runWebhookAuth } from './webhook-auth'
+import { readWebhookBody } from './webhook-body'
 import { resolveWebhookCaller, sessionWebhookRefuses } from './webhook-caller'
 import { checkAndRecordDedup } from './webhook-dedup'
 import { dispatchAsync, dispatchSync, type DispatchInput } from './webhook-dispatch'
@@ -96,21 +97,14 @@ const queryToRecord = (c: Context): Readonly<Record<string, string>> => {
   )
 }
 
-const safeParseJson = (raw: string): unknown => {
-  try {
-    return JSON.parse(raw)
-  } catch {
-    return undefined
-  }
-}
-
 // ── Gate stages ──────────────────────────────────────────────────────────────
 
 interface GateContext {
   readonly name: string
   readonly trigger: WebhookTrigger
   readonly method: Method
-  readonly rawBody: string
+  /** The body as the run reads it, decoded once by its `Content-Type`. */
+  readonly body: unknown
   readonly envLookup: Readonly<Record<string, string>>
   readonly queryRecord: Readonly<Record<string, string>>
   readonly caller: TriggerRequester | undefined
@@ -219,6 +213,21 @@ const runDedupGate = (
       : undefined
   })
 
+/**
+ * The request body as bytes, read once, and as the text auth signs over. The
+ * bytes stay for a multipart body, whose file parts the text would corrupt.
+ */
+const readRawBody = (c: Context, method: Method) =>
+  method === 'GET'
+    ? Effect.succeed({ bytes: new Uint8Array(), text: '' })
+    : // effect-promise: total -- a body that cannot be read is read as none.
+      Effect.promise(() =>
+        c.req.arrayBuffer().then(
+          (buffer) => new Uint8Array(buffer),
+          () => new Uint8Array()
+        )
+      ).pipe(Effect.map((bytes) => ({ bytes, text: new TextDecoder().decode(bytes) })))
+
 const runWebhookGates = (c: Context, app: App) =>
   Effect.gen(function* (): Effect.fn.Return<GateResult, WebhookGateFailure, DomainServices> {
     // The operational-pause read has to happen HERE, before the lookup gate, so
@@ -232,18 +241,17 @@ const runWebhookGates = (c: Context, app: App) =>
     if (sessionWebhookRefuses(trigger, app, caller)) {
       return { status: 'reject', response: webhookNotFound(c) }
     }
-    const rawBody =
-      method === 'GET'
-        ? ''
-        : // effect-promise: total -- a body that cannot be read is read as none.
-          yield* Effect.promise(() => c.req.text().catch(() => ''))
+    const raw = yield* readRawBody(c, method)
     const envLookup = buildEnvLookup(app.env, process.env)
-    if (!runWebhookAuth(c, trigger, rawBody, envLookup).ok) {
+    if (!runWebhookAuth(c, trigger, raw.text, envLookup).ok) {
       return { status: 'reject', response: webhookUnauthorized(c) }
     }
     const rateLimited = runRateLimitGate(c, name, trigger) ?? (yield* refuseFullQueue(c, name))
     if (rateLimited !== undefined) return { status: 'reject', response: rateLimited }
-    const body = rawBody === '' ? undefined : safeParseJson(rawBody)
+    // effect-promise: total -- readWebhookBody never rejects.
+    const body = yield* Effect.promise(() =>
+      readWebhookBody(raw.bytes, raw.text, c.req.header('content-type'))
+    )
     const queryRecord = queryToRecord(c)
     const validationError = validateBodyAndQuery({ trigger, body, queryRecord }, c)
     if (validationError !== undefined) return { status: 'reject', response: validationError }
@@ -251,7 +259,7 @@ const runWebhookGates = (c: Context, app: App) =>
     if (duplicate !== undefined) return { status: 'reject', response: duplicate }
     return {
       status: 'pass',
-      ctx: { name, trigger, method, rawBody, envLookup, queryRecord, caller },
+      ctx: { name, trigger, method, body, envLookup, queryRecord, caller },
     }
   })
 
@@ -259,7 +267,7 @@ const runWebhookGates = (c: Context, app: App) =>
 const buildTriggerData = (c: Context, gate: GateContext): TriggerData => ({
   method: gate.method,
   path: c.req.path,
-  body: gate.rawBody === '' ? undefined : safeParseJson(gate.rawBody),
+  body: gate.body,
   headers: recordedHeaders(c.req, gate.trigger),
   query: gate.queryRecord,
   ip: getRequestClientIp(c),

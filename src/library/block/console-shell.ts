@@ -68,6 +68,9 @@ const identityRow = (): BlockNode => ({
         },
       ],
     },
+    // The row's job, after what it shows, so its name opens with the visible text
+    // and a voice-control user can say it (WCAG 2.5.3).
+    { type: 'text', element: 'span', props: { className: 'sr-only' }, content: 'Home' },
   ],
 })
 

@@ -5,6 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { createElement } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import {
   resolveInterpreterString,
@@ -13,9 +14,11 @@ import {
 import { resolveLucideIconNode } from '@/presentation/render/elements/lucide-resolver'
 import { openerProp } from '@/presentation/render/resolve/overlay-triggers'
 import { splitSlots } from '../elements/slot-children'
+import { menuPanelPartClasses } from './menu-panel-parts'
 import { typedConfirmPrompt } from './typed-confirm-prompt'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Component } from '@/domain/models/app/pages/components'
+import type { ComponentDesignResolution } from '@/presentation/design/resolve-component-classes'
 import type { ReactElement } from 'react'
 
 /**
@@ -294,6 +297,7 @@ export function buildDropdownMenuProps(
      * its own, so the only slot left is the affordance that opens it.
      */
     readonly renderedChildren?: readonly ReactElement[]
+    readonly designStyles?: ComponentDesignResolution // the panel's `content` / `item` parts
   }
 ) {
   const renderedChildren = ctx.renderedChildren ?? []
@@ -304,16 +308,17 @@ export function buildDropdownMenuProps(
     ctx.currentLang,
     ctx.languages
   ) as string
-  // A `$session.` token is resolved CLIENT-side, against the caller's own
-  // session — never here, because the served bytes are what a cache stores and
-  // a cached identity is one user's name served to the next. The template
-  // travels so the island can mark its own span; the label ships EMPTY so no
-  // reader ever meets the raw token.
+  // A `$session.` token is resolved CLIENT-side, from the caller's own session: the
+  // served bytes are what a cache stores, so a cached identity would be one user's
+  // name served to the next. The template travels; the label ships EMPTY.
   const bound = translatedLabel.includes('$session.')
   const triggerLabel = bound ? '' : translatedLabel
+  // Composed content is the name; the label follows it, hidden (WCAG 2.5.3: never an aria-label).
+  const job =
+    triggerLabel === '' ? [] : [createElement('span', { className: 'sr-only' }, triggerLabel)]
   const triggerChildrenHtml =
     renderedChildren.length > 0
-      ? renderedChildren.map((child) => renderToStaticMarkup(child)).join('')
+      ? [...renderedChildren, ...job].map((child) => renderToStaticMarkup(child)).join('')
       : undefined
   const menuItems = withResolvedMenuItemIcons(
     resolveTranslationTokensDeep(
@@ -329,11 +334,6 @@ export function buildDropdownMenuProps(
     triggerLabel,
     triggerLabelTemplate: bound ? translatedLabel : undefined,
     triggerChildrenHtml,
-    // Composing content into a button ordinarily REPLACES its accessible name
-    // with that content, so a screen reader would announce the person where the
-    // reader needs the control's job. The authored `triggerLabel` survives as
-    // the name even once it is no longer the visible text.
-    triggerAriaLabel: triggerChildrenHtml === undefined ? undefined : translatedLabel,
     // Dark popup surface for a near-black primary CTA (schema top-level
     // field, sibling of `triggerLabel`). Threaded into `data-island-props` so the
     // hydrated menu-island paints the inverted popup + inverted item tones
@@ -342,6 +342,7 @@ export function buildDropdownMenuProps(
     // field (sibling of `triggerLabel`). Threaded into `data-island-props` so the
     // hydrated menu-island opens the popup on pointer hover in addition to click.
     openOnHover: pickCompField<boolean>(comp, rawProps, 'openOnHover'),
+    ...menuPanelPartClasses(ctx.designStyles), // the panel is portalled: `root` never reaches it
     className: elementProps['className'],
     id: elementProps['id'],
     'data-testid': elementProps['data-testid'],
@@ -371,10 +372,8 @@ export function buildDrawerProps(
 ) {
   const comp = component as Record<string, unknown> | undefined
   const { childrenHtml, footerHtml } = sheetMarkup(component, renderedChildren)
-  // PG-04: if `resolveOpenDrawerDispatches` tagged this drawer with
-  // `_openDrawerDispatchedById`, override the default `open=true` so the
-  // hydrated island stays closed until the data-table dispatches a
-  // `sovrium:open-drawer` CustomEvent.
+  // PG-04: a drawer `resolveOpenDrawerDispatches` tagged stays closed until the
+  // data-table dispatches a `sovrium:open-drawer` CustomEvent.
   const dispatchedById = rawProps?.['_openDrawerDispatchedById']
   const defaultOpen = typeof dispatchedById === 'string' ? false : undefined
   // PG-04: the drawer's `id` lives at the top level of the schema (sibling
@@ -393,6 +392,7 @@ export function buildDrawerProps(
     childrenHtml,
     ...sheetChrome(comp, footerHtml),
     ...(defaultOpen !== undefined ? { defaultOpen } : {}),
+    ...openerProp(component), // named by an `openSheet` in the page config: waits closed
     className: elementProps['className'],
     id: resolvedId,
     'data-testid': elementProps['data-testid'],

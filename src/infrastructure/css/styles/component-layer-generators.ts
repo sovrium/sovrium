@@ -356,7 +356,7 @@ export const SCROLL_FADE_KEYFRAMES = `@keyframes sv-scroll-fade-end {
  *
  * @example
  * generateUtilitiesLayer()
- * // => '@layer utilities { .text-balance { ... } ... }'
+ * // => '@layer utilities { .shadow-none:not(:focus-visible) { ... } ... }'
  */
 export function generateUtilitiesLayer(): string {
   // Entrance before click: both set `animation`, and a click's feedback has to
@@ -364,16 +364,11 @@ export function generateUtilitiesLayer(): string {
   const entranceAnimations = generateEntranceAnimationCSS()
   const clickAnimations = generateClickAnimationCSS()
 
+  // No plain utility (`.text-center`, `.text-balance`) is restated here: this
+  // block lands after Tailwind's own utilities, so a restated one would win over
+  // every responsive variant of its property (`sm:text-left`, `md:text-pretty`)
+  // on every element carrying both. Tailwind emits both from the candidates.
   return `@layer utilities {
-      .text-balance {
-        text-wrap: balance;
-      }
-
-      /* Safelist: Ensure critical utility classes are always included */
-      .text-center {
-        text-align: center;
-      }
-
       /* Override Tailwind v4's multi-layer shadow system for shadow-none — but
          never on a control that has keyboard focus: its focus ring is drawn
          with box-shadow too, and a flat control must still show where focus

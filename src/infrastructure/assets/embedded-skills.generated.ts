@@ -28,65 +28,66 @@ import _s13 from '../../../src/skills/sovrium-app/SKILL.md' with { type: 'file' 
 import _s14 from '../../../src/skills/sovrium-automations/references/loops.md' with { type: 'file' }
 import _s15 from '../../../src/skills/sovrium-automations/references/notifications.md' with { type: 'file' }
 import _s16 from '../../../src/skills/sovrium-automations/references/reliability.md' with { type: 'file' }
-import _s17 from '../../../src/skills/sovrium-automations/references/sources.md' with { type: 'file' }
-import _s18 from '../../../src/skills/sovrium-automations/references/triggers-and-actions.generated.md' with { type: 'file' }
-import _s19 from '../../../src/skills/sovrium-automations/SKILL.md' with { type: 'file' }
-import _s20 from '../../../src/skills/sovrium-data-model/references/field-types.generated.md' with { type: 'file' }
-import _s21 from '../../../src/skills/sovrium-data-model/references/migrations.md' with { type: 'file' }
-import _s22 from '../../../src/skills/sovrium-data-model/references/permissions.md' with { type: 'file' }
-import _s23 from '../../../src/skills/sovrium-data-model/references/relations.md' with { type: 'file' }
-import _s24 from '../../../src/skills/sovrium-data-model/references/sources.md' with { type: 'file' }
-import _s25 from '../../../src/skills/sovrium-data-model/SKILL.md' with { type: 'file' }
-import _s26 from '../../../src/skills/sovrium-design/references/colour-and-dark.md' with { type: 'file' }
-import _s27 from '../../../src/skills/sovrium-design/references/customisation-keys.md' with { type: 'file' }
-import _s28 from '../../../src/skills/sovrium-design/references/design-options.generated.md' with { type: 'file' }
-import _s29 from '../../../src/skills/sovrium-design/references/design-system-cli.md' with { type: 'file' }
-import _s30 from '../../../src/skills/sovrium-design/references/sources.md' with { type: 'file' }
-import _s31 from '../../../src/skills/sovrium-design/references/tokens.md' with { type: 'file' }
-import _s32 from '../../../src/skills/sovrium-design/references/type-and-rhythm.md' with { type: 'file' }
-import _s33 from '../../../src/skills/sovrium-design/references/voice-and-principles.md' with { type: 'file' }
-import _s34 from '../../../src/skills/sovrium-design/SKILL.md' with { type: 'file' }
-import _s35 from '../../../src/skills/sovrium-pages/references/accessibility.md' with { type: 'file' }
-import _s36 from '../../../src/skills/sovrium-pages/references/anti-slop.md' with { type: 'file' }
-import _s37 from '../../../src/skills/sovrium-pages/references/component-catalogue.generated.md' with { type: 'file' }
-import _s38 from '../../../src/skills/sovrium-pages/references/copy.md' with { type: 'file' }
-import _s39 from '../../../src/skills/sovrium-pages/references/data-dense.md' with { type: 'file' }
-import _s40 from '../../../src/skills/sovrium-pages/references/design-plan.md' with { type: 'file' }
-import _s41 from '../../../src/skills/sovrium-pages/references/sources.md' with { type: 'file' }
-import _s42 from '../../../src/skills/sovrium-pages/references/states-and-forms.md' with { type: 'file' }
-import _s43 from '../../../src/skills/sovrium-pages/SKILL.md' with { type: 'file' }
-import _s44 from '../../../src/skills/sovrium-performance/references/data-and-queries.md' with { type: 'file' }
-import _s45 from '../../../src/skills/sovrium-performance/references/eco-levers.md' with { type: 'file' }
-import _s46 from '../../../src/skills/sovrium-performance/references/images.md' with { type: 'file' }
-import _s47 from '../../../src/skills/sovrium-performance/references/measure.md' with { type: 'file' }
-import _s48 from '../../../src/skills/sovrium-performance/references/page-cache-and-rendering.md' with { type: 'file' }
-import _s49 from '../../../src/skills/sovrium-performance/references/sources.md' with { type: 'file' }
-import _s50 from '../../../src/skills/sovrium-performance/SKILL.md' with { type: 'file' }
-import _s51 from '../../../src/skills/sovrium-report-issue/references/issue-address.md' with { type: 'file' }
-import _s52 from '../../../src/skills/sovrium-report-issue/references/redaction.md' with { type: 'file' }
-import _s53 from '../../../src/skills/sovrium-report-issue/references/sources.md' with { type: 'file' }
-import _s54 from '../../../src/skills/sovrium-report-issue/SKILL.md' with { type: 'file' }
-import _s55 from '../../../src/skills/sovrium-security/references/ai-and-mcp-access.md' with { type: 'file' }
-import _s56 from '../../../src/skills/sovrium-security/references/auth-hardening.md' with { type: 'file' }
-import _s57 from '../../../src/skills/sovrium-security/references/auth-options.generated.md' with { type: 'file' }
-import _s58 from '../../../src/skills/sovrium-security/references/gdpr-and-retention.md' with { type: 'file' }
-import _s59 from '../../../src/skills/sovrium-security/references/launch-review.md' with { type: 'file' }
-import _s60 from '../../../src/skills/sovrium-security/references/posture.md' with { type: 'file' }
-import _s61 from '../../../src/skills/sovrium-security/references/public-surfaces.md' with { type: 'file' }
-import _s62 from '../../../src/skills/sovrium-security/references/secrets-and-env.md' with { type: 'file' }
-import _s63 from '../../../src/skills/sovrium-security/references/sources.md' with { type: 'file' }
-import _s64 from '../../../src/skills/sovrium-security/SKILL.md' with { type: 'file' }
-import _s65 from '../../../src/skills/sovrium-seo-geo/references/copy-for-search.md' with { type: 'file' }
-import _s66 from '../../../src/skills/sovrium-seo-geo/references/crawlers.md' with { type: 'file' }
-import _s67 from '../../../src/skills/sovrium-seo-geo/references/geo.md' with { type: 'file' }
-import _s68 from '../../../src/skills/sovrium-seo-geo/references/report-template.md' with { type: 'file' }
-import _s69 from '../../../src/skills/sovrium-seo-geo/references/seo-options.generated.md' with { type: 'file' }
-import _s70 from '../../../src/skills/sovrium-seo-geo/references/social-previews.md' with { type: 'file' }
-import _s71 from '../../../src/skills/sovrium-seo-geo/references/sources.md' with { type: 'file' }
-import _s72 from '../../../src/skills/sovrium-seo-geo/references/structured-data.md' with { type: 'file' }
-import _s73 from '../../../src/skills/sovrium-seo-geo/references/technical.md' with { type: 'file' }
-import _s74 from '../../../src/skills/sovrium-seo-geo/SKILL.md' with { type: 'file' }
-import _s75 from '../../../src/skills/sovrium-config-editor.agent.md' with { type: 'file' }
+import _s17 from '../../../src/skills/sovrium-automations/references/signing-flows.md' with { type: 'file' }
+import _s18 from '../../../src/skills/sovrium-automations/references/sources.md' with { type: 'file' }
+import _s19 from '../../../src/skills/sovrium-automations/references/triggers-and-actions.generated.md' with { type: 'file' }
+import _s20 from '../../../src/skills/sovrium-automations/SKILL.md' with { type: 'file' }
+import _s21 from '../../../src/skills/sovrium-data-model/references/field-types.generated.md' with { type: 'file' }
+import _s22 from '../../../src/skills/sovrium-data-model/references/migrations.md' with { type: 'file' }
+import _s23 from '../../../src/skills/sovrium-data-model/references/permissions.md' with { type: 'file' }
+import _s24 from '../../../src/skills/sovrium-data-model/references/relations.md' with { type: 'file' }
+import _s25 from '../../../src/skills/sovrium-data-model/references/sources.md' with { type: 'file' }
+import _s26 from '../../../src/skills/sovrium-data-model/SKILL.md' with { type: 'file' }
+import _s27 from '../../../src/skills/sovrium-design/references/colour-and-dark.md' with { type: 'file' }
+import _s28 from '../../../src/skills/sovrium-design/references/customisation-keys.md' with { type: 'file' }
+import _s29 from '../../../src/skills/sovrium-design/references/design-options.generated.md' with { type: 'file' }
+import _s30 from '../../../src/skills/sovrium-design/references/design-system-cli.md' with { type: 'file' }
+import _s31 from '../../../src/skills/sovrium-design/references/sources.md' with { type: 'file' }
+import _s32 from '../../../src/skills/sovrium-design/references/tokens.md' with { type: 'file' }
+import _s33 from '../../../src/skills/sovrium-design/references/type-and-rhythm.md' with { type: 'file' }
+import _s34 from '../../../src/skills/sovrium-design/references/voice-and-principles.md' with { type: 'file' }
+import _s35 from '../../../src/skills/sovrium-design/SKILL.md' with { type: 'file' }
+import _s36 from '../../../src/skills/sovrium-pages/references/accessibility.md' with { type: 'file' }
+import _s37 from '../../../src/skills/sovrium-pages/references/anti-slop.md' with { type: 'file' }
+import _s38 from '../../../src/skills/sovrium-pages/references/component-catalogue.generated.md' with { type: 'file' }
+import _s39 from '../../../src/skills/sovrium-pages/references/copy.md' with { type: 'file' }
+import _s40 from '../../../src/skills/sovrium-pages/references/data-dense.md' with { type: 'file' }
+import _s41 from '../../../src/skills/sovrium-pages/references/design-plan.md' with { type: 'file' }
+import _s42 from '../../../src/skills/sovrium-pages/references/sources.md' with { type: 'file' }
+import _s43 from '../../../src/skills/sovrium-pages/references/states-and-forms.md' with { type: 'file' }
+import _s44 from '../../../src/skills/sovrium-pages/SKILL.md' with { type: 'file' }
+import _s45 from '../../../src/skills/sovrium-performance/references/data-and-queries.md' with { type: 'file' }
+import _s46 from '../../../src/skills/sovrium-performance/references/eco-levers.md' with { type: 'file' }
+import _s47 from '../../../src/skills/sovrium-performance/references/images.md' with { type: 'file' }
+import _s48 from '../../../src/skills/sovrium-performance/references/measure.md' with { type: 'file' }
+import _s49 from '../../../src/skills/sovrium-performance/references/page-cache-and-rendering.md' with { type: 'file' }
+import _s50 from '../../../src/skills/sovrium-performance/references/sources.md' with { type: 'file' }
+import _s51 from '../../../src/skills/sovrium-performance/SKILL.md' with { type: 'file' }
+import _s52 from '../../../src/skills/sovrium-report-issue/references/issue-address.md' with { type: 'file' }
+import _s53 from '../../../src/skills/sovrium-report-issue/references/redaction.md' with { type: 'file' }
+import _s54 from '../../../src/skills/sovrium-report-issue/references/sources.md' with { type: 'file' }
+import _s55 from '../../../src/skills/sovrium-report-issue/SKILL.md' with { type: 'file' }
+import _s56 from '../../../src/skills/sovrium-security/references/ai-and-mcp-access.md' with { type: 'file' }
+import _s57 from '../../../src/skills/sovrium-security/references/auth-hardening.md' with { type: 'file' }
+import _s58 from '../../../src/skills/sovrium-security/references/auth-options.generated.md' with { type: 'file' }
+import _s59 from '../../../src/skills/sovrium-security/references/gdpr-and-retention.md' with { type: 'file' }
+import _s60 from '../../../src/skills/sovrium-security/references/launch-review.md' with { type: 'file' }
+import _s61 from '../../../src/skills/sovrium-security/references/posture.md' with { type: 'file' }
+import _s62 from '../../../src/skills/sovrium-security/references/public-surfaces.md' with { type: 'file' }
+import _s63 from '../../../src/skills/sovrium-security/references/secrets-and-env.md' with { type: 'file' }
+import _s64 from '../../../src/skills/sovrium-security/references/sources.md' with { type: 'file' }
+import _s65 from '../../../src/skills/sovrium-security/SKILL.md' with { type: 'file' }
+import _s66 from '../../../src/skills/sovrium-seo-geo/references/copy-for-search.md' with { type: 'file' }
+import _s67 from '../../../src/skills/sovrium-seo-geo/references/crawlers.md' with { type: 'file' }
+import _s68 from '../../../src/skills/sovrium-seo-geo/references/geo.md' with { type: 'file' }
+import _s69 from '../../../src/skills/sovrium-seo-geo/references/report-template.md' with { type: 'file' }
+import _s70 from '../../../src/skills/sovrium-seo-geo/references/seo-options.generated.md' with { type: 'file' }
+import _s71 from '../../../src/skills/sovrium-seo-geo/references/social-previews.md' with { type: 'file' }
+import _s72 from '../../../src/skills/sovrium-seo-geo/references/sources.md' with { type: 'file' }
+import _s73 from '../../../src/skills/sovrium-seo-geo/references/structured-data.md' with { type: 'file' }
+import _s74 from '../../../src/skills/sovrium-seo-geo/references/technical.md' with { type: 'file' }
+import _s75 from '../../../src/skills/sovrium-seo-geo/SKILL.md' with { type: 'file' }
+import _s76 from '../../../src/skills/sovrium-config-editor.agent.md' with { type: 'file' }
 
 export const EMBEDDED_SKILLS = {
   "sovrium-agents": {
@@ -111,81 +112,82 @@ export const EMBEDDED_SKILLS = {
     "references/loops.md": _s14,
     "references/notifications.md": _s15,
     "references/reliability.md": _s16,
-    "references/sources.md": _s17,
-    "references/triggers-and-actions.generated.md": _s18,
-    "SKILL.md": _s19,
+    "references/signing-flows.md": _s17,
+    "references/sources.md": _s18,
+    "references/triggers-and-actions.generated.md": _s19,
+    "SKILL.md": _s20,
   },
   "sovrium-data-model": {
-    "references/field-types.generated.md": _s20,
-    "references/migrations.md": _s21,
-    "references/permissions.md": _s22,
-    "references/relations.md": _s23,
-    "references/sources.md": _s24,
-    "SKILL.md": _s25,
+    "references/field-types.generated.md": _s21,
+    "references/migrations.md": _s22,
+    "references/permissions.md": _s23,
+    "references/relations.md": _s24,
+    "references/sources.md": _s25,
+    "SKILL.md": _s26,
   },
   "sovrium-design": {
-    "references/colour-and-dark.md": _s26,
-    "references/customisation-keys.md": _s27,
-    "references/design-options.generated.md": _s28,
-    "references/design-system-cli.md": _s29,
-    "references/sources.md": _s30,
-    "references/tokens.md": _s31,
-    "references/type-and-rhythm.md": _s32,
-    "references/voice-and-principles.md": _s33,
-    "SKILL.md": _s34,
+    "references/colour-and-dark.md": _s27,
+    "references/customisation-keys.md": _s28,
+    "references/design-options.generated.md": _s29,
+    "references/design-system-cli.md": _s30,
+    "references/sources.md": _s31,
+    "references/tokens.md": _s32,
+    "references/type-and-rhythm.md": _s33,
+    "references/voice-and-principles.md": _s34,
+    "SKILL.md": _s35,
   },
   "sovrium-pages": {
-    "references/accessibility.md": _s35,
-    "references/anti-slop.md": _s36,
-    "references/component-catalogue.generated.md": _s37,
-    "references/copy.md": _s38,
-    "references/data-dense.md": _s39,
-    "references/design-plan.md": _s40,
-    "references/sources.md": _s41,
-    "references/states-and-forms.md": _s42,
-    "SKILL.md": _s43,
+    "references/accessibility.md": _s36,
+    "references/anti-slop.md": _s37,
+    "references/component-catalogue.generated.md": _s38,
+    "references/copy.md": _s39,
+    "references/data-dense.md": _s40,
+    "references/design-plan.md": _s41,
+    "references/sources.md": _s42,
+    "references/states-and-forms.md": _s43,
+    "SKILL.md": _s44,
   },
   "sovrium-performance": {
-    "references/data-and-queries.md": _s44,
-    "references/eco-levers.md": _s45,
-    "references/images.md": _s46,
-    "references/measure.md": _s47,
-    "references/page-cache-and-rendering.md": _s48,
-    "references/sources.md": _s49,
-    "SKILL.md": _s50,
+    "references/data-and-queries.md": _s45,
+    "references/eco-levers.md": _s46,
+    "references/images.md": _s47,
+    "references/measure.md": _s48,
+    "references/page-cache-and-rendering.md": _s49,
+    "references/sources.md": _s50,
+    "SKILL.md": _s51,
   },
   "sovrium-report-issue": {
-    "references/issue-address.md": _s51,
-    "references/redaction.md": _s52,
-    "references/sources.md": _s53,
-    "SKILL.md": _s54,
+    "references/issue-address.md": _s52,
+    "references/redaction.md": _s53,
+    "references/sources.md": _s54,
+    "SKILL.md": _s55,
   },
   "sovrium-security": {
-    "references/ai-and-mcp-access.md": _s55,
-    "references/auth-hardening.md": _s56,
-    "references/auth-options.generated.md": _s57,
-    "references/gdpr-and-retention.md": _s58,
-    "references/launch-review.md": _s59,
-    "references/posture.md": _s60,
-    "references/public-surfaces.md": _s61,
-    "references/secrets-and-env.md": _s62,
-    "references/sources.md": _s63,
-    "SKILL.md": _s64,
+    "references/ai-and-mcp-access.md": _s56,
+    "references/auth-hardening.md": _s57,
+    "references/auth-options.generated.md": _s58,
+    "references/gdpr-and-retention.md": _s59,
+    "references/launch-review.md": _s60,
+    "references/posture.md": _s61,
+    "references/public-surfaces.md": _s62,
+    "references/secrets-and-env.md": _s63,
+    "references/sources.md": _s64,
+    "SKILL.md": _s65,
   },
   "sovrium-seo-geo": {
-    "references/copy-for-search.md": _s65,
-    "references/crawlers.md": _s66,
-    "references/geo.md": _s67,
-    "references/report-template.md": _s68,
-    "references/seo-options.generated.md": _s69,
-    "references/social-previews.md": _s70,
-    "references/sources.md": _s71,
-    "references/structured-data.md": _s72,
-    "references/technical.md": _s73,
-    "SKILL.md": _s74,
+    "references/copy-for-search.md": _s66,
+    "references/crawlers.md": _s67,
+    "references/geo.md": _s68,
+    "references/report-template.md": _s69,
+    "references/seo-options.generated.md": _s70,
+    "references/social-previews.md": _s71,
+    "references/sources.md": _s72,
+    "references/structured-data.md": _s73,
+    "references/technical.md": _s74,
+    "SKILL.md": _s75,
   },
 }
 
 export const EMBEDDED_AGENT_FILES = {
-  "sovrium-config-editor": _s75,
+  "sovrium-config-editor": _s76,
 }

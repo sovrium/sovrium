@@ -104,7 +104,7 @@ Keep this skill's loop running underneath whichever specialist you load.
 
 - `sovrium docs get-started/troubleshooting` and `sovrium docs get-started/troubleshooting-runtime`.
 - `sovrium validate --json`: every finding carries a `path`, a `message` and, for a closed list, the `accepted` values.
-- `sovrium docs cli-api/cli-validate` explains what validation does and does not check.
+- `sovrium docs cli-tools/cli-validate` explains what validation does and does not check.
 - Two failed attempts at the same fix: stop, re-read the article, and say what you tried.
 
 ## References

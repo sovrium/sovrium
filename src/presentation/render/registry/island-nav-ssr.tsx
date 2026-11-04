@@ -5,12 +5,19 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { Fragment, type ReactElement } from 'react'
+import { cn } from '@/presentation/design/class-merge'
 import { NavItemBadge } from '@/presentation/design/nav-item-badge'
 import { NavChevronDown } from '@/presentation/design/nav-menu-parts'
-import { computeNavMenuTriggerClasses } from '@/presentation/design/navigation-menu-default-classes'
+import {
+  computeNavMenuChildLinkClasses,
+  computeNavMenuContentClasses,
+  computeNavMenuTriggerClasses,
+  navPanelId,
+} from '@/presentation/design/navigation-menu-default-classes'
 import { describeNewTab } from '@/presentation/design/new-tab-attributes'
+import type { MenuPanelPartClasses } from './menu-panel-parts'
 import type { BadgeVariant } from '@/presentation/design/badge-default-classes'
-import type { ReactElement } from 'react'
 
 /** Nav item badge shape (mirrors `NavItemSchema.badge`). */
 export type SsrNavBadge = { readonly text: string; readonly variant?: BadgeVariant }
@@ -25,6 +32,50 @@ export type SsrNavItem = {
   readonly children?: readonly unknown[]
 }
 
+/** A panel entry as the served page draws it: a link to a destination. */
+type SsrNavChild = SsrNavItem & { readonly description?: string }
+
+/**
+ * The panel of an item with children, as the served page draws it: a native
+ * popover holding the panel's destinations as plain links, so a reader without
+ * scripts — and a search engine — reaches each one. The island replaces it when
+ * it mounts.
+ */
+function renderSsrNavPanel(
+  item: SsrNavItem,
+  id: string,
+  parts: MenuPanelPartClasses
+): ReactElement {
+  const links = (item.children ?? []) as readonly SsrNavChild[]
+  return (
+    <div
+      id={id}
+      popover="auto"
+      data-slot="navigation-menu-content"
+      className={cn(computeNavMenuContentClasses(), parts.contentClassName)}
+    >
+      {links
+        .filter((link) => link.href !== undefined)
+        .map((link) => (
+          <a
+            key={link.href}
+            href={link.href}
+            target={link.target}
+            rel={link.rel}
+            {...describeNewTab(link.target)}
+            data-slot="navigation-menu-link"
+            className={cn(computeNavMenuChildLinkClasses(), parts.itemClassName)}
+          >
+            <span className="font-medium">{link.label}</span>
+            {link.description === undefined ? undefined : (
+              <span className="text-muted-foreground">{link.description}</span>
+            )}
+          </a>
+        ))}
+    </div>
+  )
+}
+
 /**
  * Render a single navigation-menu item in the SSR placeholder with the SAME
  * trigger chrome the hydrated island uses (`computeNavMenuTriggerClasses` +
@@ -36,8 +87,9 @@ export type SsrNavItem = {
 export function renderSsrNavItem(
   item: SsrNavItem,
   index: number,
-  triggerClassName?: string
+  classes: MenuPanelPartClasses & { readonly triggerClassName?: string } = {}
 ): ReactElement {
+  const { triggerClassName } = classes
   const badge = item.badge ? (
     <NavItemBadge
       text={item.badge.text}
@@ -50,21 +102,22 @@ export function renderSsrNavItem(
   // authored `triggerClassName` override — so the SSR placeholder and hydrated
   // island emit a byte-identical class list and the header does not reflow
   // The recipe's `group` marker drives the chevron rotation.
+  // Before the island mounts the trigger opens its served panel natively
+  // (`popovertarget`), so the menu works without scripts.
   return item.children && item.children.length > 0 ? (
-    <button
-      key={index}
-      type="button"
-      // Inert until the island mounts: the placeholder opens nothing, so it
-      // does not pretend to be operable (a disabled button is also skipped by
-      // Tab, so focus never lands on a control the swap is about to replace).
-      disabled
-      data-slot="navigation-menu-trigger"
-      className={computeNavMenuTriggerClasses(triggerClassName)}
-    >
-      {item.label}
-      {badge}
-      <NavChevronDown />
-    </button>
+    <Fragment key={index}>
+      <button
+        type="button"
+        popoverTarget={navPanelId(item, index)}
+        data-slot="navigation-menu-trigger"
+        className={computeNavMenuTriggerClasses(triggerClassName)}
+      >
+        {item.label}
+        {badge}
+        <NavChevronDown />
+      </button>
+      {renderSsrNavPanel(item, navPanelId(item, index), classes)}
+    </Fragment>
   ) : (
     <a
       key={index}

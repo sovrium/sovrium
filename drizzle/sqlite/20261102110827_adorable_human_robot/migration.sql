@@ -1,0 +1,1 @@
+ALTER TABLE `system_schema_checksum` ADD `analytics_profile` text;

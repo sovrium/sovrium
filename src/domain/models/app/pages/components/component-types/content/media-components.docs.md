@@ -20,9 +20,9 @@ A responsive image.
 
 <!-- sovrium:options type:image -->
 
-Everything else an image needs rides in `props`: `src` (required, and it substitutes `$record.*`), `srcDark` for the dark scheme, `alt`, `loading: lazy` to defer until near the viewport, `srcset` and `sizes` for responsive selection, `width` and `height` to reserve space against layout shift, and `objectFit` (`cover`, `contain`, `fill`, `none`) for scaling.
+Everything else an image needs rides in `props`: `src` (required, and it substitutes `$record.*`), `srcDark` for the dark scheme, `alt`, `loading` (an image is lazy unless you say otherwise, see below), `srcset` and `sizes` for responsive selection, `width` and `height` to reserve space against layout shift, and `objectFit` (`cover`, `contain`, `fill`, `none`) for scaling.
 
-`srcDark` is the file the image shows while the page is dark, as `design.logo.srcDark` is for the app's logo. The image then renders twice, under one `alt`: the `src` file in the light scheme, the `srcDark` file once the page turns dark, following the theme toggle as well as the system preference. Without `srcDark` it renders once, as before. `srcDark` substitutes `$record.*` in a row template, as `src` does.
+`srcDark` is the file the image shows while the page is dark, as `design.logo.srcDark` is for the app's logo. The image then renders twice, under one `alt`: the `src` file in the light scheme, the `srcDark` file once the page turns dark, following the theme toggle as well as the system preference. Without `srcDark` it renders once, as before. `srcDark` substitutes `$record.*` in a row template, as `src` does. Only the copy the scheme shows is fetched up front: the dark copy is always deferred, `loading="lazy"` with no `fetchpriority`, so it downloads once the page turns dark, while a hero's priority and an explicit `loading: eager` apply to the light copy.
 
 ### Drawing an SVG in the app's colours
 

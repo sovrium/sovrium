@@ -22,7 +22,8 @@
  *    written), breakpoints in `px`;
  *  - a `fontFamily` under a `font`/`fontFamily` group goes to
  *    `design.typeScale.families`, the first name its `family`, the rest its
- *    `fallback`;
+ *    `fallback`; a family a type role is set in (a DESIGN.md's) proposes its
+ *    face only when no face of the app already paints that family;
  *  - a text style named for a type-scale rung goes to that rung;
  *  - everything else is reported, never guessed into a key.
  *
@@ -95,6 +96,8 @@ interface Proposal {
   readonly path: readonly string[]
   readonly value: string | number
   readonly compare: 'color' | 'length' | 'exact'
+  /** A family that drops the proposal when one of the app's faces already paints it. */
+  readonly unlessPainted?: string
 }
 
 type Placement = { readonly placed: readonly Proposal[] } | { readonly unmapped: ImportUnmapped }
@@ -259,9 +262,10 @@ const placeFamily = (token: CanonicalToken): Placement => {
   }
   const [family, ...fallback] = names
   const base = ['typeScale', 'families', key]
+  const painted = token.roleFamily === true ? { unlessPainted: family } : {}
   return {
     placed: [
-      { path: [...base, 'family'], value: family, compare: 'exact' },
+      { path: [...base, 'family'], value: family, compare: 'exact', ...painted },
       ...(fallback.length === 0
         ? []
         : [
@@ -269,6 +273,7 @@ const placeFamily = (token: CanonicalToken): Placement => {
               path: [...base, 'fallback'],
               value: fallback.map(quoteFontName).join(', '),
               compare: 'exact' as const,
+              ...painted,
             },
           ]),
     ],
@@ -412,13 +417,33 @@ const declaredString = (design: JsonObject, path: readonly string[]): string | u
   return typeof value === 'string' || typeof value === 'number' ? String(value) : undefined
 }
 
+/** A family name as compared: unquoted case and spacing do not make two faces. */
+const familyKey = (family: string): string => family.trim().toLowerCase()
+
+/** The families the app's faces paint: each declared face, else the inherited one. */
+const paintedFamilies = (design: JsonObject): ReadonlySet<string> => {
+  const declared = getIn(design, ['typeScale', 'families'])
+  const faces = isRecord(declared) ? declared : {}
+  const keys = new Set([...Object.keys(faces), ...Object.keys(INHERITED_FONT_TOKENS)])
+  return new Set(
+    [...keys].flatMap((key) => {
+      const family = getIn(faces, [key, 'family']) ?? inheritedFamily(key, 'family')
+      return typeof family === 'string' ? [familyKey(family)] : []
+    })
+  )
+}
+
 /** The proposals that differ from what `design` paints, as changes. */
 const diffProposals = (
   proposals: readonly Proposal[],
   design: JsonObject
-): readonly DesignImportChange[] =>
-  proposals
+): readonly DesignImportChange[] => {
+  const painted = paintedFamilies(design)
+  return proposals
     .filter((proposal) => {
+      if (proposal.unlessPainted !== undefined && painted.has(familyKey(proposal.unlessPainted))) {
+        return false
+      }
       const current = getIn(design, proposal.path) ?? inheritedAt(proposal.path, design)
       return !sameValue(proposal, current)
     })
@@ -427,6 +452,7 @@ const diffProposals = (
       before: declaredString(design, proposal.path),
       value: proposal.value,
     }))
+}
 
 /** The last proposal for each path: a later token of the same name wins. */
 const lastByPath = (proposals: readonly Proposal[]): readonly Proposal[] => [

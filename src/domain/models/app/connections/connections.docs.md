@@ -66,7 +66,9 @@ The console's Connect and Reconnect send the page they were pressed on as `retur
     audience: 'https://api.example.com'
 ```
 
-The first call that needs a token sends `grant_type=client_credentials` to the token endpoint, with the scopes (space-separated), the audience and any `extraTokenParams`, the client authenticated by HTTP Basic or, with `authenticationMethod: body`, in the form body. The token is stored encrypted as the connection's shared token and reused until it expires; the next call after that simply asks again. Changing the client, its secret, the scopes, the audience or the authentication method makes the next call ask for a new token rather than reuse one issued for the old configuration. A refused token request fails the step, naming the connection, and the API is never called without a token.
+The first call that needs a token sends `grant_type=client_credentials` to the token endpoint, with the scopes (space-separated), the audience and any `extraTokenParams`, the client authenticated by HTTP Basic or, with `authenticationMethod: body`, in the form body. The token is stored encrypted as the connection's shared token and reused until it expires; the next call after that asks again. Changing the client, its secret, the scopes, the audience or the authentication method makes the next call ask for a new token rather than reuse one issued for the old configuration. A refused token request fails the step, naming the connection, and the API is never called without a token.
+
+In the console a client-credentials connection always reads `active`, before its first call too, renews automatically, and offers no Connect, Reconnect or Disconnect: the app requests its token itself. `POST /api/admin/connections/<id>/authorize` answers 400 for it, naming the grant. Its `GET /api/connections/<name>/status` answers `connected`, with the stored token's expiry, or none before the first call. A refused token request shows as the connection's last error.
 
 ### App scope is an authorization gate, not a usage gate
 
@@ -82,9 +84,9 @@ Meta (Facebook Pages, Instagram) answers the code exchange with a token that lap
 
 ### When nothing can renew the token
 
-Some providers, such as LinkedIn and Meta, issue no refresh token: the token simply lapses, and only a new authorization replaces it. Sovrium reports that ahead of time. From 7 days before such a token expires, `GET /api/connections/<name>/status` answers `reconnect-needed` for the caller, and the connection list in `/_admin/connections` shows the same status with a **Reconnect** action. Once it has lapsed, a step using it fails, naming the connection and saying it needs reconnecting, and the API is not called. A token that does carry a refresh token keeps its usual statuses: `expired` there only means the next call refreshes it.
+Some providers, such as LinkedIn and Meta, issue no refresh token: the token lapses, and only a new authorization replaces it. Sovrium reports that ahead of time. From 7 days before such a token expires, `GET /api/connections/<name>/status` answers `reconnect-needed` for the caller, and the connection list in `/_admin/connections` shows the same status with a **Reconnect** action. Once it has lapsed, a step using it fails, naming the connection and saying it needs reconnecting, and the API is not called. A token that carries a refresh token renews itself: the console lists its connection as `active` whatever its access token's expiry, says it renews automatically, offers **Disconnect** rather than **Reconnect**, and never counts it among the connections to reconnect. The connection's own `GET /api/connections/<name>/status` still answers `expired` once the access token has lapsed, which only means the next call refreshes it.
 
-An OAuth2 connection nobody has authorized yet holds no token, and the console lists it as `not-connected` with a **Connect** action, never as `active`, since nothing can call the provider until someone connects it. The console's Overview does not count it as a healthy connection, and its attention list counts it with the expired and `reconnect-needed` ones as a connection waiting on an operator. An API-key, basic or bearer connection holds no token by design and reads `active`, unless its credential comes from a `$env.` variable that is not set on the instance, in which case it reads `not-configured` until the variable is set (see below).
+An authorization-code connection nobody has authorized yet holds no token, and the console lists it as `not-connected` with a **Connect** action, never as `active`, since nothing can call the provider until someone connects it. The console's Overview does not count it as a healthy connection, and its attention list counts it with the expired and `reconnect-needed` ones as a connection waiting on an operator. An API-key, basic or bearer connection holds no token by design and reads `active`, unless its credential comes from a `$env.` variable that is not set on the instance, in which case it reads `not-configured` until the variable is set (see below).
 
 ## API key
 
@@ -111,6 +113,8 @@ An OAuth2 connection nobody has authorized yet holds no token, and the console l
 ```
 
 An API that takes its key as the Basic password with no username (Lemlist) is declared with `username: ''`: the pair is sent as `:<password>`. A connection whose username and password are both empty fails the step without calling the API.
+
+A basic connection can also carry text messages the engine sends itself, such as the one-time codes of a signing flow (`verify.sms.connection`). `provider: twilio` names the messaging API it speaks: the username is the account id, the password the auth token, and `baseUrl` defaults to `https://api.twilio.com`. Those messages never pass through an automation, so a code never appears in a run.
 
 ## Bearer token
 

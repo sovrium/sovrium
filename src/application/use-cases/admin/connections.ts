@@ -55,6 +55,7 @@ import {
 } from '@/domain/models/api/admin/connections/connections'
 import {
   deriveConnectionListStatus,
+  deriveConnectionRenewal,
   deriveConnectionRowAction,
   deriveTokenStatus,
   soonestExpiryMs,
@@ -65,9 +66,9 @@ import {
   type ConnectionUse,
 } from '@/domain/models/app/connections/connection-usage-service'
 import {
+  clientCredentialsNamesOf,
   connectionLabel,
   declaredLabelsOf,
-  NO_DECLARED_LABELS,
   unconfiguredNamesOf,
   type DeclaredConfig,
   type DeclaredConnectionLabels,
@@ -152,12 +153,12 @@ function buildConnectionItem(
   tokens: readonly ConnectionUserSummary[],
   appToken: Readonly<ConnectionAppTokenSummary> | undefined,
   named: {
-    readonly declaredLabels: DeclaredConnectionLabels
+    readonly declared: DeclaredFacts
     readonly usage: ConnectionUsage
     readonly unconfigured?: ReadonlySet<string>
   }
 ): ConnectionListItem {
-  const { declaredLabels, usage, unconfigured } = named
+  const { declared, usage, unconfigured } = named
   // The count is the UNION of the two stores, derived from which rows actually
   // exist rather than from the connection's declared `scope`. That matters:
   // these rows are read from `system.connections`, which is also populated by
@@ -170,19 +171,19 @@ function buildConnectionItem(
   ])
   const type = String(row['type'])
   const name = String(row['name'])
-  const status = deriveConnectionListStatus(
-    type,
-    [...tokens, ...(appToken === undefined ? [] : [appToken])],
-    Date.now(),
-    unconfigured?.has(name) === true
-  )
-  const tokenCount = tokens.length + (appToken === undefined ? 0 : 1)
+  const held = [...tokens, ...(appToken === undefined ? [] : [appToken])]
+  const clientCredentials = declared.clientCredentials.has(name)
+  const status = deriveConnectionListStatus(type, held, Date.now(), {
+    clientCredentials,
+    credentialUnset: unconfigured?.has(name) === true,
+  })
+  const tokenCount = held.length
   const provider = String(row['provider'])
   return {
     id: String(row['id']),
     name,
     provider,
-    label: connectionLabel(name, provider, declaredLabels.get(name)),
+    label: connectionLabel(name, provider, declared.labels.get(name)),
     type,
     tokenCount,
     expiresAt: soonestMs === null ? null : new Date(soonestMs).toISOString(),
@@ -190,7 +191,8 @@ function buildConnectionItem(
     // Server-computed display hint so the dashboard data-table can gate its
     // connect/reconnect/disconnect buttons with a single-field `visibleWhen`
     // (the compound rule — type + tokenCount + status — stays here, not config).
-    rowAction: deriveConnectionRowAction(type, tokenCount, status),
+    rowAction: deriveConnectionRowAction(type, tokenCount, status, { clientCredentials }),
+    renewal: deriveConnectionRenewal(type, held, { clientCredentials }),
     createdAt: toIso(row['createdAt'] as Date | string),
     ...usageFields(usage),
   }
@@ -228,9 +230,24 @@ type UsageReader<E, R> = (
 
 const noUsage: UsageReader<never, never> = () => Effect.succeed(new Map())
 
-/** The list build, naming each connection with `declaredLabels` where it has one. */
+/**
+ * What the list reads off the app's declaration: the label each connection
+ * declares, and which connections use the `clientCredentials` grant.
+ */
+interface DeclaredFacts {
+  readonly labels: DeclaredConnectionLabels
+  readonly clientCredentials: ReadonlySet<string>
+}
+
+/** Read the declared facts off `app.connections[]`. */
+const declaredFactsOf = (connections: DeclaredConfig['connections']): DeclaredFacts => ({
+  labels: declaredLabelsOf(connections),
+  clientCredentials: clientCredentialsNamesOf(connections),
+})
+
+/** The list build, naming each connection as declared where it is. */
 const assembleConnectionsList = <E = never, R = never>(
-  declaredLabels: DeclaredConnectionLabels,
+  declared: DeclaredFacts,
   readUsage: UsageReader<E, R>,
   unconfigured: ReadonlySet<string> = new Set()
 ): Effect.Effect<
@@ -251,7 +268,7 @@ const assembleConnectionsList = <E = never, R = never>(
         const tokens = yield* tokenRepo.listUsersForConnection({ connectionId })
         const appToken = yield* tokenRepo.findAppSummary({ connectionId })
         const usage = usages.get(String(row['name'])) ?? NO_USAGE
-        return buildConnectionItem(row, tokens, appToken, { declaredLabels, usage, unconfigured })
+        return buildConnectionItem(row, tokens, appToken, { declared, usage, unconfigured })
       })
     )
 
@@ -267,16 +284,17 @@ const assembleConnectionsList = <E = never, R = never>(
  * Build the connection-list body. Reads every `system.connections` row, then
  * the per-connection token summary, projects to the allow-list, and validates
  * against the `.strict()` list schema. `declared` is the app's declared
- * `app.connections[]`, read only for the `label` each entry declares.
+ * `app.connections[]`, read for the `label` each entry declares and for which
+ * entries use the `clientCredentials` grant.
  */
 export const buildConnectionsListFor = (
-  declared: ReadonlyArray<{ readonly name: string; readonly label?: string }> | undefined
+  declared: DeclaredConfig['connections']
 ): Effect.Effect<
   ConnectionsListOutcome,
   ConnectionDatabaseError | ConnectionTokenDatabaseError,
   ConnectionRepository | ConnectionTokenRepository
 > =>
-  assembleConnectionsList(declaredLabelsOf(declared), noUsage).pipe(
+  assembleConnectionsList(declaredFactsOf(declared), noUsage).pipe(
     Effect.withSpan('admin.build-connections-list-for')
   )
 
@@ -295,25 +313,13 @@ export const buildConnectionsListWithUsage = (
   ProcessEnv.pipe(
     Effect.flatMap((env) =>
       assembleConnectionsList(
-        declaredLabelsOf(config.connections),
+        declaredFactsOf(config.connections),
         (names) => usagesOf(config, names),
         unconfiguredNamesOf(config, env)
       )
     ),
     Effect.withSpan('admin.build-connections-list-with-usage')
   )
-
-/**
- * The connection-list body without the app's declared labels in hand, for the
- * roll-ups that read it outside a request: each row is named `name · provider`.
- */
-export const buildConnectionsList: Effect.Effect<
-  ConnectionsListOutcome,
-  ConnectionDatabaseError | ConnectionTokenDatabaseError,
-  ConnectionRepository | ConnectionTokenRepository
-> = assembleConnectionsList(NO_DECLARED_LABELS, noUsage).pipe(
-  Effect.withSpan('admin.build-connections-list')
-)
 
 // ─── Detail use case ──────────────────────────────────────────────────────────
 
@@ -367,7 +373,7 @@ export const buildConnectionDetail = (
       // user, and inventing one would put a userId in the roster that names
       // nobody. It still contributes to the header's `tokenCount`/`status`.
       connection: buildConnectionItem(row, summaries, appToken, {
-        declaredLabels: declaredLabelsOf(config.connections),
+        declared: declaredFactsOf(config.connections),
         usage,
         unconfigured: unconfiguredNamesOf(config, yield* ProcessEnv),
       }),

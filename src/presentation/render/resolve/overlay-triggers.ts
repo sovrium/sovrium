@@ -99,8 +99,8 @@ export function collectOverlayTargets(
  */
 const HAS_OPENER_KEY = '_hasOpener'
 
-/** Dialog types whose initial open state depends on having an opener. */
-const DIALOG_TYPES: ReadonlySet<string> = new Set(['dialog', 'alert-dialog', 'drawer'])
+/** Overlay types (dialogs, drawers, sheets) whose initial open state depends on having an opener. */
+const DIALOG_TYPES: ReadonlySet<string> = new Set(['dialog', 'alert-dialog', 'drawer', 'sheet'])
 
 /** `node` with its `children` and every breakpoint's `children` mapped by `visit`. */
 function mapChildLists(node: NodeRecord, visit: (child: unknown) => unknown): NodeRecord {

@@ -41,7 +41,7 @@ export const ISLANDS_BY_TYPE: Readonly<Record<string, readonly string[]>> = {
   table: ['table', 'record-drawer'],
   resizable: ['resizable'],
   stepper: ['stepper'],
-  'signature-pad': ['signature-pad'],
+  'signature-pad': ['signature-pad', 'signature-pad-flow'],
   tree: ['tree'],
   map: ['map'],
   kanban: ['kanban'],

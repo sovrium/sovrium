@@ -18,7 +18,7 @@ import { type ButtonVariant } from '@/presentation/design/button-default-classes
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { AccountLinkBoundary, AccountMethodBoundary } from './account-method-boundary'
-import { AuthFormFeedback, type CredentialRefusal } from './auth-form-feedback'
+import { AuthFormFeedback } from './auth-form-feedback'
 import { AuthErrorSummary, AuthFieldRow } from './auth-form-fields'
 import { OAuthSignInForm } from './auth-form-oauth'
 import { PasskeyForm } from './auth-form-passkey'
@@ -28,6 +28,7 @@ import { type ToastConfig } from './auth-form-submit'
 import { AuthSuccessPage, type AuthSuccessPageConfig } from './auth-form-success-page'
 import { AuthSubmitButton } from './auth-submit-button'
 import type { TwoFactorNotice } from './two-factor-notice'
+import type { CredentialRefusal } from '@/domain/models/app/pages/components/action-operations'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -89,6 +90,8 @@ interface AuthFormIslandProps {
   /** `onSuccess.type: 'successPage'`: the page that replaces the form once sent. */
   readonly successPage?: AuthSuccessPageConfig
   readonly className?: string
+  /** The `summary` part's classes, for the error summary over the fields. */
+  readonly summaryClassName?: string
   readonly id?: string
   readonly 'data-testid'?: string
   readonly initialValues?: Record<string, string>
@@ -161,6 +164,7 @@ function CredentialAuthForm(props: AuthFormIslandProps) {
         fields={fields}
         errors={summaryErrors}
         sentence={props.uiStrings?.['auth.fixErrors']}
+        className={props.summaryClassName}
       />
       {fields.map((field) => (
         <AuthFieldRow

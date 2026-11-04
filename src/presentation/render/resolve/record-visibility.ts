@@ -198,3 +198,95 @@ function isVisibleForElement(node: object | string, element: unknown): boolean {
     typeof node === 'string' || satisfiesFieldCondition(readRecordCondition(node, 'item'), fields)
   )
 }
+
+/**
+ * The attribute stamped on a node whose children the page record gates.
+ *
+ * A gated child is OMITTED, so once a write moves the record the branch it now
+ * calls for is not in the document at all, and the page keeps offering the
+ * branch the record has left (a Disable beside a link already disabled). The
+ * parent is the smallest node that holds both branches, so it is the region a
+ * write has to redraw: every `onSuccess.refetch` on the page names it too, and
+ * the browser re-reads it from a fresh render
+ * (`islands/runtime/refetch-server-rendered-region.ts`), where the server
+ * decides the gates again rather than the browser re-deciding them.
+ *
+ * The region keeps the author's `id`, or takes one derived from its position in
+ * the AUTHORED tree, which names the same node in every render whatever the
+ * record decides.
+ */
+export const RECORD_GATED_REGION_ATTRIBUTE = 'data-record-region'
+
+/**
+ * Stamp {@link RECORD_GATED_REGION_ATTRIBUTE} (and an `id` when the author gave
+ * none) on every node of a page bound to one record that has a child gated on
+ * that record, and add those ids to every `onSuccess.refetch` on the page. Run
+ * on the tree as authored, before the gates drop anything. Stops at a node
+ * holding its own `dataSource`, whose rows its gates read instead, and at an
+ * unexpanded reference. A page with no gated child is returned as it was.
+ */
+export function markRecordGatedRegions(
+  entries: readonly ComponentListEntry[]
+): readonly ComponentListEntry[] {
+  const stamped = stampRegions(entries, 'record-region')
+  const ids = regionIdsOf(stamped)
+  return ids.length === 0 ? entries : (withRegionRefetch(stamped, ids) as typeof entries)
+}
+
+function stampRegions(
+  entries: readonly ComponentListEntry[],
+  path: string
+): readonly ComponentListEntry[] {
+  return entries.map((entry, index) =>
+    typeof entry === 'string' || 'component' in entry || '$ref' in entry
+      ? entry
+      : stampRegion(entryAsComponent(entry), `${path}-${index}`)
+  )
+}
+
+const stampRegion = (component: Component, path: string): Component => {
+  const { children } = component
+  if (children === undefined || componentField(component, 'dataSource') !== undefined)
+    return component
+  const props = (componentField(component, 'props') ?? {}) as Readonly<Record<string, unknown>>
+  return rewriteComponent(component, {
+    children: stampRegions(children, path),
+    ...(children.every(hasNoRecordGate)
+      ? {}
+      : { props: { id: path, ...props, [RECORD_GATED_REGION_ATTRIBUTE]: '' } }),
+  })
+}
+
+/** The ids of the stamped regions, in document order. */
+const regionIdsOf = (value: unknown): readonly string[] => {
+  if (Array.isArray(value)) return value.flatMap(regionIdsOf)
+  if (typeof value !== 'object' || value === null) return []
+  const { props, children } = value as { readonly props?: unknown; readonly children?: unknown }
+  const own =
+    typeof props === 'object' && props !== null && RECORD_GATED_REGION_ATTRIBUTE in props
+      ? [String((props as Readonly<Record<string, unknown>>)['id'])]
+      : []
+  return [...own, ...regionIdsOf(children)]
+}
+
+/** Every `onSuccess.refetch` below `value`, with the region ids added. */
+const withRegionRefetch = (value: unknown, ids: readonly string[]): unknown => {
+  if (Array.isArray(value)) return value.map((item) => withRegionRefetch(item, ids))
+  if (typeof value !== 'object' || value === null) return value
+  return Object.fromEntries(
+    Object.entries(value).map(([key, child]) => {
+      const refetch = key === 'onSuccess' ? keyOfRefetch(child) : undefined
+      return [
+        key,
+        refetch === undefined
+          ? withRegionRefetch(child, ids)
+          : { ...(child as object), refetch: [...new Set([...[refetch].flat(), ...ids])] },
+      ]
+    })
+  )
+}
+
+const keyOfRefetch = (onSuccess: unknown): string | readonly string[] | undefined =>
+  typeof onSuccess === 'object' && onSuccess !== null
+    ? ((onSuccess as { readonly refetch?: string | readonly string[] }).refetch ?? undefined)
+    : undefined

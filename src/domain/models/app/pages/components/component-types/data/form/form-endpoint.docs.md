@@ -82,7 +82,7 @@ Both are refused beside `reload`, which replaces the page the dialog is drawn on
 
 ## An on/off switch
 
-`control: switch` draws a labelled switch instead of a text box, for a setting that is simply on or off. It posts a JSON boolean under its field name (`true` when on, `false` when off), and the key is always present, so an unchecked switch says "off" rather than saying nothing. `defaultValue` may be a boolean, or a `$session.<field>` reference so the switch opens in the caller's saved state; such a switch cannot be turned until the caller's session has answered, so a quick click is never undone by the saved value arriving after it. A switch takes no `options`.
+`control: switch` draws a labelled switch instead of a text box, for a setting that is either on or off. It posts a JSON boolean under its field name (`true` when on, `false` when off), and the key is always present, so an unchecked switch says "off" rather than saying nothing. `defaultValue` may be a boolean, or a `$session.<field>` reference so the switch opens in the caller's saved state; such a switch cannot be turned until the caller's session has answered, so a quick click is never undone by the saved value arriving after it. A switch takes no `options`.
 
 ```yaml
 - type: form

@@ -19,6 +19,7 @@ import {
 } from '@/presentation/render/elements/crud-form/crud-form-typed-input'
 import {
   ariaRequired,
+  describedByHelpOf,
   FIELD_LABEL_CLASS,
   FIELD_WRAPPER_CLASS,
   fieldWrapperAttributes,
@@ -52,12 +53,13 @@ export const TextareaInput = ({
       name={field.name}
       required={field.required}
       {...ariaRequired(field.required)}
+      {...describedByHelpOf(field)}
       disabled={field.conditionHidden}
       autoComplete={field.autocomplete}
       placeholder={field.placeholder || undefined}
       defaultValue={defaultValue ?? undefined}
     />
-    <HelpText html={field.helpTextHtml} />
+    <HelpText field={field} />
   </div>
 )
 
@@ -86,6 +88,7 @@ export const RadioInput = ({
     role="radiogroup"
     aria-labelledby={`field-${field.name}-legend`}
     {...ariaRequired(field.required)}
+    {...describedByHelpOf(field)}
     {...fieldWrapperAttributes(field)}
   >
     <div
@@ -115,7 +118,7 @@ export const RadioInput = ({
         </div>
       )
     })}
-    <HelpText html={field.helpTextHtml} />
+    <HelpText field={field} />
   </div>
 )
 
@@ -147,7 +150,7 @@ export const SignatureInput = ({ field }: { readonly field: ResolvedFormField })
       className="signature"
       data-name={field.name}
     />
-    <HelpText html={field.helpTextHtml} />
+    <HelpText field={field} />
   </div>
 )
 
@@ -178,6 +181,7 @@ export const TextInput = ({
         name={field.name}
         required={field.required}
         {...ariaRequired(field.required)}
+        {...describedByHelpOf(field)}
         {...typedAttributesOf(field)}
         disabled={field.conditionHidden}
         readOnly={field.readOnly}
@@ -186,7 +190,7 @@ export const TextInput = ({
         defaultValue={defaultValue ?? undefined}
       />
     )}
-    <HelpText html={field.helpTextHtml} />
+    <HelpText field={field} />
   </div>
 )
 

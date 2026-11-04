@@ -8,7 +8,7 @@ Each role key mints a `--font-{role}` custom property and a matching `font-{role
 design:
   typeScale:
     families:
-      heading:
+      title:
         family: Inter
         fallback: 'system-ui, sans-serif'
         letterSpacing: '-0.02em'
@@ -20,7 +20,7 @@ design:
         fallback: 'ui-monospace, monospace'
 ```
 
-Role keys are alphabetic and freely chosen. `heading`, `body` and `mono` are the conventional three, and Sovrium's prebuilt components look for them, but a design that needs `display` or `caption` simply declares it. The map is open, so it publishes no table of its own; the table below is one face.
+Role keys are alphabetic and freely chosen. `title`, `body`, `mono` and `sans` are the four Sovrium reads itself (see below), but a design that needs `display` or `caption` declares it. The map is open, so it publishes no table of its own; the table below is one face.
 
 **Sizes and leading do not live here.** This key answers _which typeface_; how big an `h2` is and what leading it takes is `design.typeScale.steps`, in the Type Scale article. Three of the fields below are superseded and reach nothing.
 
@@ -34,6 +34,7 @@ Role keys are alphabetic and freely chosen. `heading`, `body` and `mono` are the
 
 - `body` sets running text: the page, and whatever inherits from it.
 - `title` sets the headings. A design with no `title` sets them in `body`, then in the default.
+- `heading`, if declared, sets the headings inside a Markdown article's prose. The page's own `h1` to `h6` still follow `title`.
 - `mono` replaces Geist Mono for code.
 - `sans` replaces Geist as the family `--font-sans` and the `font-sans` utility name.
 

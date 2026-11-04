@@ -72,7 +72,8 @@ const toAutomationContext = (input: {
   // person started it); a called run inherits its caller's standing and ledger.
   writeOnly: input.writeOnly ?? { blind: false, called: createCalledWriteOnlyValues() },
   // One ledger per run: a step writing as nobody attaches only what this run stored.
-  // One per run too: a called run starts with nothing read, so it fails closed. A resumed
+  // A called run starts with a copy of the files its caller wrote, and with nothing read,
+  // so a file its caller only read fails closed (`called-run-files.ts`). A resumed
   // run starts with what it had stored and read before its pause.
   ...ledgersOrFresh(input.ledgers),
 })

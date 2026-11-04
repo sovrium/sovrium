@@ -11,15 +11,15 @@ import { DatabaseError } from '@/domain/errors'
 import { LIKE_ESCAPE_CHARACTER, escapeLikeMetacharacters } from '@/domain/kernel/sql/sql-formatting'
 import { parseBucketFileUrl } from '@/domain/kernel/url/bucket-file-url'
 import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
-import { collectAttachmentColumns, type AttachmentColumn } from '../../storage-bucket-backfill'
+import { collectFileReferenceColumns, type AttachmentColumn } from '../../storage-bucket-backfill'
 import type { FileReferenceExclusion } from '@/application/ports/repositories/tables/table-file-references'
 import type { App } from '@/domain/models/app'
 import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Whether a stored file is still named by a record: any attachment column of
- * any table, a single cell or a list, a bare key or a metadata object, trashed
- * records included. Read as the system — the question is about the file, not
+ * any table, a single cell or a list, a bare key or a metadata object, or the
+ * image of a signature, trashed records included. Read as the system — the question is about the file, not
  * about what one person may see.
  *
  * Each column is narrowed in SQL by a text match on the key (`CAST … AS TEXT`
@@ -34,11 +34,15 @@ const LIKE_ESCAPE = sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)
 /** Candidates read per column; a column with more cells containing the text answers "named". */
 const CANDIDATE_LIMIT = 50
 
-/** The key a metadata object names: its bucket URL's, else its own `key`. */
+/**
+ * The key an object cell names: a metadata object's bucket URL's, else its own
+ * `key`; a signature's `image`.
+ */
 const keyOfObject = (cell: Readonly<Record<string, unknown>>): readonly string[] => {
   const fromUrl = typeof cell['url'] === 'string' ? parseBucketFileUrl(cell['url'])?.key : undefined
   if (fromUrl !== undefined) return [fromUrl]
-  return typeof cell['key'] === 'string' ? [cell['key']] : []
+  if (typeof cell['key'] === 'string') return [cell['key']]
+  return typeof cell['image'] === 'string' ? [cell['image']] : []
 }
 
 /** The storage keys one attachment cell names, whatever shape it was stored in. */
@@ -123,7 +127,7 @@ export function isFileNamedByAnyRecord(
     // stopping at the first that names the key: a check pays one pooled
     // query per table holding attachments at most, whatever their width.
     try: async () => {
-      for (const group of byTable(collectAttachmentColumns(app))) {
+      for (const group of byTable(collectFileReferenceColumns(app))) {
         const rows = await candidatesOf({ client: db, dialect }, group, pattern, except)
         const named =
           rows.length >= CANDIDATE_LIMIT ||

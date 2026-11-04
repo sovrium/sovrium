@@ -86,34 +86,6 @@ export const CommandPaletteSearchSchema = Schema.Struct({
 export type CommandPaletteSearch = Schema.Schema.Type<typeof CommandPaletteSearchSchema>
 
 /**
- * The global ⌘K command palette, placed by the author.
- *
- * ─── WHY THIS IS AUTHORABLE AND STILL SYNTHESIZED ──────────────────────────
- *
- * The engine appends a palette to every page so ⌘K works app-wide with no
- * authoring at all, and `palette: { enabled: false }` opts the whole app out.
- * Those two states are the entire vocabulary an author had, and neither can
- * say "the palette on THIS page searches MY endpoint" — so an app that wanted
- * its own search overlay had to disable the platform one and hand-build a
- * replacement.
- *
- * Declaring the component is the third state: the page carries exactly the
- * palette it declared, and the engine appends nothing (two palettes on one ⌘K
- * is the defect this replaces, not a feature).
- *
- * ─── IT RENDERS NO VISIBLE MARKUP ──────────────────────────────────────────
- *
- * The overlay is a client island, in both modes. Server-side the palette emits
- * only a JSON config block and the island's host — in the built-in mode a
- * DEFERRED host that mounts nothing until the first ⌘K, which a synchronous
- * head script captures for either mode. Pre-rendering a `role="dialog"` and a
- * search field (`role="combobox"`) into every page
- * would put two of each into the document for every unrelated selector to
- * resolve. That is also why it carries no engine-owned element to restyle, and
- * so is absent from `ENGINE_COMPONENT_TYPES`: a `design.components` entry for
- * it could only ever be a no-op.
- */
-/**
  * One authored command: what it is called, its icon and keys, and where it goes
  * or what it does.
  *
@@ -218,6 +190,34 @@ const CommandGroupSchema = Schema.Struct({
   description: 'A named group of authored commands',
 })
 
+/**
+ * The global ⌘K command palette, placed by the author.
+ *
+ * ─── WHY THIS IS AUTHORABLE AND STILL SYNTHESIZED ──────────────────────────
+ *
+ * The engine appends a palette to every page so ⌘K works app-wide with no
+ * authoring at all, and `palette: { enabled: false }` opts the whole app out.
+ * Those two states are the entire vocabulary an author had, and neither can
+ * say "the palette on THIS page searches MY endpoint" — so an app that wanted
+ * its own search overlay had to disable the platform one and hand-build a
+ * replacement.
+ *
+ * Declaring the component is the third state: the page carries exactly the
+ * palette it declared, and the engine appends nothing (two palettes on one ⌘K
+ * is the defect this replaces, not a feature).
+ *
+ * ─── IT RENDERS NO VISIBLE MARKUP ──────────────────────────────────────────
+ *
+ * The overlay is a client island, in both modes. Server-side the palette emits
+ * only a JSON config block and the island's host — in the built-in mode a
+ * DEFERRED host that mounts nothing until the first ⌘K, which a synchronous
+ * head script captures for either mode. Pre-rendering a `role="dialog"` and a
+ * search field (`role="combobox"`) into every page
+ * would put two of each into the document for every unrelated selector to
+ * resolve. That is also why it carries no engine-owned element to restyle, and
+ * so is absent from `ENGINE_COMPONENT_TYPES`: a `design.components` entry for
+ * it could only ever be a no-op.
+ */
 export const commandPaletteFields = {
   ...coreFields,
   ...visibilityFields,

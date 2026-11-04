@@ -2,7 +2,7 @@
 
 > The anatomy of a Sovrium app: the configuration object, its root sections, and the philosophy that turns one file into a full-stack application.
 
-A Sovrium app is a single declarative **configuration object**. You describe _what_ your application is (its data, pages, forms, authentication, automations) and Sovrium turns that description into a running, full-stack web application. There is no boilerplate, no framework scaffolding, and no build pipeline to wire up.
+A Sovrium app is a single declarative **configuration object**. You describe _what_ your application is (its data, pages, forms, authentication, automations) and Sovrium turns that description into a running, full-stack web application. You do not write application code or set up a build step around it.
 
 This article explains the anatomy of that configuration object so the rest of the reference makes sense. **Schema Overview** documents each root property and its options.
 
@@ -43,7 +43,7 @@ decisions      Architecture decision records this app declares
 admin          The operator console
 ```
 
-**Progressive complexity.** A valid app can be as small as `name: my-app`. Add sections only when you need them. There is no minimum viable scaffold to fight through first.
+A valid app can be as small as `name: my-app`, and you add sections only when you need them.
 
 ## The root sections
 
@@ -77,10 +77,13 @@ Each section has its own article, and the option tables there are expanded from 
 
 Sovrium inverts the usual relationship between code and configuration. Instead of writing application code that occasionally reads a config file, you write configuration that Sovrium executes directly.
 
-- **Declare, don't implement.** You declare a relationship field; Sovrium creates the foreign key, the join queries and the linked-record UI. You declare an automation; Sovrium wires the trigger, runs the actions and records the run history.
-- **One source of truth.** The same object drives the database schema, the REST API, the MCP server, the rendered pages and the admin dashboard. There is no second place where the shape of your data is restated.
-- **Cross-section validation.** Sections are validated together, not in isolation. A record automation that references a missing table, an attachment field pointing at an undeclared bucket, or a permission naming an unknown role are all rejected before the server starts. See **Validation & Schema Generation**.
-- **Self-hostable, no lock-in.** The config runs on your infrastructure against commodity storage: SQLite by default, PostgreSQL optional. Your data and your schema stay yours.
+You declare and Sovrium implements. Declare a relationship field and Sovrium creates the foreign key, the join queries and the linked-record UI. Declare an automation and Sovrium wires the trigger, runs the actions and records the run history.
+
+The same object drives the database schema, the REST API, the MCP server, the rendered pages and the admin dashboard, so the shape of your data is never restated in a second place.
+
+Sections are validated together. A record automation that references a missing table, an attachment field pointing at an undeclared bucket, or a permission naming an unknown role are all rejected before the server starts. See **Validation & Schema Generation**.
+
+The config runs on your infrastructure against commodity storage: SQLite by default, PostgreSQL optional. The data and the schema stay on machines you control.
 
 ## The layer model
 

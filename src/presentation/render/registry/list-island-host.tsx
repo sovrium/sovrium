@@ -22,12 +22,20 @@ import {
 } from '@/presentation/render/registry/island-host-attributes'
 import { isAccountSessionsSource } from '@/presentation/render/resolve/auth-source-binding'
 import {
+  DRAWN_CONTENT_KEY,
+  drawnHostMark,
+  drawnIslandProp,
+  type DrawnRows,
+} from '@/presentation/render/resolve/drawn-island-content'
+import { DrawnListItems } from './drawn-list-items'
+import {
   islandFallback,
   renderSeededListItems,
   specimenEmpty,
   specimenSeedOf,
   type SpecimenSeed,
 } from './specimen-island-states'
+import type { PartClassMap } from '@/domain/models/app/design/component-parts'
 import type { Languages } from '@/domain/models/app/languages'
 import type { Tables } from '@/domain/models/app/tables'
 import type { ComponentDesignResolution } from '@/presentation/design/resolve-component-classes'
@@ -103,6 +111,28 @@ function renderListSkeleton(
   )
 }
 
+/** A list's placeholder: its drawn first page when the server read one, else the skeleton. */
+function renderListPlaceholder(
+  drawn: DrawnRows | undefined,
+  elementProps: Record<string, unknown>,
+  view: {
+    readonly listDisplay: ListDisplayProps | undefined
+    readonly shell: { readonly listClasses?: string }
+    readonly parts: PartClassMap | undefined
+    readonly locale: EngineLocale
+  }
+): ReactElement | undefined {
+  if (drawn === undefined) return renderListSkeleton(view.listDisplay, view.shell, view.locale)
+  return (
+    <DrawnListItems
+      items={drawn.text}
+      itemLayout={view.listDisplay?.itemLayout}
+      parts={view.parts}
+      ariaLabel={elementProps['aria-label'] as string | undefined}
+    />
+  )
+}
+
 /**
  * What a list island draws in a specimen: the seeded rows of its declared
  * table, else its empty state, or nothing for a list that hides when empty.
@@ -150,8 +180,11 @@ export function renderListIsland(
   // The table-derived inputs (`list-island-inputs.ts`): currencies, and the
   // other facts about the bound fields a row prints the way a grid row does.
   const inputs = JSON.parse((elementProps['_listInputs'] as string) ?? '{}') as object
+  // The first page the server read for this reader (`drawn-island-content.ts`).
+  const drawn = elementProps[DRAWN_CONTENT_KEY] as DrawnRows | undefined
   const islandProps = JSON.stringify({
     ...inputs,
+    ...drawnIslandProp(drawn),
     // The binding, and how each formatted field reads in an item's text — the
     // text the server prints for the same value (`recordText`).
     ...withRecordTextProp({ dataSource }, { tables, languages, locale: currentLang }),
@@ -198,12 +231,20 @@ export function renderListIsland(
       // other data islands put theirs, so one selector addresses any of them.
       data-testid={elementProps['data-testid'] as string | undefined}
       data-island-props={islandProps}
+      {...drawnHostMark(drawn)}
     >
-      {islandFallback(renderListSkeleton(listDisplay, shell, { currentLang, languages }), () =>
-        renderListSpecimen(specimenSeedOf(dataSource, tables), listDisplay, {
-          currentLang,
-          languages,
-        })
+      {islandFallback(
+        renderListPlaceholder(drawn, elementProps, {
+          listDisplay,
+          shell,
+          parts,
+          locale: { currentLang, languages },
+        }),
+        () =>
+          renderListSpecimen(specimenSeedOf(dataSource, tables), listDisplay, {
+            currentLang,
+            languages,
+          })
       )}
     </div>
   )

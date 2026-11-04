@@ -94,6 +94,20 @@ export interface DrawnRules {
   readonly href?: string | undefined
 }
 
+/**
+ * How a node the designer ADDED was drawn, beyond its kit type: the element it
+ * is drawn as, its class list, and the address a link drawn new leads to. Read
+ * on an added node only; a node the export drew is matched to its page node.
+ */
+export interface DrawnAs {
+  /** The element's tag (`p`, `h1`, `a`). */
+  readonly element?: string | undefined
+  /** Its `class` list, as drawn. */
+  readonly className?: string | undefined
+  /** On a link, the address its `data-sovrium-href` names. */
+  readonly href?: string | undefined
+}
+
 /** One node of a drawing. */
 export interface DrawnNode {
   /** The path id the layer is tagged with; absent on a layer the designer added. */
@@ -117,6 +131,8 @@ export interface DrawnNode {
   readonly paint?: DrawnPaint | undefined
   /** What the node does, as the drawing carries it. */
   readonly rules?: DrawnRules | undefined
+  /** How a node the designer added was drawn. */
+  readonly drawnAs?: DrawnAs | undefined
   readonly children: readonly DrawnNode[]
 }
 
@@ -224,6 +240,8 @@ export interface PageDrawingReading {
   readonly paints?: Readonly<Record<string, DrawnPaint>> | undefined
   /** What each node does, as the drawing carries it, by node id. */
   readonly rules?: Readonly<Record<string, DrawnRules>> | undefined
+  /** How each node the designer added was drawn, by node id. */
+  readonly drawnAs?: Readonly<Record<string, DrawnAs>> | undefined
   /** The lengths drawn off the scale, which the tree leaves out. */
   readonly offScale?:
     | readonly { readonly node: string; readonly property: string; readonly value: string }[]
@@ -327,6 +345,7 @@ const drawnNodeOf = (reading: PageDrawingReading, node: PageDesignTreeNode): Dra
     inside: reading.drawings?.[node.id],
     paint: reading.paints?.[node.id],
     rules: reading.rules?.[node.id],
+    ...(reading.drawnAs?.[node.id] === undefined ? {} : { drawnAs: reading.drawnAs[node.id] }),
     children: withStrays(
       reading,
       node.id,

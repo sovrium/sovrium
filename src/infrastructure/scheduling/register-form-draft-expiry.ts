@@ -10,12 +10,9 @@ import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { purgeExpiredFormDrafts } from '@/application/use-cases/forms/purge-expired-form-drafts'
 import { describeSweepFailure } from '@/infrastructure/database/read-write-sweep'
 import { logError, logInfo } from '@/infrastructure/logging/logger'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { armHourlySweep } from './arm-sweep-schedule'
 import type { FormSubmissionRepository } from '@/application/ports/repositories/forms/form-submission-repository'
 import type { App } from '@/domain/models/app'
-
-/** Every hour, on the hour: a resume link's life is counted in minutes at the finest. */
-const DRAFT_EXPIRY_CRON_EXPRESSION = '0 * * * *'
 
 /** Stable scheduler job ids so re-registration (config reload) is idempotent. */
 const DRAFT_EXPIRY_JOB_ID = 'form-draft-expiry'
@@ -47,7 +44,8 @@ const sweepOnce = (app: App, when: 'boot' | 'scheduled') =>
 
 /**
  * Delete expired form drafts (`saveAndResume`) once at start-up — for the
- * links that expired while the server was stopped — and then every hour.
+ * links that expired while the server was stopped — and then every hour, at
+ * the app's hourly maintenance minute.
  * Registered whatever the config declares: drafts of a form since removed are
  * swept too.
  */
@@ -60,18 +58,11 @@ export const registerFormDraftExpiryScheduler = (
     yield* scheduler.runOnce(() => sweepOnce(app, 'boot').pipe(Effect.provide(services)), {
       jobId: BOOT_SWEEP_JOB_ID,
     })
-    return yield* scheduler
-      .schedule(
-        DRAFT_EXPIRY_CRON_EXPRESSION,
-        () => sweepOnce(app, 'scheduled').pipe(Effect.provide(services)),
-        { jobId: DRAFT_EXPIRY_JOB_ID, timezone: resolveOperatorTimezone(process.env) }
-      )
-      .pipe(
-        Effect.catch((err) =>
-          Effect.sync(() => {
-            logError('[form-drafts] failed to arm the draft-expiry sweep', err)
-            return undefined
-          })
-        )
-      )
+    // Hourly, at the app's maintenance minute: a resume link's life is counted
+    // in minutes at the finest.
+    return yield* armHourlySweep(scheduler, app.name, {
+      jobId: DRAFT_EXPIRY_JOB_ID,
+      armFailure: '[form-drafts] failed to arm the draft-expiry sweep',
+      sweep: sweepOnce(app, 'scheduled').pipe(Effect.provide(services)),
+    })
   })

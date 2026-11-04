@@ -7,6 +7,9 @@ intro: |
   tab; a product opens in a drawer with every movement that made its stock. Stock is the signed
   ledger per warehouse, Orders the customer orders by status, Suppliers the lead times, and the
   Assistant answers from all of it.
+audience: >-
+  A small distributor that keeps stock in its own warehouses: the operators who receive, pick,
+  move and count, and the stock manager who also deletes records.
 glance:
   - '**Tables** (6): suppliers, warehouses, products, stock_movements, orders, purchase_orders'
   - '**Pages** (6): products (`/`), stock, orders, suppliers, assistant, sign-in'

@@ -21,6 +21,7 @@ Run the core loop from `sovrium-app` underneath this skill: edit → `sovrium va
 - Shared chrome (a sidebar, a header) belongs in a page `layout`, not copied into every page. Manual: `sovrium docs pages/pages-layouts-access`.
 - `access` decides who may open a page: `all`, `authenticated`, a role list, or `{ require, redirectTo }`. A visitor who may not see a page gets 404.
 - In a multilingual app, every page exists under each language prefix; see `sovrium docs app-schema/languages`.
+- A signing flow's page is a page like any other with a `:token` segment in its path (`/sign/:token`), named by the flow's `surface.page`. It opens only through a signing link, without an account; its components read `$signing` (the statement, the signer's name, the fields `surface.fields` lists), and its `signature-pad`, given the signer's `field` and `statement: $signing.statement`, signs as the person the link was sent to. Give it no navigation into the rest of the app: the signer has no account there. Manual: `sovrium docs signatures/signing-flows`.
 
 ## Picking components
 
@@ -44,11 +45,13 @@ Run the core loop from `sovrium-app` underneath this skill: edit → `sovrium va
 - **To add a record from a page, declare the form in `forms` with `submitTo.table` and place it with a `form` component carrying `formRef: <name>`** — on the page, in a dialog, in a tab. The page `form` component never creates a row on its own: it edits the record a page shows (a `crud` update action), posts to an endpoint of yours, or signs someone in or up. Never give it a create action; that mode was removed and is refused. Manual: `sovrium docs data-components/data-components-forms`.
 - Who may submit is set on the form: `sovrium docs form-delivery/form-access`. Anti-spam, availability windows and file uploads are in the same section.
 - Every field has a visible label, a helpful error message, and a success state that says what happens next.
+- A form's `signature` field stores a drawn or typed signature through `bind`: `{ column }` writes it into a `signature` field of the row the form creates, `{ flow, signer }` signs for a signing flow when the form sits on that flow's page. A `signature` field is never filled by a value the page sends, so never map a signature into `submitTo.mapping`. Manual: `sovrium docs forms/form-fields`.
 
 ## Design tokens
 
 - Read the app's brief before touching anything (`sovrium design-system <config>`) and use its tokens, voice and principles as they are; never a colour, size or font written inline on one component.
 - Adding or changing a token, the palette, dark colours, fonts, the voice, or the style of every instance of a type is the `sovrium-design` skill.
+- A design agent's proposal (from the project's `DESIGN.md`) is input, never output: rebuild it as page config from existing components, with the app's tokens, and send any new colour or face to `sovrium-design`.
 
 ## Plan before you build
 

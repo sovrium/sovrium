@@ -31,7 +31,7 @@ export const renderTemplateSection = (section: TemplateSection): string =>
   `## ${section.heading}\n\n${section.body}\n`
 
 /** Render one glance bullet: `- ` on its first line, two spaces on each continuation. */
-const renderGlanceBullet = (bullet: string): string =>
+export const renderGlanceBullet = (bullet: string): string =>
   `${bullet
     .split('\n')
     .map((line, index) => (index === 0 ? `- ${line}` : `  ${line}`))

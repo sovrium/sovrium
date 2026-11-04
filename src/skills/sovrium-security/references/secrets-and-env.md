@@ -7,10 +7,11 @@
 - What `$env` resolves, and what it never does
 - Connections
 - The two deployment secrets
+- The signing variables
 - Backups
 - Checks
 
-Manual: `sovrium docs automations/automation-env-vars`, `sovrium docs automations/automation-connections`, `sovrium docs operations/security-hardening`, `sovrium docs cli-api/cli-admin`, `sovrium docs cli-api/backup-restore`.
+Manual: `sovrium docs automations/automation-env-vars`, `sovrium docs automations/automation-connections`, `sovrium docs operations/security-hardening`, `sovrium docs cli-api/cli-admin`, `sovrium docs cli-api/backup-restore`, `sovrium docs operations/signing-keys`.
 
 ## Where a secret may live
 
@@ -47,6 +48,16 @@ Credentials for an external service go in a connection under the top-level `conn
 
 Rotating either has a cost (people sign in again, integrations reconnect). Plan it; do it at once after a leak.
 
+## The signing variables
+
+An app with a signing flow reads up to four more, all optional except one:
+
+- **`SIGNATURE_OTP_SECRET`**: required as soon as one flow declares `verify`, at least 32 characters; the server refuses to start without it and names the flow. A new one makes every code already sent fail; signers ask for another.
+- **`SIGNATURE_SEAL_KEY`** with **`SIGNATURE_SEAL_CERT_CHAIN`**: the organisation's seal, both or neither. The key is a private key in clear: keep it in the host's secret store, never in a file the app's directory holds or a backup copies unencrypted. An encrypted or too weak key refuses the start with the reason.
+- **`SIGNATURE_TSA_URL`**: a timestamp authority, which anchors the evidence outside the server. Without one, whoever runs the server could rewrite a request's evidence whole; say so to the operator rather than presenting the evidence as proof against the operator.
+
+A self-signed seal is shown as untrusted by PDF readers. That is a trust choice for the operator, not a vulnerability; report it as such.
+
 ## Backups
 
 A `sovrium backup` archive holds every row and, when the key lives in the data directory, the key file: whoever holds it can decrypt stored credentials and, unless `AUTH_SECRET` is set separately, sign a session as any user. Encrypt archives before they leave the machine, restrict who reads them, keep them off shared drives, and test a restore.
@@ -60,4 +71,5 @@ A `sovrium backup` archive holds every row and, when the key lives in the data d
 - [ ] every env entry holding a credential keeps secret at its default
 - [ ] the console's environment page lists no declared variable without a use (safe to remove)
 - [ ] the encryption key exists in a second, offline place
+- [ ] a flow with verify → SIGNATURE_OTP_SECRET set; a seal key → held in the secret store, not on disk beside the app
 ```

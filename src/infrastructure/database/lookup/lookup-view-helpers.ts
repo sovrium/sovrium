@@ -12,7 +12,7 @@ import {
   emptyArrayLiteral,
   nonEmptyValuePredicate,
 } from '../sql/dialect-ddl'
-import { generateSqlCondition } from '../table-queries/filter-operators'
+import { generateSqlCondition } from '../table-queries/filter-ddl-text'
 import { compileFilterTree } from '../table-queries/filter-tree'
 import type { Table } from '@/domain/models/app/tables'
 import type { ViewFilterCondition, ViewFilterNode } from '@/domain/models/app/tables/views/filters'

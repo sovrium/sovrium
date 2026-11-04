@@ -24,6 +24,8 @@ import { validateAllSelectEmptyOptions } from './pages/select-empty-option-valid
 import { validateAllNativeSelects } from './pages/select-native-validation'
 import { validateAllSelectOptionSources } from './pages/select-option-source-validation'
 import { validateAllSystemSourceReferences } from './pages/system-source-validation'
+import { validateAllSignatureFlows } from './signatures/signatures-validation'
+import { validateDateTimeFormats } from './tables/fields/field-types/date-time/datetime-format-validation'
 import { validateReadStateCountNames } from './tables/read-state-validation'
 import { validateAllTablePermissionGroups } from './tables/table-permission-groups-validation'
 import { validateTranslatableContent } from './tables/translatable-validation'
@@ -98,7 +100,8 @@ const validateSelectDeclarations = (
  * The declaration checks closing the final filter, as one branch: table permission groups, the
  * groups and roles `auth` operators name, the table a `calendar/importIcs` step writes, notification
  * kinds, read-state counts, translatable fields against `languages`, consent purpose references,
- * then every `$env.NAME`.
+ * signing flows (their table, fields, page and connection, and the forms, triggers and steps that
+ * name one), a `datetime` field's `format` pattern, then every `$env.NAME`.
  * Grouped for the complexity-budget reason of {@link validateSelectDeclarations}.
  */
 const validateDeclaredReferences = (
@@ -108,7 +111,8 @@ const validateDeclaredReferences = (
     Parameters<typeof validateAllCalendarImports>[0] &
     Parameters<typeof validateNotificationKinds>[0] &
     Parameters<typeof validateTranslatableContent>[0] &
-    Parameters<typeof validateConsentReferences>[0]
+    Parameters<typeof validateConsentReferences>[0] &
+    Parameters<typeof validateAllSignatureFlows>[0]
 ): true | string => {
   const permissionGroupError = validateAllTablePermissionGroups(app)
   if (permissionGroupError !== true) return permissionGroupError
@@ -122,6 +126,8 @@ const validateDeclaredReferences = (
     validateReadStateCountNames(app),
     validateTranslatableContent(app),
     validateConsentReferences(app),
+    validateAllSignatureFlows(app),
+    validateDateTimeFormats(app),
   ]
   return socialError.find((verdict) => verdict !== true) ?? validateAllEnvReferences(app)
 }

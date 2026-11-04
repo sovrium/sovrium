@@ -78,7 +78,7 @@ const definitionIdOnce = (automation: Automation) => {
  * header says there must never be.
  */
 const buildCronCallback = (input: CronCallbackInput) => (): Effect.Effect<void, unknown> =>
-  // Read on every tick: the scheduler builds this Effect once and re-runs it.
+  // Read when the Effect runs, at the tick: never when it is built.
   // One run per tick: an entry declared earlier that falls due at the same
   // instant starts it, under its own name, and this job lets the tick pass.
   Clock.currentTimeMillis.pipe(

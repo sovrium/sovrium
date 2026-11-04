@@ -91,6 +91,7 @@ export {
   computeTableSummaryRowClasses,
   computeTableSummaryCellClasses,
   computeTableEmptyStateClasses,
+  computeTableCompactEmptyStateClasses,
   computeTableSkeletonBarClasses,
   computeTableAddRowClasses,
   computeTableAddRowTriggerClasses,

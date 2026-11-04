@@ -10,7 +10,7 @@ import type { DocsRootCrumb } from '@/presentation/render/markdown/docs-root-cru
 import type { CollectionNavEntry } from '@/presentation/render/resolve/content-dir-lister'
 
 /**
- * The docs-article breadcrumb (`<nav aria-label="Breadcrumb">`).
+ * The docs-article breadcrumb (a `<nav>` named by `breadcrumb.label`).
  *
  * Root crumb (position 1):
  *   - `rootCrumb` PRESENT (a ZONED Sovrium-docs collection) → the active zone tab
@@ -34,6 +34,8 @@ interface DocsArticleBreadcrumbProps {
   readonly rootCrumb: DocsRootCrumb | undefined
   /** Breadcrumb "Home" label for the non-zoned fallback. */
   readonly homeLabel: string
+  /** The breadcrumb's accessible name, in the page language. */
+  readonly label: string
 }
 
 const crumbLinkClass =
@@ -106,11 +108,12 @@ export function DocsArticleBreadcrumb({
   current,
   rootCrumb,
   homeLabel,
+  label,
 }: DocsArticleBreadcrumbProps): Readonly<ReactElement> {
   const leadingCrumbs = buildLeadingCrumbs(current, rootCrumb, homeLabel)
   return (
     <nav
-      aria-label="Breadcrumb"
+      aria-label={label}
       data-component-type="breadcrumb"
       className="min-w-0 flex-1 text-sm"
     >

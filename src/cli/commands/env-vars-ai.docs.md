@@ -4,7 +4,7 @@
 
 ## Provider
 
-AI is disabled until a provider is set, and an unrecognised value aborts the boot rather than failing silently later. Leaving it unset is not silent either when it matters: if the config actually uses AI, the startup banner warns that agents are inert and AI fields fall back to their baseline. An app with no AI surface starts without that warning.
+AI is disabled until a provider is set, and an unrecognised value aborts the boot rather than failing silently later. So does a value outside what its variable accepts, such as `AI_TEMPERATURE=1.5` or `AI_MAX_TOKENS=-5`: the message names the variable and the value it was given. Leaving it unset is not silent either when it matters: if the config actually uses AI, the startup banner warns that agents are inert and AI fields fall back to their baseline. An app with no AI surface starts without that warning.
 
 | Variable                  | Default          | Description                                                                                                                                                            |
 | ------------------------- | ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -13,7 +13,7 @@ AI is disabled until a provider is set, and an unrecognised value aborts the boo
 | `AI_BASE_URL`             | `mistral` only   | Endpoint URL; required for `ollama` and `openai-compatible`, and today for `openai`, `anthropic` and `google`; optional for `mistral`, whose public API is the default |
 | `AI_MODEL`                | per provider     | Model identifier                                                                                                                                                       |
 | `AI_TEMPERATURE`          | provider default | Sampling temperature, 0 to 1 inclusive                                                                                                                                 |
-| `AI_MAX_TOKENS`           | provider default | Maximum output tokens                                                                                                                                                  |
+| `AI_MAX_TOKENS`           | provider default | Maximum output tokens, a positive whole number                                                                                                                         |
 | `AI_VISION`               | unset (off)      | `1` declares the model able to read pictures; a chat message carrying a PNG, JPEG, GIF or WebP is refused with `422` without it                                        |
 | `AI_EMBEDDING_MODEL`      | —                | Embedding model identifier                                                                                                                                             |
 | `AI_EMBEDDING_DIMENSIONS` | —                | Embedding vector dimensions                                                                                                                                            |

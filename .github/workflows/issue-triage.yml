@@ -39,7 +39,7 @@ on:
 permissions: {}
 
 env:
-  DOMAIN_VALUES: 'accessibility account admin ai analytics api assets authentication automations buckets cli design design-system ecoconception footprint forms infrastructure internationalization links migrations pages records-api security tables templates theming user-management desktop docs toolchain'
+  DOMAIN_VALUES: 'accessibility account admin ai analytics api assets authentication automations buckets cli design design-system ecoconception footprint forms infrastructure internationalization links migrations pages records-api security signatures tables templates theming user-management desktop docs toolchain'
   BUG_KIND_VALUES: 'regression crash-or-data-loss wrong-behaviour performance ux-a11y compat'
   DOMAIN_HEADING: 'Domain'
   BUG_KIND_HEADING: 'Kind of bug'

@@ -14,6 +14,7 @@ import { CronTriggerSchema } from './cron'
 import { FormTriggerSchema } from './form'
 import { ManualTriggerSchema } from './manual'
 import { RecordTriggerSchema } from './record'
+import { SignatureTriggerSchema } from './signature'
 import { WebhookTriggerSchema } from './webhook'
 
 /**
@@ -29,12 +30,13 @@ export const TriggerSchema = Schema.Union([
   AutomationCallTriggerSchema,
   AutomationFailureTriggerSchema,
   CommentTriggerSchema,
+  SignatureTriggerSchema,
 ]).pipe(
   Schema.annotate({
     identifier: 'Trigger',
     title: 'Automation Trigger',
     description:
-      'Event that starts an automation: webhook, cron, record change, auth event, form submission, manual trigger, automation call, automation failure, or comment creation',
+      'Event that starts an automation: webhook, cron, record change, auth event, form submission, manual trigger, automation call, automation failure, comment creation, or a signing request event',
   })
 )
 

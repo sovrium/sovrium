@@ -100,6 +100,13 @@ export const findSection = (
  * unique across the whole manual (asserted in `docs-structure.test.ts`) and a
  * reader who has just seen `llms-txt` in a search result should not have to
  * look up which section it lives in to read it.
+ *
+ * A `section/slug` whose section part no longer holds the article falls back
+ * to the slug alone. Sections are split and regrouped as the manual grows,
+ * while slugs stay put, so an address written against an earlier release (in
+ * a bookmark, a script, or an Agent Skill already installed) keeps answering
+ * with the same article. An unknown slug still answers `undefined`, whatever
+ * section it is filed under.
  */
 export const findArticle = (
   sections: readonly ManualSection[],
@@ -107,10 +114,8 @@ export const findArticle = (
 ): LocatedArticle | undefined => {
   const [head, ...rest] = address.split('/')
   const slug = rest.length === 0 ? head : rest.join('/')
-  return locatedArticles(sections).find(
-    (located) =>
-      located.article.slug === slug && (rest.length === 0 || located.section.slug === head)
-  )
+  const named = locatedArticles(sections).filter((located) => located.article.slug === slug)
+  return named.find((located) => located.section.slug === head) ?? named[0]
 }
 
 /**

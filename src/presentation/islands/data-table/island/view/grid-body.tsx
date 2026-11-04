@@ -18,6 +18,7 @@ import { useSpansPages } from '../../pagination/use-spans-pages'
 import { SessionControls } from '../../view-options/session-controls'
 import { ToolbarViewOptions } from '../../view-options/toolbar-view-options'
 import { SelectionBar } from '../bulk-actions'
+import { drawsCompactFill } from '../fill-empty'
 import { GridCaptionContext } from '../grid-caption'
 import { TableContent } from '../table-content'
 import { PhoneAddRow, PhoneRows } from './phone-rows'
@@ -183,6 +184,24 @@ export function GridBody(props: GridBodyProps) {
   )
 }
 
+/**
+ * Whether the bottom bar numbers pages and holds the selection. A filling grid
+ * holding no row has nothing to page through or check, so it draws neither.
+ */
+function footerBars(props: GridBodyProps): {
+  readonly paged: boolean
+  readonly selectable: boolean
+} {
+  const compact = drawsCompactFill(props.grid.layout, {
+    ...props.grid,
+    rowCount: props.table.getRowModel().rows.length,
+  })
+  return {
+    paged: showsPagerAt(props, 'bottom') && !compact,
+    selectable: props.selection !== undefined && !compact,
+  }
+}
+
 const LOAD_MORE_FOOTER_CLASSES = `${computeTablePagerClasses({ position: 'bottom' })} justify-center`
 
 /**
@@ -191,12 +210,12 @@ const LOAD_MORE_FOOTER_CLASSES = `${computeTablePagerClasses({ position: 'bottom
  * while more rows exist: at the end there is nothing to offer.
  */
 function GridFooter(props: GridBodyProps & { readonly spansPages: boolean }) {
-  const paged = showsPagerAt(props, 'bottom')
+  const { paged, selectable } = footerBars(props)
   // A caption is drawn in the bottom bar, so a grid declaring one always has it.
   const captioned = useContext(GridCaptionContext) !== undefined
   return (
     <>
-      {[paged, props.selection !== undefined, captioned].includes(true) && (
+      {[paged, selectable, captioned].includes(true) && (
         <BottomBar
           props={props}
           paged={paged && props.spansPages}

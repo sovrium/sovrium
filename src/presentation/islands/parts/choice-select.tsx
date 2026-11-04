@@ -35,8 +35,9 @@ import {
  *
  * The leading "no answer" choice, when the surface offers one, is named by
  * `emptyLabel` (the field's placeholder): an optional field can be set back to
- * empty, and a required one starts on it, so nothing is answered for a reader
- * who never opened the list.
+ * empty with it. A required field lists no such row; it starts on nothing, its
+ * placeholder the trigger's text, so nothing is answered for a reader who never
+ * opened the list.
  *
  * Base UI's Select is heavy, and most forms and drawers never draw a choice:
  * it is loaded on demand (`choice-select-list`, one chunk every island shares,
@@ -210,10 +211,15 @@ const HOLDER_CLASSES = 'relative block w-full [&>input]:inset-0 [&>input]:m-0! [
 
 /** The choice field — see the module note. */
 export function ChoiceSelect(props: ChoiceSelectProps): ReactElement {
-  const { emptyLabel, options } = props
+  const { emptyLabel, options, required } = props
+  // A required choice lists only its real options: its placeholder stays the
+  // trigger's text, never an option a reader could pick to answer nothing.
   const items = useMemo<readonly ChoiceItem[]>(
-    () => (emptyLabel === undefined ? options : [{ value: null, label: emptyLabel }, ...options]),
-    [emptyLabel, options]
+    () =>
+      emptyLabel === undefined || required === true
+        ? options
+        : [{ value: null, label: emptyLabel }, ...options],
+    [emptyLabel, options, required]
   )
   const trigger = triggerAttributes(props)
   const List = useLoadedList()

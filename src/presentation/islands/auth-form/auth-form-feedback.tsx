@@ -11,16 +11,7 @@ import {
   computeAuthFeedbackBannerClasses,
 } from '@/presentation/design/form-layout-classes'
 import type { AuthState } from './auth-form-submit'
-
-/**
- * What a sign-in form says when the email and password do not match, resolved
- * on the server for this instance (`credentialError`): with no mail, no link.
- */
-export interface CredentialRefusal {
-  readonly title: string
-  readonly description?: string
-  readonly recovery?: { readonly label: string; readonly href: string }
-}
+import type { CredentialRefusal } from '@/domain/models/app/pages/components/action-operations'
 
 /**
  * The next step, with the recovery link in it: where the line already holds

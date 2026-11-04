@@ -2,7 +2,7 @@
 
 > The four places a query runs in Sovrium (a bound component, the records endpoint, the ⌘K palette, and the static public-page index), and which one a given configuration reaches.
 
-Search is not a feature domain with a configuration block of its own. There is no `app.search`: a table declares what is searchable, a component declares where a search box appears, and each query runs in the place that owns the data. Everything happens inside your own database or inside the visitor's browser: no Elasticsearch, no hosted index, no third-party service to sign up for.
+Search is not a feature domain with a configuration block of its own. There is no `app.search`: a table declares what is searchable, a component declares where a search box appears, and each query runs in the place that owns the data. Everything happens inside your own database or the visitor's browser, with no Elasticsearch, hosted index or third-party service to sign up for.
 
 ## Four mechanisms, and what each one searches
 
@@ -54,7 +54,7 @@ The whole bound set travels to the browser, so this mode suits a reference list,
 | `trigram` | Intended: typo-tolerant matching                    | Accepted by `sovrium validate`; searches exactly as `client` does. |
 | `hybrid`  | Intended: ranked words with a fuzzy fallback        | Accepted by `sovrium validate`; searches exactly as `client` does. |
 
-With `fts`, the page no longer carries the whole bound set: it renders the first `limit` rows the binding selects (at most 100, the endpoint's largest page, which is also the size used when `limit` is omitted), and each query the visitor types is sent to `GET /api/tables/<table>/records?q=…`, within the binding's own `filter`. What comes back is what `?q=` answers (a ranked word search when the table declares `fullTextSearch` fields, a substring search otherwise), so a search list over a table of a million log lines costs one indexed query per keystroke rather than a million rows in the page. Clearing the box brings back the first rows. `searchFields` does not narrow an `fts` search: the fields searched are the ones `?q=` searches.
+With `fts`, the page no longer carries the whole bound set: it renders the first `limit` rows the binding selects (at most 100, the endpoint's largest page, which is also the size used when `limit` is omitted), and each query the visitor types is sent to `GET /api/tables/<table>/records?q=…`, within the binding's own `filter`. What comes back is what `?q=` answers (a ranked word search when the table declares `fullTextSearch` fields, a substring search otherwise), so a search list over a table of a million log lines costs one indexed query per keystroke instead of a million rows in the page. Clearing the box brings back the first rows. `searchFields` does not narrow an `fts` search: the fields searched are the ones `?q=` searches.
 
 ```yaml
 name: monitoring

@@ -22,9 +22,11 @@ import {
   hasUpdatePermissionForRoles,
 } from '@/domain/models/app/auth/permission-evaluator-service'
 import { seesPresence } from '@/domain/models/app/auth/presence-audience-service'
+import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
+import { forbiddenWriteFields } from '@/domain/models/app/tables/field-write-permission-service'
 import {
   appListsUserDirectory,
-  tablesHoldingPersonField,
+  pickedPersonFieldNames,
 } from '@/domain/models/app/tables/fields/field-types/user/user-directory-need-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { errorBody, notFound, unauthorized } from '@/presentation/api/runtime/auth-helpers'
@@ -62,10 +64,22 @@ import type { Context, Hono } from 'hono'
  * ## Who it answers
  *
  * Only a caller with a NEED to pick a person: she may create or update records
- * of a table holding a `user`, `created-by` or `updated-by` field, or her role
- * is shown presence, or a page of the app lists the directory (a need every
- * signed-in caller shares). Anyone else signed in is answered the standard
- * `404`, as if the list did not exist for her.
+ * of a table holding a `user` field she may write — her field permissions
+ * honoured, as the records API honours them — or her role is shown presence,
+ * or a page of the app lists the directory (a need every signed-in caller
+ * shares). A `created-by` or `updated-by` field gives no such need: the engine
+ * fills it. Anyone else signed in is answered the standard `404`, as if the
+ * list did not exist for her.
+ *
+ * ## Whom it lists
+ *
+ * In an app that declares `auth.scopeTables`, a caller whose role is not
+ * admin-equivalent is listed only the accounts sharing at least one record of
+ * the same scope table with her through their `user_access` assignments —
+ * herself included when she holds one; a caller holding none is listed no one.
+ * The narrowing is part of the query, so the presence filter and `?q=` search
+ * reach no one outside it either. An admin-equivalent role, and every caller of
+ * an app without scope tables, is listed every pickable account.
  *
  * ## Where the query lives
  *
@@ -120,13 +134,14 @@ const isShownPresence = (app: App, readerId: string) =>
 /**
  * Whether the reader needs the directory to pick a person, other than through
  * presence: a page of the app lists it, or she may create or update records of
- * a table holding a person field — judged by the records API's own evaluator,
- * over her role, her groups and, under row-level rules, her assignment roles.
+ * a table holding a `user` field she may write — judged by the records API's
+ * own evaluators, over her role, her groups and, under row-level rules, her
+ * assignment roles for the table, and over her role and groups for the field.
  */
 const needsDirectory = (app: App, readerId: string) =>
   Effect.gen(function* () {
     if (appListsUserDirectory(app)) return true
-    const tables = tablesHoldingPersonField(app)
+    const tables = (app.tables ?? []).filter((table) => pickedPersonFieldNames(table).length > 0)
     if (tables.length === 0) return false
     const underRowRules = tables.some((table) => table.rowLevelPermissions !== undefined)
     // effect-swallow: a caller whose identity cannot be read shows no need; she is answered the 404.
@@ -141,11 +156,34 @@ const needsDirectory = (app: App, readerId: string) =>
     const [role, groups, accessRoles] = identity.success
     return tables.some((table) => {
       const roles = tableEffectiveRoles(table, { role, groups, accessRoles })
-      return (
+      const writesRecords =
         hasCreatePermissionForRoles(table, roles, app) ||
         hasUpdatePermissionForRoles(table, roles, app)
+      return (
+        writesRecords &&
+        pickedPersonFieldNames(table).some(
+          (field) =>
+            forbiddenWriteFields(app, table.name, { role, groups }, { [field]: true }).length === 0
+        )
       )
     })
+  })
+
+/**
+ * The scope narrowing of the reader's listing: in an app declaring
+ * `auth.scopeTables`, the accounts sharing a scope record with her — unless her
+ * role is admin-equivalent. `undefined` when the listing is not narrowed. A
+ * role that cannot be read narrows: the listing then shows only who shares a
+ * record with her, never more.
+ */
+const scopeOf = (app: App, readerId: string) =>
+  Effect.gen(function* () {
+    const tableSlugs = app.auth?.scopeTables ?? []
+    if (tableSlugs.length === 0) return undefined
+    // effect-swallow: an unreadable role is judged not admin-equivalent, so the listing narrows.
+    const role = yield* Effect.result(getUserRole(readerId, app))
+    if (role._tag === 'Success' && isAdminEquivalent(role.success, app)) return undefined
+    return { userId: readerId, tableSlugs }
   })
 
 /**
@@ -227,15 +265,18 @@ const directoryProgram = (c: Context, app: App, readerId: string) =>
       return yield* respondWith(c, Effect.succeed({ users: [] }), userDirectoryResponseSchema)
     }
 
+    const scope = yield* scopeOf(app, readerId)
     const listed = yield* Effect.result(
       Effect.gen(function* () {
         const repository = yield* UserDirectoryRepository
         const people = yield* OnlinePeople
-        // Narrowed to who is (or is not) online in the query itself: one page in
-        // the directory's order, however far into it those people sort.
+        // Narrowed to who is (or is not) online, and to who shares a scope
+        // record with the reader, in the query itself: one page in the
+        // directory's order, however far into it those people sort.
         return yield* repository.listPickableUsers({
           term,
           limit,
+          scope,
           ids:
             online === undefined ? undefined : { within: online, ids: people.onlineOf(app.name) },
         })

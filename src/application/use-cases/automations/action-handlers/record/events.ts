@@ -106,7 +106,33 @@ export const createAndAnnounce = (input: {
     throughChannel(input.runContext)
   ).pipe(Effect.withSpan('automations.create-and-announce'))
 
-/** Update one record through the update road, its automations started through the channel. */
+/**
+ * The values a record step hands an update, with every absent one filled in as
+ * an empty value.
+ *
+ * A template inside a loop that reads a key its item does not carry
+ * (`{{loop.item.name}}` on `{ ref: 'ISS-1' }`) resolves to `undefined`, where
+ * the same read at the top of a run gives an empty string. Left as it is, the
+ * key still names a column and the update is built with a column and no value.
+ * Read as the empty value a top-level template gives instead, it is stored as
+ * an empty value is (`templatedWriteValue`: text keeps `''`, a number or a key
+ * becomes `NULL`), so the update, the upsert and the batch operators answer a
+ * missing key the same way, wherever the template sits.
+ */
+export const withAbsentValuesEmpty = (
+  fields: Readonly<Record<string, unknown>>
+): Readonly<Record<string, unknown>> =>
+  Object.values(fields).includes(undefined)
+    ? Object.fromEntries(
+        Object.entries(fields).map(([name, value]) => [name, value === undefined ? '' : value])
+      )
+    : fields
+
+/**
+ * Update one record through the update road, its automations started through
+ * the channel. A value a template could not find is written as an empty value
+ * ({@link withAbsentValuesEmpty}), never as a column with nothing in it.
+ */
 export const updateAndAnnounce = (input: {
   readonly session: ReturnType<typeof buildSyntheticSession>
   readonly tableName: string
@@ -123,12 +149,40 @@ export const updateAndAnnounce = (input: {
         ...STEP_WRITE,
         ...{ session: input.session, app: input.app, tableName: input.tableName },
         recordId: input.recordId,
-        fields: normalizeTemplatedWriteValuesIn(input.app.tables, input.tableName, input.fields),
+        fields: normalizeTemplatedWriteValuesIn(
+          input.app.tables,
+          input.tableName,
+          withAbsentValuesEmpty(input.fields)
+        ),
         ...(input.linkReader === undefined ? {} : { linkReader: input.linkReader }),
       },
       throughChannel(input.runContext)
     )
   ).pipe(Effect.withSpan('automations.update-and-announce'))
+
+/**
+ * Update one record with values the engine authored (a signing flow's status),
+ * written as given: no templated-value normalising, which would read the
+ * engine's mark as text. Its automations start through the run's channel.
+ */
+export const updateEngineValuesAndAnnounce = (input: {
+  readonly session: ReturnType<typeof buildSyntheticSession>
+  readonly app: App
+  readonly tableName: string
+  readonly recordId: string
+  readonly fields: Readonly<Record<string, unknown>>
+  readonly runContext: ActionRunContext | undefined
+}) =>
+  Effect.asVoid(
+    updateRecordVia(
+      {
+        ...STEP_WRITE,
+        ...{ session: input.session, app: input.app, tableName: input.tableName },
+        ...{ recordId: input.recordId, fields: input.fields },
+      },
+      throughChannel(input.runContext)
+    )
+  ).pipe(Effect.withSpan('automations.update-engine-values-and-announce'))
 
 /** Delete one record through the delete road (to the trash), its automations started through the channel. */
 export const deleteAndAnnounce = (input: {

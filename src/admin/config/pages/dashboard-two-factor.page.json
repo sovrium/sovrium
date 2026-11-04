@@ -1,0 +1,113 @@
+{
+  "id": "dashboard-two-factor",
+  "name": "dashboard-two-factor",
+  "path": "/two-factor",
+  "requires": ["auth.twoFactor"],
+  "meta": {
+    "title": "$t:admin.meta.twoFactor",
+    "noindex": true
+  },
+  "components": [
+    {
+      "component": "console-password-card",
+      "key": "section",
+      "vars": {
+        "content": "$t:admin.twoFactor.heading",
+        "content2": "$t:admin.twoFactor.blurb"
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "two-factor-ways",
+          "element": "div",
+          "props": {
+            "className": "flex flex-col gap-5 [&:has(#admin-two-factor-recovery:not([style*=none]))_#admin-two-factor-form]:hidden"
+          },
+          "children": [
+            {
+              "type": "form",
+              "props": {
+                "id": "admin-two-factor-form"
+              },
+              "action": {
+                "type": "auth",
+                "method": "verifyTwoFactor",
+                "factor": "totp",
+                "submitLabel": "$t:admin.twoFactor.submit",
+                "onSuccess": {
+                  "navigate": "/"
+                }
+              }
+            },
+            {
+              "type": "button",
+              "variant": "ghost",
+              "props": {
+                "aria-controls": "admin-two-factor-recovery",
+                "className": "self-start px-0"
+              },
+              "interactions": {
+                "click": {
+                  "toggleElement": "#admin-two-factor-recovery"
+                }
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "span",
+                  "props": {
+                    "className": "[[aria-expanded=true]_&]:hidden"
+                  },
+                  "content": "$t:admin.twoFactor.useRecoveryCode"
+                },
+                {
+                  "type": "text",
+                  "element": "span",
+                  "props": {
+                    "className": "hidden [[aria-expanded=true]_&]:inline"
+                  },
+                  "content": "$t:admin.twoFactor.useAuthenticator"
+                }
+              ]
+            },
+            {
+              "type": "container",
+              "props": {
+                "id": "admin-two-factor-recovery",
+                "style": {
+                  "display": "none"
+                },
+                "className": "flex flex-col gap-3"
+              },
+              "children": [
+                {
+                  "type": "form",
+                  "props": {
+                    "id": "admin-two-factor-recovery-form"
+                  },
+                  "action": {
+                    "type": "auth",
+                    "method": "verifyTwoFactor",
+                    "factor": "backupCode",
+                    "submitLabel": "$t:admin.twoFactor.submit",
+                    "onSuccess": {
+                      "navigate": "/"
+                    }
+                  }
+                }
+              ]
+            },
+            {
+              "type": "link",
+              "props": {
+                "href": "/login",
+                "className": "text-center text-sm underline-offset-4 hover:underline"
+              },
+              "content": "$t:admin.auth.backToSignIn"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

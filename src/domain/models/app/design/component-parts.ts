@@ -61,8 +61,10 @@ export const MARKDOWN_FRAME_PARTS = [
   'sidebar',
   'navGroup',
   'navGroupLabel',
+  'navGroupChevron',
   'navLink',
   'menuButton',
+  'drawer',
   'toc',
   'tocLinkActive',
   'article',
@@ -78,8 +80,15 @@ export const GALLERY_PARTS = ['grid', 'card', 'cover', 'body'] as const
 /** The pieces an event calendar draws inside its month grid. */
 export const CALENDAR_GRID_PARTS = ['event', 'day', 'dayNumber', 'columnHeader'] as const
 
-/** One key of `design.components`: an engine component type, or `markdown`. */
-export type StyledComponentKey = EngineComponentType | 'markdown'
+/**
+ * The pieces a menu draws in its open panel: the panel itself and each row
+ * in it. The panel is portalled out of the component, so these are the only
+ * way a class reaches it.
+ */
+const MENU_PANEL_PARTS = ['content', 'item'] as const
+
+/** One key of `design.components`: an engine component type, `markdown` or `consent-banner`. */
+export type StyledComponentKey = EngineComponentType | 'markdown' | 'consent-banner'
 
 /**
  * The parts each key draws BEYOND `root`. A key absent here draws `root` only.
@@ -87,13 +96,16 @@ export type StyledComponentKey = EngineComponentType | 'markdown'
 export const COMPONENT_PARTS = {
   carousel: GALLERY_PARTS,
   code: ['frame', 'caption', 'copy'],
+  'consent-banner': ['title', 'description', 'action'],
+  'dropdown-menu': MENU_PANEL_PARTS,
   'event-calendar': [...CALENDAR_GRID_PARTS, 'toolbar'],
   'file-preview': ['stage', 'toolbar'],
-  form: ['title', 'description', 'body', 'label', 'input', 'submit', 'error'],
+  form: ['title', 'description', 'body', 'label', 'input', 'submit', 'error', 'summary'],
   gallery: GALLERY_PARTS,
   kpi: ['value'],
   'language-switcher': ['link'],
   list: ['list', 'item', 'title', 'subtitle', 'meta'],
+  'navigation-menu': MENU_PANEL_PARTS,
   'record-field': PROSE_PARTS,
   select: ['trigger', 'label', 'icon', 'list'],
   sidebar: ['inner', 'nav', 'groupLabel', 'link', 'badge'],

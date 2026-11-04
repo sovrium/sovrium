@@ -38,9 +38,11 @@
  */
 
 import { sql } from 'drizzle-orm'
+import { Effect } from 'effect'
 import { linkTablesTouching } from '@/application/use-cases/seed/reset-app-data'
 import { explainWriteFailure } from '@/application/use-cases/seed/seed-write-failure'
 import { upsertProgram } from '@/application/use-cases/tables/batch-operations'
+import { seededSignaturesIn } from '@/application/use-cases/tables/signature-write-once-check'
 import {
   createRecordProgram,
   updateRecordProgram,
@@ -158,14 +160,14 @@ const createOne = async (step: {
     table: table.name,
     key: record.key,
   })
+  // A seeded signature is the operator's own, stored as imported.
   const result = await runTableProgram(
-    createRecordProgram({
-      session: input.session,
-      tableName: table.name,
-      fields: resolved.value,
-      app: input.app,
-      origin: '',
-    })
+    Effect.flatMap(seededSignaturesIn(input.app, table.name, [resolved.value]), ([fields]) =>
+      createRecordProgram({
+        ...{ session: input.session, tableName: table.name, app: input.app, origin: '' },
+        fields: fields ?? resolved.value,
+      })
+    )
   )
   if (result._tag === 'Failure') {
     const explained = explainWriteFailure(result.failure, {
@@ -230,12 +232,12 @@ const upsertChanged = async (
 ): Promise<{ readonly created: number; readonly updated: number }> => {
   if (changed.length === 0) return { created: 0, updated: 0 }
   const result = await runTableProgram(
-    upsertProgram(input.session, table.name, {
-      recordsData: changed,
-      fieldsToMergeOn: table.mergeOn,
-      returnRecords: true,
-      app: input.app,
-    })
+    Effect.flatMap(seededSignaturesIn(input.app, table.name, changed), (rows) =>
+      upsertProgram(input.session, table.name, {
+        ...{ recordsData: rows.map((row) => ({ ...row })), fieldsToMergeOn: table.mergeOn },
+        ...{ returnRecords: true, app: input.app },
+      })
+    )
   )
   if (result._tag === 'Failure') {
     // A batch upsert does not say WHICH row it rejected; the driver's reason names the field.

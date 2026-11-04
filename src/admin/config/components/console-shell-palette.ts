@@ -81,6 +81,13 @@ export const consoleShellPalette: TemplateNodeEncoded = {
           visibility: { declares: 'buckets' },
         },
         {
+          label: '$t:admin.crumb.signatures',
+          description: '$t:admin.nav.group.data',
+          icon: 'signature',
+          href: '/signatures',
+          visibility: { declares: 'signatures' },
+        },
+        {
           label: '$t:admin.crumb.connections',
           description: '$t:admin.nav.group.data',
           icon: 'plug',

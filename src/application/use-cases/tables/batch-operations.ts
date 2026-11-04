@@ -37,6 +37,11 @@ import { getManyToManyFieldSpecs } from './many-to-many-fields'
 import { announceRecordWrites } from './record-change-announcement'
 import { splitManyToManyFields } from './record-link-enrichment'
 import { refuseSelfLinkCycles } from './self-link-cycle-check'
+import {
+  settleBatchUpdateSignatures,
+  settleSignatureWrites,
+  writeOnceColumnsOf,
+} from './signature-write-once-check'
 import { upsertLinkTargetWrite } from './upsert-link-target-write'
 import { stampUpsertRows } from './upsert-row-stamping'
 import type { LinkReader } from './linked-row-visibility'
@@ -137,7 +142,7 @@ const stampBatchCreateRows = (
   userId: string,
   app: App | undefined,
   tableName: string,
-  recordsData: readonly Record<string, unknown>[]
+  recordsData: readonly Readonly<Record<string, unknown>>[]
 ): readonly Record<string, unknown>[] => {
   const dated = recordsData.map((fields) => storedFieldsOf(fields, app, tableName))
   if (isGuestSession(userId)) return dated
@@ -188,21 +193,15 @@ export function batchCreateProgram(config: {
 > {
   const { session, tableName, recordsData, returnRecords = false, app, linkReader } = config
   return Effect.gen(function* () {
-    yield* refuseBatchLinkTargets({
-      session,
-      tableName,
-      app,
-      writes: recordsData.map((fields) => ({ fields })),
-      reader: linkReader,
+    const writes = recordsData.map((fields) => ({ fields }))
+    yield* refuseBatchLinkTargets({ ...{ session, tableName, app, writes }, reader: linkReader })
+    // A first signature is checked and stamped, as on a single create.
+    const settled = yield* settleSignatureWrites({
+      ...{ app, tableName, writes },
     })
-
-    const stamped = stampBatchCreateRows(session.userId, app, tableName, recordsData)
-
+    const stamped = stampBatchCreateRows(session.userId, app, tableName, settled)
     const createdRecords = yield* createWithManyToManyLinks({
-      session,
-      tableName,
-      app,
-      recordsData: stamped,
+      ...{ session, tableName, app, recordsData: stamped },
     })
 
     // The records handed back hold no more than the writer's own read of them.
@@ -211,19 +210,9 @@ export function batchCreateProgram(config: {
     })
     // Transform records to API format with app schema for numeric coercion
     const transformed = transformRecords(echoed, { app, tableName })
-
-    // Use functional pattern to build response object
-    const response: { readonly created: number; readonly records?: readonly TransformedRecord[] } =
-      returnRecords
-        ? {
-            created: transformed.length,
-            records: transformed as TransformedRecord[],
-          }
-        : {
-            created: transformed.length,
-          }
-
-    return response
+    return returnRecords
+      ? { created: transformed.length, records: transformed as TransformedRecord[] }
+      : { created: transformed.length }
   }).pipe(announceRecordWrites(app), Effect.withSpan('tables.batch-create-program'))
 }
 
@@ -251,24 +240,26 @@ export function batchUpdateProgram(config: {
     const repo = yield* TableRepository
     // A many-to-one key a record already holds is not a new link.
     yield* refuseBatchLinkTargets({
-      session,
-      tableName,
-      app,
+      ...{ session, tableName, app, reader: linkReader },
       writes: recordsData.map((record) => ({
         fields: record.fields ?? {},
         held: repo.getRecord(session, tableName, record.id),
       })),
-      reader: linkReader,
     })
     // No record of the batch may end up its own ancestor, judged as if the whole batch landed.
     yield* refuseSelfLinkCycles({ app, session, tableName, records: recordsData })
-    const dated = stampBatchUpdateRows(session.userId, app, tableName, recordsData)
+    // A stored signature is kept, a first one checked and stamped, as on a single update.
+    const settled = yield* settleBatchUpdateSignatures({ app, tableName, session }, recordsData)
+    const dated = stampBatchUpdateRows(session.userId, app, tableName, settled)
     const accounts = namedAccounts(
       app,
       tableName,
       recordsData.map((record) => record.fields ?? {})
     )
-    const updatedRecords = yield* batch.batchUpdate(session, tableName, dated, { accounts, judge })
+    const writeOnce = writeOnceColumnsOf(app, tableName)
+    const updatedRecords = yield* batch.batchUpdate(session, tableName, dated, {
+      ...{ accounts, judge, writeOnce },
+    })
 
     // The records handed back hold no more than the writer's own read of them.
     const echoed = yield* omitFromWriteEchoWhenReturned(returnRecords, {
@@ -277,11 +268,9 @@ export function batchUpdateProgram(config: {
     // Transform records to API format with app schema for numeric coercion
     const transformed = transformRecords(echoed, { app, tableName })
 
-    const response: { readonly updated: number; readonly records?: readonly TransformedRecord[] } =
-      returnRecords
-        ? { updated: transformed.length, records: transformed as TransformedRecord[] }
-        : { updated: transformed.length }
-    return response
+    return returnRecords
+      ? { updated: transformed.length, records: transformed as TransformedRecord[] }
+      : { updated: transformed.length }
   }).pipe(announceRecordWrites(app), Effect.withSpan('tables.batch-update-program'))
 }
 
@@ -323,8 +312,11 @@ export function batchRestoreProgram(
   }).pipe(announceRecordWrites(app), Effect.withSpan('tables.batch-restore-program'))
 }
 
-/** Judge every link an upsert names, each update branch holding its matched row. */
-const refuseUpsertLinkTargets = (
+/**
+ * Judge every link an upsert names, each update branch holding its matched row,
+ * then settle its signatures against that row: the rows as they are to be written.
+ */
+const settledUpsertRows = (
   session: Readonly<UserSession>,
   tableName: string,
   params: {
@@ -340,9 +332,12 @@ const refuseUpsertLinkTargets = (
       fieldsToMergeOn: params.fieldsToMergeOn,
       hiddenIds: params.hiddenIds ?? [],
     })
+    const writes = params.recordsData.map(toWrite)
     yield* refuseBatchLinkTargets({
-      ...{ session, tableName, app: params.app, reader: params.linkReader },
-      writes: params.recordsData.map(toWrite),
+      ...{ session, tableName, app: params.app, reader: params.linkReader, writes },
+    })
+    return yield* settleSignatureWrites({
+      ...{ app: params.app, tableName, writes },
     })
   })
 
@@ -373,13 +368,13 @@ export function upsertProgram(
   return Effect.gen(function* () {
     const batch = yield* BatchRepository
     // Both branches are judged before either writes; a matched row is held, as on PATCH.
-    yield* refuseUpsertLinkTargets(session, tableName, params)
+    const settled = yield* settledUpsertRows(session, tableName, params)
     const { app } = params
     const { recordsData, insertOnlyFields } = stampUpsertRows(
       session.userId,
       app,
       tableName,
-      params.recordsData
+      settled
     )
     const result = yield* batch.upsert(session, tableName, recordsData, {
       fieldsToMergeOn: params.fieldsToMergeOn,
@@ -387,6 +382,7 @@ export function upsertProgram(
       hiddenIds: params.hiddenIds ?? [],
       accounts: namedAccounts(app, tableName, recordsData),
       judge: params.judge,
+      writeOnce: writeOnceColumnsOf(app, tableName),
     })
 
     // The records handed back hold no more than the writer's own read of them.

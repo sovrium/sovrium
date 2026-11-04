@@ -14,6 +14,7 @@ import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { ViewerIdentity } from '@/domain/models/app/pages/component-session-visibility-service'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { CallerCapability } from '@/domain/models/app/pages/components/visibility'
+import type { SigningPage } from '@/domain/models/app/signatures/signing-page-service'
 import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
 import type { CurrentUserContext } from '@/domain/models/app/tables/row-level-evaluator-service'
 import type {
@@ -71,9 +72,8 @@ export type CallerTableView = {
 }
 
 /**
- * Read a table of `app` as the caller holding `session` (none: a visitor).
- * Supplied by the route layer, which may reach the table use-cases the renderer
- * may not, so a page hands its reader exactly what the table API would.
+ * Read a table of `app` as the caller holding `session` (none: a visitor). Supplied by the
+ * route layer, which reaches the table use-cases, so a page reads what the table API answers.
  */
 export type ReadTableAsCaller = (
   app: App,
@@ -96,9 +96,8 @@ export type ReadRecordLabels = (
 ) => Promise<readonly (Readonly<Record<string, string | readonly string[]>> | undefined)[]>
 
 /**
- * The context `tableName`'s row-level rule judges `reader` by (none: a
- * visitor), as the records API loads it: her assignments, and the ids each
- * `contains` or relationship leaf admits. Read once per request and table.
+ * The context `tableName`'s row-level rule judges `reader` by (none: a visitor), as the records API
+ * loads it: her assignments, and the ids each `contains` or relationship leaf admits; once per table.
  */
 export type LoadRowRuleContext = (
   app: App,
@@ -334,6 +333,7 @@ export class PageRenderer extends Context.Service<
         readonly readQueryMasks?: ReadQueryMasks
         /** The download-address signer a `file-preview` draws its file through. */
         readonly signFileUrl?: SignFileUrl
+        readonly readSigningPage?: () => SigningPage | undefined // a flow's signing page, as its gate admitted it
         /**
          * The request's query string, by key: an invitation page reads its
          * token here, and `$query.*` tokens read the page's declared keys.

@@ -19,16 +19,6 @@ export const consoleSpaNavHost: TemplateNodeEncoded = {
     'data-island': 'admin-spa-nav',
     'data-island-props': '{}',
   },
-  children: [
-    {
-      type: 'text',
-      element: 'span',
-      props: {
-        className: 'sr-only',
-      },
-      content: '',
-    },
-  ],
 }
 
 export const consoleOfflineHost: TemplateNodeEncoded = {

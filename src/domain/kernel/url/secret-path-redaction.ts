@@ -19,13 +19,21 @@
 const CALENDAR_FEED_SEGMENT =
   /(\/api\/tables\/[^\s/?#]+\/calendar-feed\/)(?!token(?=[\s/?#]|$))([^\s/?#]+)/gi
 
+/**
+ * A signer's delivery link (`/api/signatures/deliveries/:token/:file`): the
+ * token alone opens her copy of a signed document, so it is as secret.
+ */
+const DELIVERY_SEGMENT = /(\/api\/signatures\/deliveries\/)([^\s/?#]+)/gi
+
 /** A segment ending in `.ics`, its dot written or percent-encoded. */
 const ICS_EXTENSION = /(?:\.|%2e)ics$/i
 
 /** `path` (or a whole URL) with every credential segment replaced by its template. */
 export const redactSecretPath = (path: string): string =>
-  path.replace(
-    CALENDAR_FEED_SEGMENT,
-    (_match, prefix: string, segment: string) =>
-      `${prefix}${ICS_EXTENSION.test(segment) ? ':token.ics' : ':token'}`
-  )
+  path
+    .replace(
+      CALENDAR_FEED_SEGMENT,
+      (_match, prefix: string, segment: string) =>
+        `${prefix}${ICS_EXTENSION.test(segment) ? ':token.ics' : ':token'}`
+    )
+    .replace(DELIVERY_SEGMENT, (_match, prefix: string) => `${prefix}:token`)

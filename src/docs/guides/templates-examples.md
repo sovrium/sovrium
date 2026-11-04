@@ -2,7 +2,7 @@
 
 > Start from a working app: every example configuration shipped with Sovrium, from single-capability starters to complete business apps, and the `sovrium init` templates that scaffold them.
 
-The fastest way to learn Sovrium is to start from a working app. Sovrium ships a set of example configurations. Each is a complete, runnable project that composes real features (tables, auth, pages, design, i18n, automations) into a single config tree. The same examples double as `sovrium init` templates, so you can scaffold any of them into a new directory and start iterating immediately.
+The fastest way to learn Sovrium is to start from a working app. Sovrium ships a set of example configurations. Each is a complete, runnable project that composes real features (tables, auth, pages, design, i18n, automations) into a single config tree. The same examples double as `sovrium init` templates, so you can scaffold any of them into a new directory and start changing it right away.
 
 Every example is a **directory** with an `app.yaml` entry point. Anything beyond the smallest starter splits its configuration across a `config/` subtree using `$ref`: one file per collection entity, one file per singleton, scalars stay inline. This mirrors the structure `sovrium init` scaffolds for you.
 
@@ -11,9 +11,9 @@ Every example is a **directory** with an `app.yaml` entry point. Anything beyond
 - **hello-world** (minimal starter): one page, no collections. The default for `sovrium init`. Stays a single `app.yaml` to demonstrate when _not_ to pre-split.
 - **landing-page**: bilingual marketing site with i18n, a design system, reusable components, and the home page split out for size.
 - **blog** (blog CMS): a public index and a `/blog/:slug` detail route in front of an auth-gated `/admin` space, with a rich-text post editor, tags, authors, and an AI editor whose every write waits for human approval.
-- **docs-site**: a documentation website showcasing markdown pages, with real `.md` files under `content/docs/`, a `contentDir` collection, a frontmatter sidebar, previous/next chrome, a table of contents, and highlighted code. No tables, no auth.
-- **api-only**: headless API mode with tables and auth, no pages. Demonstrates Sovrium as a backend.
-- **mcp-server**: headless MCP server exposing tables to an AI client through per-entity `aiAccess`, no pages.
+- **docs-site**: a documentation website built from markdown pages, with real `.md` files under `content/docs/`, a `contentDir` collection, a frontmatter sidebar, previous/next chrome, a table of contents and highlighted code. It declares no tables and no auth.
+- **api-only**: headless API mode: tables and auth with no pages, to run Sovrium as a backend.
+- **mcp-server**: a headless MCP server, with no pages, exposing tables to an AI client through per-entity `aiAccess`.
 - **app-starter**: the pages most business apps grow from, made of library blocks: every way in (password, emailed link, passkey, two-step, single sign-on, invitations), a dashboard on one period selector, settings and profile pages, and records that open in a side panel and on their own page.
 - **marketing-site**: a marketing website (home, features, pricing, about, a blog, a guide, a contact page and a 404), every section a library block installed with `sovrium library add`.
 

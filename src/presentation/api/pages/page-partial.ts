@@ -49,12 +49,15 @@ export function isPartialEligible(page: Page | undefined): boolean {
 }
 
 /**
- * Whether the page draws its own header banner BEFORE the main region (see
- * `PageMain`): that is chrome a swap of the region alone cannot carry.
+ * Whether the page draws its own header banner BEFORE the main region, or its
+ * own closing footer AFTER it (see `PageMain`): that is chrome a swap of the
+ * region alone cannot carry.
  */
-function drawsBannerBeforeRegion(html: string): boolean {
+function drawsChromeOutsideRegion(html: string): boolean {
+  const region = html.indexOf(`id="${APP_CONTENT_REGION_ID}"`)
   const banner = html.indexOf('data-page-banner=')
-  return banner !== -1 && banner < html.indexOf(`id="${APP_CONTENT_REGION_ID}"`)
+  const footer = html.lastIndexOf('data-page-footer=')
+  return (banner !== -1 && banner < region) || (footer !== -1 && footer > region)
 }
 
 /**
@@ -65,7 +68,7 @@ function drawsBannerBeforeRegion(html: string): boolean {
 export function pagePartialOf(
   html: string
 ): { readonly body: string; readonly headers: Readonly<Record<string, string>> } | undefined {
-  if (drawsBannerBeforeRegion(html)) return undefined
+  if (drawsChromeOutsideRegion(html)) return undefined
   const body = extractRegionElement(html, APP_CONTENT_REGION_ID)
   if (body === undefined) return undefined
   const density = extractDocumentDensity(html)

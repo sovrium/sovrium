@@ -17,6 +17,8 @@
  *   - `app.analytics` truthy (omitted or `false` → no events)
  *   - per-form `analytics.enabled !== false` (form-level opt-out for
  *     PHI/PCI/legal-hold sensitive surfaces)
+ *   - the submitter's browser privacy signal (`DNT` / `Sec-GPC`), honoured
+ *     exactly as page views honour it, judged at the route
  *
  * Failures inside this emission MUST NOT roll back the submission.
  * Wrapped in `Effect.ignore` so analytics errors silently no-op — the
@@ -49,6 +51,8 @@ export interface EmitFormSubmissionAnalyticsInput {
   readonly form: Readonly<Form>
   readonly submissionId: string | undefined
   readonly submitterIpHash: string | undefined
+  /** The submitter's browser sent a privacy signal the app honours. */
+  readonly declinesTracking: boolean
 }
 
 export const emitFormSubmissionAnalyticsEvent = (
@@ -57,10 +61,11 @@ export const emitFormSubmissionAnalyticsEvent = (
   Effect.gen(function* () {
     const { app, form, submissionId, submitterIpHash } = input
 
-    // Three-layer gate: env, app, form.
+    // Four-layer gate: env, app, form, the submitter's privacy signal.
     if (!isFormAnalyticsEnabled()) return
     if (!analyticsIsEnabled(app)) return
     if (isFormOptedOut(form)) return
+    if (input.declinesTracking) return
 
     const analytics = yield* AnalyticsRepository
     // Under `audience-only` every submission shares one identifier and names

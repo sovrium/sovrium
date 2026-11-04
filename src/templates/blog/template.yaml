@@ -7,6 +7,9 @@ intro: |
   covers, one page per essay with its byline, its body and the comments the editor approved,
   an RSS feed, and a desk behind `/admin` where the editor schedules posts, approves comments
   and asks an assistant for drafts. Readers never sign in; nobody can open an account.
+audience: >-
+  A small team that publishes essays: the editors who write, schedule and moderate behind
+  `/admin`, and the readers, who never sign in.
 glance:
   - |-
     **Tables** (5): authors, tags, posts (Draft → Scheduled → Published), comments (Held until

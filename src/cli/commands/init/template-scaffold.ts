@@ -15,6 +15,9 @@
  * manifest, the published repository's own `README.md` and `LICENSE`, or a
  * host's deploy manifest (`scalingo.json`, `.buildpacks`, `Procfile`): a
  * project deploys with `sovrium deploy`, or by running the binary anywhere.
+ * Nor does it copy the design records a template commits (`PRODUCT.md`,
+ * `DESIGN.md`, anything under `.impeccable/`): `init` writes them afresh, and
+ * add-only (`design-records.ts`), so a committed copy must not land first.
  */
 
 import { join } from 'node:path'
@@ -29,9 +32,10 @@ import type { TemplateCatalogFacts } from './template-facts'
 export const TEMPLATE_META_FILES: ReadonlySet<string> = new Set([TEMPLATE_MANIFEST_FILE])
 
 /**
- * Root files an older template tree may still carry that a project never
- * receives: the published repository's own README and licence, which are
- * statements about that repository, and a hosting provider's deploy manifest.
+ * Root files a project never receives from the template tree: the published
+ * repository's own README and licence, which are statements about that
+ * repository, a hosting provider's deploy manifest, and the design records
+ * `init` renders itself.
  */
 const NEVER_SCAFFOLDED: ReadonlySet<string> = new Set([
   'README.md',
@@ -39,11 +43,18 @@ const NEVER_SCAFFOLDED: ReadonlySet<string> = new Set([
   'scalingo.json',
   '.buildpacks',
   'Procfile',
+  'PRODUCT.md',
+  'DESIGN.md',
 ])
+
+/** The folder of the design sidecar and surface briefs, which `init` renders too. */
+const DESIGN_RECORDS_DIR = '.impeccable/'
 
 /** Whether `init` copies this template file (a path relative to the template root). */
 export const isScaffoldedTemplateFile = (relPath: string): boolean =>
-  !TEMPLATE_META_FILES.has(relPath) && !NEVER_SCAFFOLDED.has(relPath)
+  !TEMPLATE_META_FILES.has(relPath) &&
+  !NEVER_SCAFFOLDED.has(relPath) &&
+  !relPath.startsWith(DESIGN_RECORDS_DIR)
 
 /**
  * Write the template's `CLAUDE.md` and `.env.example`, rendered from its

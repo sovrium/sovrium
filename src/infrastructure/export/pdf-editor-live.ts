@@ -20,6 +20,7 @@ import { fillPdfForm, formFieldsOf } from './pdf-editor-forms'
 import { EditRefusal, pdfLib, reasonOf } from './pdf-editor-library'
 import { drawPdfMark } from './pdf-editor-marks'
 import { buildPdfFromPictures, PictureRefusal } from './pdf-editor-pictures'
+import { assertRewritable } from './pdf-rewrite-guard'
 import type { PdfLib } from './pdf-editor-library'
 import type { PdfInspectResult } from '@/domain/models/app/automations/actions/pdf/inspect'
 import type { PDFDocument, PDFPage } from '@cantoo/pdf-lib'
@@ -119,11 +120,11 @@ const inspect = (bytes: Uint8Array) =>
     Effect.withSpan('documents.pdf-inspect')
   )
 
-/** Save a document as a built PDF. */
-const built = async (document: PDFDocument): Promise<BuiltPdf> => ({
-  bytes: await document.save(),
-  pages: document.getPageCount(),
-})
+/** Save a document as a built PDF; a signed one is refused (`pdf-rewrite-guard.ts`). */
+const built = async (document: PDFDocument): Promise<BuiltPdf> => {
+  assertRewritable(await pdfLib(), document)
+  return { bytes: await document.save(), pages: document.getPageCount() }
+}
 
 /** Run one edit, a refusal keeping its own words and anything else saying what failed. */
 const edit = (what: string, span: string, run: () => Promise<BuiltPdf>) =>
@@ -139,7 +140,10 @@ const edit = (what: string, span: string, run: () => Promise<BuiltPdf>) =>
   }).pipe(Effect.withSpan(span))
 
 const pickGroups = async (source: PDFDocument, groups: readonly (readonly number[])[]) => {
-  const { PDFDocument: Document } = await pdfLib()
+  const lib = await pdfLib()
+  // Copying pages out of a signed file carries its signature into a file it does not cover.
+  assertRewritable(lib, source)
+  const { PDFDocument: Document } = lib
   return Promise.all(
     groups.map(async (group) => {
       const part = await Document.create()
@@ -163,7 +167,12 @@ export const PdfEditorLive = Layer.succeed(PdfEditor, {
     Effect.tryPromise({
       try: () => pickGroups(asDocument(pdf), groups),
       catch: (cause) =>
-        new PdfEditError({ message: `the pages could not be copied (${reasonOf(cause)})` }),
+        new PdfEditError({
+          message:
+            cause instanceof EditRefusal
+              ? cause.message
+              : `the pages could not be copied (${reasonOf(cause)})`,
+        }),
     }).pipe(Effect.withSpan('documents.pdf-pick')),
   rotate: (pdf, rotations) =>
     edit('rotated', 'documents.pdf-rotate', () => rotatePages(asDocument(pdf), rotations)),

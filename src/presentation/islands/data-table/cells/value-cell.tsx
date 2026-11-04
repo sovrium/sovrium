@@ -9,6 +9,8 @@ import {
   resolveCurrencyOptions,
   type CurrencyDisplayOptions,
 } from '@/domain/kernel/format/currency-format'
+import { formatDateRecipe } from '@/domain/kernel/format/date-recipe'
+import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { formatCellValue } from '@/domain/models/app/tables/cell-value-format'
 import { formatDateTimeReading } from '@/domain/models/app/tables/date-time-reading-service'
 import { relativeStampOf } from '@/domain/models/app/tables/relative-stamp-service'
@@ -170,15 +172,18 @@ function formattedCell(
 ): React.ReactNode {
   const { locale, fieldOptions, currencyOptions, durationUnit } = chrome
   const timeZone = fieldOptions?.timeZone ?? resolvePageTimezone()
+  const clock = format === 'time' ? fieldOptions?.display?.clock : undefined
   const displayValue =
     format === 'datetime'
       ? formatDateTimeReading(value, locale, { glue: resolvePageDateTimeGlue(), timeZone })
-      : formatCellValue(value, format, locale, {
-          currency: currencyOptions,
-          timeZone,
-          durationUnit,
-          now: new Date(),
-        })
+      : clock !== undefined
+        ? formatDateRecipe(value, clock, usableLocale(locale), timeZone)
+        : formatCellValue(value, format, locale, {
+            currency: currencyOptions,
+            timeZone,
+            durationUnit,
+            now: new Date(),
+          })
   const composed = [formatClassOf(format), conditionalClass].filter(Boolean).join(' ')
   // A relative reading carries its instant and its absolute moment (`time`).
   const stamp = relativeStampOf(value, format, locale, timeZone)

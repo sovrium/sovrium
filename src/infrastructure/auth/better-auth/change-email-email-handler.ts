@@ -9,7 +9,7 @@ import { withTokenOnce } from '../../email/auth-link-emails'
 import { changeEmailEmail, type ChangeEmailStep } from '../../email/change-email-emails'
 import { sendEmail } from '../../email/email-service'
 import { recipientEmailWords, type EmailWords } from '../../email/email-words'
-import { logError } from '../../logging'
+import { logMailFailure } from './mail-failure-log'
 import type { Auth } from '@/domain/models/app/auth'
 import type { Languages } from '@/domain/models/app/languages'
 
@@ -59,7 +59,7 @@ const sendStep = async (
       }),
     })
   } catch (error) {
-    logError(`[EMAIL] Failed to send email-change ${step} email to ${link.to}`, error)
+    logMailFailure(`email-change ${step} email`, link.to, error)
   }
 }
 

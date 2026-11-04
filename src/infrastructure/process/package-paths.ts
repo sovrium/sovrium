@@ -39,7 +39,7 @@ export const isBunfsPath = (path: string): boolean => {
  *
  * In compiled mode, import.meta.dir points into Bun's virtual filesystem
  * (`/$bunfs/root` on POSIX, `B:\~BUN\root` on Windows) where only bundled JS
- * modules exist — no templates/, agents/, or package.json on disk.
+ * modules exist — no src/templates/, agents/, or package.json on disk.
  */
 export const isCompiled = isBunfsPath(import.meta.dir)
 
@@ -99,7 +99,7 @@ export const clientScriptPath = (filename: string): string =>
     ? resolvePackagePath('dist', 'client-scripts', filename)
     : resolvePackagePath('src', 'presentation', 'render', 'scripts', 'client', filename)
 
-// There is no `examplesPath` / `agentsPath`: the `templates/` and `agents/`
+// There is no `examplesPath` / `agentsPath`: the `src/templates/` and `agents/`
 // directories are embedded into the binary and accessed via
 // `@/infrastructure/assets/embedded-static-assets` (works in dev, bundled, and
 // compiled modes alike).

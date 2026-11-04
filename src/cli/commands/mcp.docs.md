@@ -24,7 +24,7 @@ It opens no database either, unless writing is switched on and an instance is ru
 
 Because stdout carries MCP messages and nothing else, every banner, notice and error goes to **stderr** instead, including the line telling you which config file it found.
 
-**`MCP_TRANSPORT=stdio` is not this, and never was.** That variable only suppresses the HTTP mount; nothing on the `sovrium start` path reads stdin. If you configured an IDE against it you got a process that answers nothing. The stdio entry point is this verb, reached by running the binary, not by setting a variable. `MCP_TRANSPORT=stdio` still un-mounts, which is a thing an operator legitimately wants; it is simply not a way to serve anything.
+**`MCP_TRANSPORT=stdio` is not this, and never was.** That variable only suppresses the HTTP mount; nothing on the `sovrium start` path reads stdin. If you configured an IDE against it you got a process that answers nothing. The stdio entry point is this verb, reached by running the binary, not by setting a variable. `MCP_TRANSPORT=stdio` still un-mounts, which is a thing an operator legitimately wants; it does not serve anything.
 
 ## There are no credentials, and none to configure
 

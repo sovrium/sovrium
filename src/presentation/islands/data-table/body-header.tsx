@@ -42,8 +42,10 @@ export function TableHeader({
   headerGroups,
   frozenOffsets = NO_FROZEN_OFFSETS,
   sticky = false,
-}: TableHeaderProps): ReactElement {
+}: TableHeaderProps): ReactElement | undefined {
   const headRef = useFlowingHeaderPin(!sticky)
+  // No header group at all: a grid drawing no header row (`isBareEmpty`) draws no head.
+  if (headerGroups.length === 0) return undefined
   return (
     <thead
       ref={headRef}

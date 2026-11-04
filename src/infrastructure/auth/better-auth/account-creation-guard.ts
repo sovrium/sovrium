@@ -7,6 +7,7 @@
 
 import { stripHtmlToText } from '@/domain/kernel/sanitize/html-sanitization'
 import { findDeclaredLanguage } from '@/domain/models/app/languages/language-detection'
+import { ADMIN_CREATE_USER_PATH } from './account-opening-routes'
 import { avatarRefusal } from './avatar-url-guard'
 import { stripsNameOn } from './display-name-guard'
 import { languageRefusal } from './language-preference-guard'
@@ -44,9 +45,6 @@ const isFederatedRoad = (path: string): boolean =>
   path.startsWith('/one-tap') ||
   path.startsWith('/scim/')
 
-/** The door an administrator opens accounts by, already limited to administrators. */
-const ADMIN_CREATE_PATH = '/admin/create-user'
-
 /** `true` when `value` is set: neither absent nor an explicit clear. */
 const isSet = (value: unknown): boolean => value !== undefined && value !== null
 
@@ -69,7 +67,7 @@ const refuseUndeclaredLanguage = (
 
 /** Refuse an operator-email switch away from its default, outside the administrators' door. */
 const refuseOperatorSwitch = (user: Readonly<Record<string, unknown>>, path: string): void => {
-  if (path === ADMIN_CREATE_PATH) return
+  if (path === ADMIN_CREATE_USER_PATH) return
   const changed = NOTIFICATION_PREFERENCE_FIELDS.some(
     (field) => user[field] !== undefined && user[field] !== true
   )

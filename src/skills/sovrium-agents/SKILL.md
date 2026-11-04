@@ -11,7 +11,7 @@ metadata:
 
 A bare agent builds a Sovrium assistant like a chatbot framework: it looks for an `ai:` block to put the API key and model in, gives the agent the `admin` role "so it never gets stuck", lists every action, skips approval, leaves who may trigger it unwritten, embeds a table on SQLite and wonders why the answers are empty, and declares success when the chat replies once. In Sovrium the provider is the operator's environment (`AI_PROVIDER`, never the config), an agent is a user whose `role` is the ceiling of everything it does, `tools` only narrows that role and an agent with no `tools` can do nothing, an email it sends cannot be taken back, `AI_CHAT_RATE_LIMIT` caps a hosted provider at 60 messages a minute and leaves a local model uncapped, table knowledge needs PostgreSQL, and an AI field's value is not proof that a model wrote it. An agent is only as good as the answers it gives real people about real records: test it that way.
 
-Run the core loop from `sovrium-app` underneath this skill. Manual: `sovrium docs ai/ai-overview`, `sovrium docs agents/ai-agents`, `sovrium docs agents/agent-tools`, `sovrium docs agents/agent-approvals`, `sovrium docs components/ai-chat-component`, `sovrium docs configuration/env-vars-ai`, `sovrium docs mcp/mcp-server`.
+Run the core loop from `sovrium-app` underneath this skill. Manual: `sovrium docs ai/ai-overview`, `sovrium docs agents/ai-agents`, `sovrium docs agents/agent-tools`, `sovrium docs agents/agent-approvals`, `sovrium docs components-more/ai-chat-component`, `sovrium docs configuration/env-vars-ai`, `sovrium docs mcp/mcp-server`.
 
 ## Scope
 

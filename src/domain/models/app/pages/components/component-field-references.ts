@@ -143,6 +143,7 @@ const LENIENTLY_RESOLVED_PATHS: ReadonlySet<string> = new Set(['fields[].field']
 export const COMPONENT_FIELD_REFERENCE_PATHS: Readonly<Record<string, readonly string[]>> = {
   kanban: [
     'kanbanGroupBy.field',
+    'kanbanGroupBy.aggregate.field',
     'swimlanes.field',
     'colorField',
     'card.colorField',

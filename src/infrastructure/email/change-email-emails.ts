@@ -7,7 +7,7 @@
 
 import { escapeHtmlAttribute } from '@/domain/kernel/sanitize/html-escaping'
 import { ENGLISH_WORDS, expiryIn, greetingsOf, type EmailWords } from './email-words'
-import { emailLayout, resolveBrand } from './templates'
+import { actionLinkBlock, emailLayout, resolveBrand } from './templates'
 
 /** Which of the two emails of an address change. */
 export type ChangeEmailStep = 'confirm' | 'verify'
@@ -55,13 +55,7 @@ export function changeEmailEmail(data: ChangeEmailData): {
       <p>${greeting.html}</p>
       <p>${htmlIntro}</p>
       <p>${words.t(key('cta'))}</p>
-      <p style="text-align: center;">
-        <a href="${url}" class="button">${words.t(key('button'))}</a>
-      </p>
-      <p class="link-fallback">
-        ${words.t('linkFallback')}<br>
-        ${url}
-      </p>
+      ${actionLinkBlock(url, words.t(key('button')), words.t('linkFallback'))}
       <div class="warning">
         ${expires} ${words.t(key('ignore'), { app: htmlBrand })}
       </div>

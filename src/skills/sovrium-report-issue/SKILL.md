@@ -29,7 +29,7 @@ Messages that end with "how to fix it" are refusals — a port in use, a require
 ## Before anything is filed
 
 ```
-- [ ] sovrium validate passes on the configuration in use (read `sovrium docs cli-api/cli-validate`)
+- [ ] sovrium validate passes on the configuration in use (read `sovrium docs cli-tools/cli-validate`)
 - [ ] The manual was checked: sovrium docs config <path>, sovrium docs search <words>
 - [ ] Known runtime problems were ruled out: `sovrium docs get-started/troubleshooting-runtime`
 - [ ] The problem reproduces on the latest release (sovrium --version, sovrium update)

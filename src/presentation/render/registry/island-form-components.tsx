@@ -17,6 +17,7 @@ import { buildAccordionItems } from './island-accordion-items'
 import { asRecord, baseProps, controlLabel, pickFromComponent } from './island-form-props'
 import { renderSsrNavItem } from './island-nav-ssr'
 import { islandTabsComponent } from './island-tabs-component'
+import { menuPanelPartClasses } from './menu-panel-parts'
 import { recordPickerComponent } from './record-picker-component'
 import { selectComponents } from './select-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
@@ -274,6 +275,7 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     component,
     languages,
     currentLang,
+    designStyles,
   }) => {
     const navMenuComp = component?.type === 'navigation-menu' ? component : undefined
     const rawNavItems =
@@ -296,7 +298,15 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
     if (navMenuComp?.layout === 'bottom-bar' && navItems !== undefined) {
       return renderBottomBarNav(navItems as readonly NavItem[], elementProps)
     }
-    const props = { navItems, openOnHover, triggerClassName, ...baseProps(elementProps) }
+    // The panel is drawn outside the menu, so its `content` and `item` parts cross on their own.
+    const panelParts = menuPanelPartClasses(designStyles)
+    const props = {
+      navItems,
+      openOnHover,
+      triggerClassName,
+      ...panelParts,
+      ...baseProps(elementProps),
+    }
     // Respect className from schema props; default to horizontal flex when not provided.
     const userClassName = elementProps['className'] as string | undefined
     const navClassName = resolveClasses('flex items-center gap-1', userClassName)
@@ -327,7 +337,9 @@ export const islandFormComponents: Partial<Record<DispatchableComponentType, Com
         {renderedChildren.length > 0 ? (
           renderedChildren
         ) : navItems && navItems.length > 0 ? (
-          navItems.map((item, index) => renderSsrNavItem(item, index, triggerClassName))
+          navItems.map((item, index) =>
+            renderSsrNavItem(item, index, { triggerClassName, ...panelParts })
+          )
         ) : (
           <div className="bg-muted h-8 w-60 animate-pulse rounded" />
         )}

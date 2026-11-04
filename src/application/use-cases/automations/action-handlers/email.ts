@@ -107,13 +107,22 @@ interface MessageBody {
 }
 
 /** An inline `body`: rich text, sanitized as page content; its text part derived from it. */
-const inlineBody = (body: string): MessageBody => {
+const inlineBody = (body: string, linkSchemes: readonly string[]): MessageBody => {
   // Strip HTML tags into a plain-text fallback so SMTP gateways enforcing
   // RFC 5322 multipart conventions (Mailpit's strict mode + some
   // production gateways) don't 554 on html-only messages.
   const textBody = stripHtmlToText(body).trim()
-  const { html, droppedLinks } = sanitizeRichTextHTMLReportingLinks(body)
+  const { html, droppedLinks } = sanitizeRichTextHTMLReportingLinks(body, { linkSchemes })
   return { html, text: textBody === '' ? body : textBody, attachments: [], droppedLinks }
+}
+
+/**
+ * The step's `allowedLinkSchemes`: the link schemes its message keeps beside
+ * http, https and mailto. The sanitizer still refuses the scripting schemes.
+ */
+const linkSchemesOf = (props: Raw): readonly string[] => {
+  const raw = props['allowedLinkSchemes']
+  return Array.isArray(raw) ? raw.filter((v): v is string => typeof v === 'string') : []
 }
 
 /**
@@ -182,10 +191,10 @@ const messageBody = (props: Raw, scope: FileRefScope) =>
   Effect.gen(function* () {
     const files = yield* readAttachments(props, scope)
     if (props['template'] === undefined) {
-      const inline = inlineBody(stringProp(props, 'body'))
+      const inline = inlineBody(stringProp(props, 'body'), linkSchemesOf(props))
       return { ...inline, subject: stringProp(props, 'subject'), attachments: files }
     }
-    const templated = yield* templatedEmail(props, scope)
+    const templated = yield* templatedEmail(props, { ...scope, linkSchemes: linkSchemesOf(props) })
     // The pictures the template shows inline travel in the same message.
     const total = totalBytes(files) + totalBytes(templated.inline)
     if (total > MAX_ATTACHMENT_BYTES) {

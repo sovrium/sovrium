@@ -15,7 +15,9 @@
  * and her answers back in their fields (`form-refused-markup.ts`). The page is
  * drawn by the app's own routes (`Hono.request`), so it is the page a GET
  * would serve her: the access gate, the language and the cache rules are the
- * ones every page passes through. Anything else keeps its existing answer.
+ * ones every page passes through. A post over the form's rate limit is answered
+ * `429` with the same page, the limit's notice above the form in the page's
+ * language, and its `Retry-After`. Anything else keeps its existing answer.
  */
 
 import {
@@ -23,11 +25,13 @@ import {
   FormFieldForeignKeyError,
   FormFieldFormatError,
   FormFieldRequiredError,
+  FormRateLimitedError,
 } from '@/application/use-cases/forms/submit-form'
 import { isBusinessRuleViolationError } from '@/domain/errors/business-rule-violation-error'
 import { FORM_ANSWERED_PARAM } from '@/domain/models/app/forms/submission-ledger-service'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { FieldValidationError } from '@/presentation/api/middleware/validation'
-import { markRefusedFields } from '@/presentation/render/forms/form-refused-markup'
+import { markRefusedFields, withFormNotice } from '@/presentation/render/forms/form-refused-markup'
 import {
   answeredFormOf,
   resolveSubmitRedirectTarget,
@@ -84,11 +88,30 @@ const withoutAnsweredMarker = (target: string): string => {
 }
 
 /**
+ * The page a native post came from, drawn again for this visitor — or
+ * `undefined` when there is none to draw (no same-origin referring page, an
+ * API address, a page that does not answer with HTML).
+ */
+async function drawPostedPage(c: Context): Promise<string | undefined> {
+  const honoApp = PAGE_APPS.get(c.req.raw)
+  const target = resolveSubmitRedirectTarget(c)
+  if (honoApp === undefined || target.startsWith('/api/')) return undefined
+  const headers = Object.fromEntries(
+    VISITOR_HEADERS.flatMap((name) => {
+      const value = c.req.header(name)
+      return value === undefined ? [] : [[name, value]]
+    })
+  )
+  const page = await honoApp.request(withoutAnsweredMarker(target), { headers })
+  if (!page.ok || !(page.headers.get('content-type') ?? '').includes('text/html')) return undefined
+  return page.text()
+}
+
+/**
  * The page a refused native post came from, drawn again for this visitor with
  * the refused fields marked, as a `400` — or `undefined` when there is none to
- * draw (a JSON client, a refusal naming no field, no same-origin referring
- * page, an API address, a page that no longer draws the form), and the caller
- * answers as it always has.
+ * draw (a JSON client, a refusal naming no field, no page to draw, a page that
+ * no longer draws the form), and the caller answers as it always has.
  */
 export async function answerRefusedNativePost(
   c: Context,
@@ -99,20 +122,45 @@ export async function answerRefusedNativePost(
     readonly answers: Readonly<Record<string, unknown>>
   }
 ): Promise<Response | undefined> {
-  const honoApp = PAGE_APPS.get(c.req.raw)
   const errors = refused.isJsonClient ? [] : fieldErrorsOf(refused.failure)
-  const target = resolveSubmitRedirectTarget(c)
-  if (honoApp === undefined || errors.length === 0 || target.startsWith('/api/')) return undefined
-  const headers = Object.fromEntries(
-    VISITOR_HEADERS.flatMap((name) => {
-      const value = c.req.header(name)
-      return value === undefined ? [] : [[name, value]]
-    })
-  )
-  const page = await honoApp.request(withoutAnsweredMarker(target), { headers })
-  if (!page.ok || !(page.headers.get('content-type') ?? '').includes('text/html')) return undefined
-  const html = markRefusedFields(await page.text(), formName, { errors, answers: refused.answers })
+  if (errors.length === 0) return undefined
+  const page = await drawPostedPage(c)
+  if (page === undefined) return undefined
+  const html = markRefusedFields(page, formName, { errors, answers: refused.answers })
   return html === undefined ? undefined : c.html(html, 400)
+}
+
+/** The language a drawn page is written in, from its `<html lang>`. */
+const pageLanguageOf = (html: string): string | undefined =>
+  /<html\b[^>]*\slang="([^"]+)"/.exec(html)?.[1]
+
+/**
+ * A native post over the form's rate limit: its page drawn again, the answers
+ * typed back, and the limit's notice above the form in the page's language,
+ * as a `429` carrying `Retry-After` — or `undefined` when it is no such post,
+ * or there is no page to draw.
+ */
+async function answerRateLimitedNativePost(
+  c: Context,
+  formName: string,
+  refused: {
+    readonly isJsonClient: boolean
+    readonly failure: unknown
+    readonly answers: Readonly<Record<string, unknown>>
+  }
+): Promise<Response | undefined> {
+  const { failure } = refused
+  if (refused.isJsonClient || !(failure instanceof FormRateLimitedError)) return undefined
+  const page = await drawPostedPage(c)
+  const answered =
+    page === undefined
+      ? undefined
+      : markRefusedFields(page, formName, { errors: [], answers: refused.answers })
+  if (answered === undefined) return undefined
+  const message = resolveInterpreterString('forms.rateLimited', pageLanguageOf(answered))
+  const html = withFormNotice(answered, formName, message)
+  if (html === undefined) return undefined
+  return c.html(html, 429, { 'Retry-After': String(failure.retryAfterSec) })
 }
 
 /**
@@ -139,7 +187,9 @@ export async function answerSubmission(
   const { form, isJsonClient, answers, result } = submission
   if (result._tag === 'Failure') {
     const refusal = { isJsonClient, failure: result.failure, answers }
-    const page = await answerRefusedNativePost(c, form.name, refusal)
+    const page =
+      (await answerRefusedNativePost(c, form.name, refusal)) ??
+      (await answerRateLimitedNativePost(c, form.name, refusal))
     return page ?? respondSubmissionFailure(c, isJsonClient, result.failure)
   }
   return respondSubmissionSuccess(c, isJsonClient, {

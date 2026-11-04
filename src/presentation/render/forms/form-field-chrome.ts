@@ -45,3 +45,26 @@ const REQUIRED_ARIA = { 'aria-required': true } as const
 export function ariaRequired(required: boolean): { readonly 'aria-required'?: true } {
   return required ? REQUIRED_ARIA : NO_WRAPPER_ATTRIBUTES
 }
+
+/** The field a help text belongs to: its name, and its help text as inline HTML. */
+export interface HelpTextField {
+  readonly name: string
+  readonly helpTextHtml?: string | undefined
+}
+
+/**
+ * The id of a field's help text, which its control names in
+ * `aria-describedby` so a screen reader reads the hint with the label; none
+ * when the field has no help text. It starts `field-`, as a control id does,
+ * so an embed that scopes control ids scopes it with them.
+ */
+export function helpTextIdOf(field: HelpTextField): string | undefined {
+  const html = field.helpTextHtml
+  return html === undefined || html === '' ? undefined : `field-${field.name}-help`
+}
+
+/** A control's `aria-describedby` naming its field's help text, or nothing. */
+export function describedByHelpOf(field: HelpTextField): { readonly 'aria-describedby'?: string } {
+  const id = helpTextIdOf(field)
+  return id === undefined ? {} : { 'aria-describedby': id }
+}

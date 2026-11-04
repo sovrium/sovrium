@@ -132,6 +132,9 @@ const READS_NOTHING: ReadonlySet<string> = new Set([
   'ai/extract',
   'analytics/track',
   'approval/request',
+  // A signing request's id and status: never a link, an address or a field value.
+  'signature/send',
+  'signature/cancel',
   // Counts of the rows it created, updated and left: no stored value comes back.
   'calendar/importIcs',
   // A file built from the event the props describe, and its UID.

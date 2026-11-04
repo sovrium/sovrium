@@ -9,7 +9,7 @@
  * The canonical token form every import adapter produces, and the helpers
  * they share to reach it.
  *
- * `sovrium design-system import` reads six token formats and maps them onto
+ * `sovrium design-system import` reads seven token formats and maps them onto
  * `design` through ONE mapper (`design-import-service.ts`). Each provider
  * adapter beside this file turns what its tool exports into the same thing: a
  * flat list of DTCG tokens per colour mode, every alias resolved, every value
@@ -25,7 +25,7 @@ import { alphaHexByte, printNumber, remToPx } from '../adapter-units'
 
 /** A provider format, as `--from` names it. */
 export type ImportFormat =
-  'claude-design' | 'figma' | 'tokens-studio' | 'style-dictionary' | 'dtcg' | 'css'
+  'claude-design' | 'figma' | 'tokens-studio' | 'style-dictionary' | 'dtcg' | 'css' | 'design-md'
 
 /** Every format the import reads, in the order a refusal names them. */
 export const IMPORT_FORMATS: readonly ImportFormat[] = [
@@ -35,6 +35,7 @@ export const IMPORT_FORMATS: readonly ImportFormat[] = [
   'style-dictionary',
   'dtcg',
   'css',
+  'design-md',
 ]
 
 /** Why a source token was left out of `design`. */
@@ -55,6 +56,11 @@ export interface CanonicalToken {
   readonly value: unknown
   /** The token's `$extensions`, when it carries any. */
   readonly extensions?: Readonly<Record<string, unknown>>
+  /**
+   * A family a type role is set in, rather than a face the source names: it
+   * proposes a face only when no face of the app already paints that family.
+   */
+  readonly roleFamily?: true
 }
 
 /** What an adapter hands the mapper. */
@@ -68,6 +74,11 @@ export interface CanonicalImport {
 export interface SourceFile {
   readonly path: string
   readonly text: string
+  /**
+   * A Markdown file's YAML front matter, parsed by the reader (the domain
+   * parses no YAML); absent when the file has none or it does not parse.
+   */
+  readonly frontMatter?: unknown
 }
 
 /** A source as the command read it: the file it was given, or a folder's files. */

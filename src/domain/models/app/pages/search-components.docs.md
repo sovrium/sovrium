@@ -19,7 +19,7 @@ One component draws every search box, and what it declares says what the box sea
 | `publishes: { bindTo, param }` | Nothing on its own. It publishes the query on a channel, and every data component subscribed to the channel narrows its own records to what the query matches.                                   |
 | `scope: page`                  | Your pages, in its own results panel: by default the public ones through a prebuilt static index; with `index: session`, the ones the current reader may open, answered by the server per query. |
 
-A box must declare **exactly one** of the two. A default would hand an author who declared neither the other mechanism, silently: an input publishing to nobody, or a search box with no index behind it. Neither failure shows up as an error: the box renders, and simply never finds anything. `scope: subscribers`, where a component named the box's id in its `dataSource.bindTo`, was removed in 0.39 and is refused at load, naming `publishes`.
+A box must declare **exactly one** of the two. A default would hand an author who declared neither the other mechanism, silently: an input publishing to nobody, or a search box with no index behind it. Neither failure shows up as an error: the box renders, and never finds anything. `scope: subscribers`, where a component named the box's id in its `dataSource.bindTo`, was removed in 0.39 and is refused at load, naming `publishes`.
 
 A key belonging to the other role is **ignored, not rejected**: `maxResults` on a box that publishes validates and does nothing, as do `debounceMs` and `minQueryLength` under `scope: page`. The full option table sits with the rest of the content components, in **Content Components**.
 
@@ -74,6 +74,8 @@ What gets indexed is narrower than "every page", in three ways worth knowing bef
 - **Public pages only** (`access` omitted or `access: 'all'`) for the static index; see `index: session`. A page gated by `access: 'authenticated'`, by a role array or by a `require` rule is absent from the index, and `sovrium build` emits no static HTML for it either.
 - **No underscore paths.** A path beginning `/_` stays out, on the same convention that keeps it out of the static build.
 - **No chrome.** Only the page's `<main>` region is read, so a word from your header, nav or footer does not match on every page at once, and each excerpt is about the page rather than about the layout.
+
+The box is driven from the keyboard while the focus stays in it: the arrow keys move a highlighted result, Enter opens it (the first result when none is highlighted), and Escape closes the panel, then clears the query when pressed again. A query nothing matches opens the panel on one line naming it, a polite status announces how many results are listed, and under `index: session` the panel says it is searching while a query is on its way, keeping the previous results until the answer replaces them. These words follow the page language, and an app renames them under `sovrium.search.searching`, `sovrium.search.noResultsFor`, `sovrium.search.resultCount` and `sovrium.search.resultCountOne`.
 
 ### The pages this reader may open: `index: session`
 

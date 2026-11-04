@@ -16,6 +16,7 @@ import {
   loadPendingErasure,
   scheduleAccountDeletion,
 } from '@/application/use-cases/auth/account'
+import { loadSignatureExport } from '@/application/use-cases/auth/account-export-signatures'
 import { loadSocialExport } from '@/application/use-cases/auth/account-export-social'
 import { accountRemovalRefusal } from '@/application/use-cases/auth/last-admin-rail'
 import { purgeDueAccounts } from '@/application/use-cases/auth/purge-due-accounts'
@@ -145,6 +146,8 @@ function handleExport(c: Context, app: App): Promise<Response> | Response {
         const [role, groups] = yield* Effect.all([getUserRole(userId, app), getUserGroups(userId)])
         // The read positions, last-seen time and notifications first: the export carries them.
         const social = yield* loadSocialExport(userId)
+        // Every signature she gave from her account, with what the evidence keeps of her.
+        const { signatures } = yield* loadSignatureExport(userId)
         const outcome = yield* exportAccount(
           userId,
           // Candidate authorship columns resolved from the DECLARED FIELD TYPES,
@@ -167,7 +170,7 @@ function handleExport(c: Context, app: App): Promise<Response> | Response {
                   }),
             }
           }),
-          social
+          { ...social, signatures }
         )
         if (outcome._tag === 'Unauthorized') return unauthorized(c)
         return yield* respondWith(c, Effect.succeed(outcome.body), accountExportResponseSchema)

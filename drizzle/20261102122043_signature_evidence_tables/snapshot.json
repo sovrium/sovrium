@@ -1,0 +1,1984 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "eaa83a4a-fd49-49e5-8adc-87b5e693809d",
+  "prevIds": [
+    "cc652fd0-4dee-48e0-bed4-ceda4974fba9"
+  ],
+  "footprints": [
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "system",
+        "signature_challenges"
+      ],
+      "writes": [
+        "s|tbl|system.signature_challenges",
+        "n|tbl|system.signature_challenges",
+        "e|tbl|system.signature_challenges",
+        "n|rel|system.signature_challenges",
+        "n|type|system.signature_challenges",
+        "n|rel|system.signature_challenges_pkey"
+      ],
+      "reads": [
+        "n|sch|system"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "system",
+        "signature_evidence"
+      ],
+      "writes": [
+        "s|tbl|system.signature_evidence",
+        "n|tbl|system.signature_evidence",
+        "e|tbl|system.signature_evidence",
+        "n|rel|system.signature_evidence",
+        "n|type|system.signature_evidence",
+        "n|rel|system.signature_evidence_pkey"
+      ],
+      "reads": [
+        "n|sch|system"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "system",
+        "signature_requests"
+      ],
+      "writes": [
+        "s|tbl|system.signature_requests",
+        "n|tbl|system.signature_requests",
+        "e|tbl|system.signature_requests",
+        "n|rel|system.signature_requests",
+        "n|type|system.signature_requests",
+        "n|rel|system.signature_requests_pkey"
+      ],
+      "reads": [
+        "n|sch|system"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "system",
+        "signature_signers"
+      ],
+      "writes": [
+        "s|tbl|system.signature_signers",
+        "n|tbl|system.signature_signers",
+        "e|tbl|system.signature_signers",
+        "n|rel|system.signature_signers",
+        "n|type|system.signature_signers",
+        "n|rel|system.signature_signers_pkey"
+      ],
+      "reads": [
+        "n|sch|system"
+      ]
+    },
+    {
+      "statementType": "create_table",
+      "statementTarget": [
+        "table",
+        "system",
+        "signature_subjects"
+      ],
+      "writes": [
+        "s|tbl|system.signature_subjects",
+        "n|tbl|system.signature_subjects",
+        "e|tbl|system.signature_subjects",
+        "n|rel|system.signature_subjects",
+        "n|type|system.signature_subjects",
+        "n|rel|system.signature_subjects_pkey"
+      ],
+      "reads": [
+        "n|sch|system"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "signature_challenges",
+        "signature_challenges_signer_idx"
+      ],
+      "writes": [
+        "s|idx|system.signature_challenges_signer_idx",
+        "n|idx|system.signature_challenges_signer_idx",
+        "e|idx|system.signature_challenges_signer_idx",
+        "n|rel|system.signature_challenges_signer_idx"
+      ],
+      "reads": [
+        "n|tbl|system.signature_challenges",
+        "n|sch|system",
+        "n|col|system.signature_challenges.signer_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "signature_evidence",
+        "signature_evidence_request_seq_unique"
+      ],
+      "writes": [
+        "s|idx|system.signature_evidence_request_seq_unique",
+        "n|idx|system.signature_evidence_request_seq_unique",
+        "e|idx|system.signature_evidence_request_seq_unique",
+        "n|rel|system.signature_evidence_request_seq_unique"
+      ],
+      "reads": [
+        "n|tbl|system.signature_evidence",
+        "n|sch|system",
+        "n|col|system.signature_evidence.request_id",
+        "n|col|system.signature_evidence.seq"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "signature_requests",
+        "signature_requests_record_idx"
+      ],
+      "writes": [
+        "s|idx|system.signature_requests_record_idx",
+        "n|idx|system.signature_requests_record_idx",
+        "e|idx|system.signature_requests_record_idx",
+        "n|rel|system.signature_requests_record_idx"
+      ],
+      "reads": [
+        "n|tbl|system.signature_requests",
+        "n|sch|system",
+        "n|col|system.signature_requests.table_name",
+        "n|col|system.signature_requests.record_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "signature_requests",
+        "signature_requests_status_idx"
+      ],
+      "writes": [
+        "s|idx|system.signature_requests_status_idx",
+        "n|idx|system.signature_requests_status_idx",
+        "e|idx|system.signature_requests_status_idx",
+        "n|rel|system.signature_requests_status_idx"
+      ],
+      "reads": [
+        "n|tbl|system.signature_requests",
+        "n|sch|system",
+        "n|col|system.signature_requests.status"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "signature_requests",
+        "signature_requests_keep_until_idx"
+      ],
+      "writes": [
+        "s|idx|system.signature_requests_keep_until_idx",
+        "n|idx|system.signature_requests_keep_until_idx",
+        "e|idx|system.signature_requests_keep_until_idx",
+        "n|rel|system.signature_requests_keep_until_idx"
+      ],
+      "reads": [
+        "n|tbl|system.signature_requests",
+        "n|sch|system",
+        "n|col|system.signature_requests.keep_until"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "signature_signers",
+        "signature_signers_request_idx"
+      ],
+      "writes": [
+        "s|idx|system.signature_signers_request_idx",
+        "n|idx|system.signature_signers_request_idx",
+        "e|idx|system.signature_signers_request_idx",
+        "n|rel|system.signature_signers_request_idx"
+      ],
+      "reads": [
+        "n|tbl|system.signature_signers",
+        "n|sch|system",
+        "n|col|system.signature_signers.request_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "signature_signers",
+        "signature_signers_request_position_unique"
+      ],
+      "writes": [
+        "s|idx|system.signature_signers_request_position_unique",
+        "n|idx|system.signature_signers_request_position_unique",
+        "e|idx|system.signature_signers_request_position_unique",
+        "n|rel|system.signature_signers_request_position_unique"
+      ],
+      "reads": [
+        "n|tbl|system.signature_signers",
+        "n|sch|system",
+        "n|col|system.signature_signers.request_id",
+        "n|col|system.signature_signers.position"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "signature_signers",
+        "signature_signers_token_hash_unique"
+      ],
+      "writes": [
+        "s|idx|system.signature_signers_token_hash_unique",
+        "n|idx|system.signature_signers_token_hash_unique",
+        "e|idx|system.signature_signers_token_hash_unique",
+        "n|rel|system.signature_signers_token_hash_unique"
+      ],
+      "reads": [
+        "n|tbl|system.signature_signers",
+        "n|sch|system",
+        "n|col|system.signature_signers.token_hash"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "signature_signers",
+        "signature_signers_user_idx"
+      ],
+      "writes": [
+        "s|idx|system.signature_signers_user_idx",
+        "n|idx|system.signature_signers_user_idx",
+        "e|idx|system.signature_signers_user_idx",
+        "n|rel|system.signature_signers_user_idx"
+      ],
+      "reads": [
+        "n|tbl|system.signature_signers",
+        "n|sch|system",
+        "n|col|system.signature_signers.user_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "signature_subjects",
+        "signature_subjects_request_idx"
+      ],
+      "writes": [
+        "s|idx|system.signature_subjects_request_idx",
+        "n|idx|system.signature_subjects_request_idx",
+        "e|idx|system.signature_subjects_request_idx",
+        "n|rel|system.signature_subjects_request_idx"
+      ],
+      "reads": [
+        "n|tbl|system.signature_subjects",
+        "n|sch|system",
+        "n|col|system.signature_subjects.request_id"
+      ]
+    },
+    {
+      "statementType": "create_index",
+      "statementTarget": [
+        "index",
+        "system",
+        "signature_subjects",
+        "signature_subjects_signer_idx"
+      ],
+      "writes": [
+        "s|idx|system.signature_subjects_signer_idx",
+        "n|idx|system.signature_subjects_signer_idx",
+        "e|idx|system.signature_subjects_signer_idx",
+        "n|rel|system.signature_subjects_signer_idx"
+      ],
+      "reads": [
+        "n|tbl|system.signature_subjects",
+        "n|sch|system",
+        "n|col|system.signature_subjects.signer_id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "system",
+        "signature_challenges"
+      ],
+      "writes": [
+        "s|fk|system.signature_challenges.signature_challenges_signer_id_signature_signers_id_fkey",
+        "n|fk|system.signature_challenges.signature_challenges_signer_id_signature_signers_id_fkey",
+        "e|fk|system.signature_challenges.signature_challenges_signer_id_signature_signers_id_fkey",
+        "n|con|system.signature_challenges.signature_challenges_signer_id_signature_signers_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|system.signature_challenges",
+        "n|sch|system",
+        "n|tbl|system.signature_signers",
+        "n|sch|system",
+        "n|col|system.signature_challenges.signer_id",
+        "n|col|system.signature_signers.id",
+        "e|uniqueness|system.signature_signers.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "system",
+        "signature_evidence"
+      ],
+      "writes": [
+        "s|fk|system.signature_evidence.signature_evidence_request_id_signature_requests_id_fkey",
+        "n|fk|system.signature_evidence.signature_evidence_request_id_signature_requests_id_fkey",
+        "e|fk|system.signature_evidence.signature_evidence_request_id_signature_requests_id_fkey",
+        "n|con|system.signature_evidence.signature_evidence_request_id_signature_requests_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|system.signature_evidence",
+        "n|sch|system",
+        "n|tbl|system.signature_requests",
+        "n|sch|system",
+        "n|col|system.signature_evidence.request_id",
+        "n|col|system.signature_requests.id",
+        "e|uniqueness|system.signature_requests.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "system",
+        "signature_signers"
+      ],
+      "writes": [
+        "s|fk|system.signature_signers.signature_signers_request_id_signature_requests_id_fkey",
+        "n|fk|system.signature_signers.signature_signers_request_id_signature_requests_id_fkey",
+        "e|fk|system.signature_signers.signature_signers_request_id_signature_requests_id_fkey",
+        "n|con|system.signature_signers.signature_signers_request_id_signature_requests_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|system.signature_signers",
+        "n|sch|system",
+        "n|tbl|system.signature_requests",
+        "n|sch|system",
+        "n|col|system.signature_signers.request_id",
+        "n|col|system.signature_requests.id",
+        "e|uniqueness|system.signature_requests.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "system",
+        "signature_signers"
+      ],
+      "writes": [
+        "s|fk|system.signature_signers.signature_signers_user_id_user_id_fkey",
+        "n|fk|system.signature_signers.signature_signers_user_id_user_id_fkey",
+        "e|fk|system.signature_signers.signature_signers_user_id_user_id_fkey",
+        "n|con|system.signature_signers.signature_signers_user_id_user_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|system.signature_signers",
+        "n|sch|system",
+        "n|tbl|auth.user",
+        "n|sch|auth",
+        "n|col|system.signature_signers.user_id",
+        "n|col|auth.user.id",
+        "e|uniqueness|auth.user.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "system",
+        "signature_subjects"
+      ],
+      "writes": [
+        "s|fk|system.signature_subjects.signature_subjects_request_id_signature_requests_id_fkey",
+        "n|fk|system.signature_subjects.signature_subjects_request_id_signature_requests_id_fkey",
+        "e|fk|system.signature_subjects.signature_subjects_request_id_signature_requests_id_fkey",
+        "n|con|system.signature_subjects.signature_subjects_request_id_signature_requests_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|system.signature_subjects",
+        "n|sch|system",
+        "n|tbl|system.signature_requests",
+        "n|sch|system",
+        "n|col|system.signature_subjects.request_id",
+        "n|col|system.signature_requests.id",
+        "e|uniqueness|system.signature_requests.id"
+      ]
+    },
+    {
+      "statementType": "create_fk",
+      "statementTarget": [
+        "table",
+        "system",
+        "signature_subjects"
+      ],
+      "writes": [
+        "s|fk|system.signature_subjects.signature_subjects_signer_id_signature_signers_id_fkey",
+        "n|fk|system.signature_subjects.signature_subjects_signer_id_signature_signers_id_fkey",
+        "e|fk|system.signature_subjects.signature_subjects_signer_id_signature_signers_id_fkey",
+        "n|con|system.signature_subjects.signature_subjects_signer_id_signature_signers_id_fkey"
+      ],
+      "reads": [
+        "n|tbl|system.signature_subjects",
+        "n|sch|system",
+        "n|tbl|system.signature_signers",
+        "n|sch|system",
+        "n|col|system.signature_subjects.signer_id",
+        "n|col|system.signature_signers.id",
+        "e|uniqueness|system.signature_signers.id"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "name": "signature_challenges",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "name": "signature_evidence",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "name": "signature_requests",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "name": "signature_signers",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "name": "signature_subjects",
+        "isRlsEnabled": false,
+        "entityType": "tables"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "signer_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "channel",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "code_hmac",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "attempts",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "0",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "expires_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "consumed_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "document_hash",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_evidence",
+        "name": "id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_evidence",
+        "name": "request_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_evidence",
+        "name": "seq",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_evidence",
+        "name": "event_type",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_evidence",
+        "name": "canonical_bytes",
+        "type": "bytea",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_evidence",
+        "name": "previous_hash",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_evidence",
+        "name": "hash",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_evidence",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "flow_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "table_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "record_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "status",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'pending'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "signing_order",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "statements",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "document_hash",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "document_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "sealed_document_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "proof_key",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "expires_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "completed_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "keep_until",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "seal_level",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'none'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "last_error",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "request_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "signer_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "position",
+        "type": "integer",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "status",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "'waiting'",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "token_hash",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "token_expires_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "field_name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "placement",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "delivered_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "last_notified_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "signed_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "identity_kind",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "user_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "gen_random_uuid()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "request_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "signer_id",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "name",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "email",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "phone",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "ip_address",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "user_agent",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "reason",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "salts",
+        "type": "jsonb",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "created_at",
+        "type": "timestamp with time zone",
+        "typeSchema": null,
+        "notNull": true,
+        "dimensions": 0,
+        "default": "now()",
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "signature_challenges_signer_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "signer_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_evidence",
+        "name": "signature_evidence_request_seq_unique",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "request_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "seq",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "signature_requests_record_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "table_name",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "record_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "signature_requests_status_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "status",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "signature_requests_keep_until_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "keep_until",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "signature_signers_request_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "request_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "signature_signers_request_position_unique",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "request_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          },
+          {
+            "value": "position",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "signature_signers_token_hash_unique",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "token_hash",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": true,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "signature_signers_user_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "user_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "signature_subjects_request_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "request_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "signature_subjects_signer_idx",
+        "nameExplicit": true,
+        "columns": [
+          {
+            "value": "signer_id",
+            "isExpression": false,
+            "asc": true,
+            "nullsFirst": false,
+            "opclass": null
+          }
+        ],
+        "isUnique": false,
+        "where": null,
+        "with": "",
+        "method": "btree",
+        "concurrently": false,
+        "entityType": "indexes"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "signature_challenges_signer_id_signature_signers_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "signer_id"
+        ],
+        "schemaTo": "system",
+        "tableTo": "signature_signers",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_evidence",
+        "name": "signature_evidence_request_id_signature_requests_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "request_id"
+        ],
+        "schemaTo": "system",
+        "tableTo": "signature_requests",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "signature_signers_request_id_signature_requests_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "request_id"
+        ],
+        "schemaTo": "system",
+        "tableTo": "signature_requests",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "signature_signers_user_id_user_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "user_id"
+        ],
+        "schemaTo": "auth",
+        "tableTo": "user",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "SET NULL",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "signature_subjects_request_id_signature_requests_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "request_id"
+        ],
+        "schemaTo": "system",
+        "tableTo": "signature_requests",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "signature_subjects_signer_id_signature_signers_id_fkey",
+        "nameExplicit": false,
+        "columns": [
+          "signer_id"
+        ],
+        "schemaTo": "system",
+        "tableTo": "signature_signers",
+        "columnsTo": [
+          "id"
+        ],
+        "onUpdate": "NO ACTION",
+        "onDelete": "NO ACTION",
+        "entityType": "fks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "signature_challenges_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_evidence",
+        "name": "signature_evidence_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "signature_requests_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "signature_signers_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_subjects",
+        "name": "signature_subjects_pkey",
+        "columns": [
+          "id"
+        ],
+        "nameExplicit": false,
+        "entityType": "pks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_challenges",
+        "name": "signature_challenges_channel_check",
+        "value": "\"channel\" IN ('email', 'sms')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "signature_requests_status_check",
+        "value": "\"status\" IN ('pending', 'signing', 'sealing', 'completed', 'declined', 'cancelled', 'expired')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_requests",
+        "name": "signature_requests_seal_level_check",
+        "value": "\"seal_level\" IN ('none', 'b-b', 'b-t')",
+        "entityType": "checks"
+      }
+    },
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "signature_signers",
+        "name": "signature_signers_status_check",
+        "value": "\"status\" IN ('waiting', 'invited', 'verified', 'signed', 'declined')",
+        "entityType": "checks"
+      }
+    }
+  ]
+}

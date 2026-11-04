@@ -52,6 +52,8 @@ const OPERATOR_RECORD =
 const AUTOMATION_STATE =
   'operator state of the automations the config declares: runs, schedules, pauses and approvals describe the instance'
 const MIGRATION_STATE = 'migration state: the database schema history the engine boots against'
+const SIGNATURE_EVIDENCE =
+  'signature evidence: what was signed, by whom and when, kept until its keep date; a reset never deletes it'
 
 /** Every engine table, as `schema.name`, and its fate under a reset. */
 export const RESET_TABLE_FATES: Readonly<Record<string, ResetFate>> = {
@@ -228,6 +230,11 @@ export const RESET_TABLE_FATES: Readonly<Record<string, ResetFate>> = {
     fate: 'kept',
     reason: 'nothing in the engine reads or writes it; kept until a migration drops it',
   },
+  'system.signature_challenges': { fate: 'kept', reason: SIGNATURE_EVIDENCE },
+  'system.signature_evidence': { fate: 'kept', reason: SIGNATURE_EVIDENCE },
+  'system.signature_requests': { fate: 'kept', reason: SIGNATURE_EVIDENCE },
+  'system.signature_signers': { fate: 'kept', reason: SIGNATURE_EVIDENCE },
+  'system.signature_subjects': { fate: 'kept', reason: SIGNATURE_EVIDENCE },
   'system.sovrium_bootstrap_tokens': {
     fate: 'kept',
     reason: 'host material: the one-time first-admin claim',

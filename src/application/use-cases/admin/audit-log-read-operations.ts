@@ -32,7 +32,9 @@ import {
   defineAdminRead,
   type AdminReadDecode,
   type AdminReadOperation,
+  type AdminReadRequest,
 } from '@/application/use-cases/admin/admin-read-operation'
+import { auditLogCsv } from '@/application/use-cases/admin/audit-log-export'
 import { resolveDateWindow } from '@/application/use-cases/admin/automations-runs-query'
 import {
   AUDIT_FACET_LIMIT,
@@ -93,7 +95,16 @@ const pageParamsSchema = Schema.Struct({
   from: auditLogQuerySchema.fields.from,
   to: auditLogQuerySchema.fields.to,
   reads: auditLogQuerySchema.fields.reads,
+  format: auditLogQuerySchema.fields.format,
 })
+
+/**
+ * What the list read answers: one page of the trail, or, for `format=csv`,
+ * every entry the filters select, as a download.
+ */
+type AuditLogRead =
+  | ({ readonly format: 'page' } & AuditPageQuery)
+  | { readonly format: 'csv'; readonly filter: AuditListFilter }
 
 /**
  * The search term and the period as filter fields. The period follows the run
@@ -122,39 +133,43 @@ const narrowingOf = (
   }
 }
 
+/** The raw page parameters, without the page size and cursor an export does not read. */
+const pageParamsOf = (raw: Readonly<Record<string, unknown>>, csv: boolean) => ({
+  ...(csv ? {} : { cursor: filterValue(raw['cursor']), limit: filterValue(raw['limit']) }),
+  q: typeof raw['q'] === 'string' ? raw['q'] : undefined,
+  from: filterValue(raw['from']),
+  to: filterValue(raw['to']),
+  reads: filterValue(raw['reads']),
+  format: filterValue(raw['format']),
+})
+
 /**
  * The filters, the page size and the cursor; a malformed size, cursor or period
- * is refused. A calendar-day period is read in `operatorTimezone`.
+ * is refused. A calendar-day period is read in `operatorTimezone`. A CSV export
+ * reads every entry the filters select, so its `cursor` and `limit` are not
+ * read at all: an export carrying a page's leftovers still answers.
  */
 const decodeAuditLogPage = (
   raw: Readonly<Record<string, unknown>>,
   operatorTimezone: string
-): AdminReadDecode<AuditPageQuery> => {
+): AdminReadDecode<AuditLogRead> => {
   const refused = { _tag: 'InvalidInput', reason: 'malformed' } as const
-  const params = Schema.decodeUnknownOption(pageParamsSchema)({
-    cursor: filterValue(raw['cursor']),
-    limit: filterValue(raw['limit']),
-    q: typeof raw['q'] === 'string' ? raw['q'] : undefined,
-    from: filterValue(raw['from']),
-    to: filterValue(raw['to']),
-    reads: filterValue(raw['reads']),
-  })
+  const csv = raw['format'] === 'csv'
+  const params = Schema.decodeUnknownOption(pageParamsSchema)(pageParamsOf(raw, csv))
   if (Option.isNone(params)) return refused
   const { cursor, limit } = params.value
   const after = cursor === undefined ? undefined : decodeCursor(cursor)
   const narrowing = narrowingOf(params.value, operatorTimezone)
   if ((cursor !== undefined && after === undefined) || narrowing === undefined) return refused
+  const filter = { ...decodeAuditLogFilter(raw), ...narrowing }
+  if (csv) return { _tag: 'Ok', input: { format: 'csv', filter } }
   return {
     _tag: 'Ok',
-    input: {
-      filter: { ...decodeAuditLogFilter(raw), ...narrowing },
-      limit,
-      ...(after === undefined ? {} : { after }),
-    },
+    input: { format: 'page', filter, limit, ...(after === undefined ? {} : { after }) },
   }
 }
 
-const auditLogList = defineAdminRead<AuditPageQuery>({
+const auditLogList = defineAdminRead<AuditLogRead>({
   id: 'audit-log.list',
   method: 'get',
   path: '/api/admin/audit-log',
@@ -168,6 +183,7 @@ const auditLogList = defineAdminRead<AuditPageQuery>({
     'from',
     'to',
     'reads',
+    'format',
     'cursor',
     'limit',
   ],
@@ -207,6 +223,12 @@ const auditLogList = defineAdminRead<AuditPageQuery>({
           description:
             'Leave out the reads (false): the entries whose action ends in .queried or .read, which record someone looking and nothing changing. true or absent keeps them.',
         },
+        format: {
+          type: 'string',
+          enum: ['csv'],
+          description:
+            'csv answers every entry the filters select as CSV text instead of one page; cursor and limit do not apply.',
+        },
         limit: {
           type: 'integer',
           minimum: 1,
@@ -230,7 +252,9 @@ const auditLogList = defineAdminRead<AuditPageQuery>({
       'An unrecognised filter value matches nothing and answers an empty page; ' +
       'a period that ends before it starts is refused with 400. `limit` caps a page (default 50, at most 200) and ' +
       '`nextCursor` reads the entries after it, `null` on the last page; a malformed `limit` ' +
-      'or `cursor` is refused with 400. Reading the trail writes no audit event. Admin only.',
+      'or `cursor` is refused with 400. Reading the trail writes no audit event. ' +
+      '`format=csv` answers every selected entry as a `text/csv` download instead, newest first, ' +
+      'with no `cursor` or `limit` applied; that download is recorded as a read. Admin only.',
     operationIdBase: 'listAdminAuditLog',
     querySchema: auditLogQuerySchema,
     responseSchema: auditLogListResponseSchema,
@@ -238,10 +262,16 @@ const auditLogList = defineAdminRead<AuditPageQuery>({
   },
   subject: 'audit-log response',
   decode: (raw, _app, env) => decodeAuditLogPage(raw, parseSovriumTimezone(env).zoneId),
-  // No admin audit event: reading the trail must not grow it.
+  // No admin audit event for a page: reading the trail must not grow it. The
+  // CSV export, a copy that leaves the console, records itself.
   // The page is read in the database, one page of rows at a time; the cursor
   // is the last entry's instant and id, the same keys the order is read by.
-  read: Effect.fn('admin.audit-log.page')(function* (_app: unknown, query: AuditPageQuery) {
+  read: Effect.fn('admin.audit-log.page')(function* (
+    _app: unknown,
+    query: AuditLogRead,
+    request: AdminReadRequest
+  ) {
+    if (query.format === 'csv') return yield* auditLogCsv(query.filter, request)
     const page = yield* (yield* AuditLogRepository).listPage(query)
     const last = page.entries.at(-1)
     return answerWithSchema(auditLogListResponseSchema, {

@@ -106,7 +106,7 @@ export const buttonFields = {
     ReadStateGateSchema.annotate({
       title: 'Hidden When Read',
       description:
-        'Hides the button while the named `table` or `kanban`, or those on the named shared-filter channel, are in one of the listed read states, and shows it again without a reload once a later read leaves them. A hidden button is out of the layout and of the accessibility tree. Decided in the browser after each read, so the button is still in the page: use `visibility` for who may see it. Omit to draw the button whatever its page has read.',
+        'Hides the button while the named data component (`table`, `kanban`, `list`, `kpi`, `chart` or `message-scroller`), or those on the named shared-filter channel, are in one of the listed read states, and shows it again without a reload once a later read leaves them. A hidden button is out of the layout and of the accessibility tree. Decided in the browser after each read, so the button is still in the page: use `visibility` for who may see it. Omit to draw the button whatever its page has read.',
       examples: [{ component: 'pending-erasures', state: ['loading', 'nonEmpty'] }],
     })
   ),
@@ -122,7 +122,7 @@ export const buttonFields = {
     ReadStateGateSchema.annotate({
       title: 'Disabled When Read',
       description:
-        'Disables the button while the named `table` or `kanban`, or those on the named shared-filter channel, are in one of the listed read states. The button stays drawn and focusable, is marked disabled, and pressing it does nothing; a later read that leaves those states enables it again without a reload. Combines with `disabledWhen`: the button is disabled while either holds. Omit to keep the button usable whatever its page has read.',
+        'Disables the button while the named data component (`table`, `kanban`, `list`, `kpi`, `chart` or `message-scroller`), or those on the named shared-filter channel, are in one of the listed read states. The button stays drawn and focusable, is marked disabled, and pressing it does nothing; a later read that leaves those states enables it again without a reload. Combines with `disabledWhen`: the button is disabled while either holds. Omit to keep the button usable whatever its page has read.',
       examples: [{ channel: 'quotes', state: 'failed' }],
     })
   ),

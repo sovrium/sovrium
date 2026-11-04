@@ -7,6 +7,7 @@
 
 import { Schema } from 'effect'
 import { buildComponentUnion } from '../pages/components/component-types'
+import { buildComponentReferenceSchema } from './reference'
 
 /**
  * The slot marker: `children: $children` on one node of a component template.
@@ -95,13 +96,37 @@ export const ComponentChildrenSchema: Schema.Codec<
         identifier: 'ComponentChildElement',
       })
     ),
+    Schema.suspend(() => TemplatePlacementSchema).pipe(
+      Schema.annotate({
+        identifier: 'ComponentTemplatePlacement',
+      })
+    ),
     Schema.String,
   ])
 ).pipe(
   Schema.annotate({
     title: 'Component Children',
-    description: 'Child elements array for component templates (components or strings)',
+    description:
+      'Child elements array for component templates: components, placements of other templates, or strings',
   })
+)
+
+/**
+ * A placement of ANOTHER template inside a template's tree: the same four
+ * forms a page writes (`{ component, vars }`, `{ $ref, vars }`, `variables`,
+ * the bare name), with `children` and `slots` read as template children.
+ *
+ * Before this arm a template could only be composed from the page side: a
+ * template marking a `$children` slot let a page pass placements into it, so
+ * a header made of ten `nav-item` placements had to be written out on every
+ * page that placed the header. A placement here is expanded with the inner
+ * template's own `vars`, which may themselves read the outer template's
+ * `$variables`. A template that reaches itself through its placements is
+ * refused when the app is read, naming the templates in the cycle; that rule
+ * needs every template at once, so it is not a check on this field.
+ */
+const TemplatePlacementSchema = buildComponentReferenceSchema(
+  Schema.suspend(() => ComponentChildrenSchema)
 )
 
 /**
@@ -150,13 +175,13 @@ export const ComponentChildElementSchema: Schema.Codec<any, any, never> = buildC
         Schema.annotate({
           identifier: 'ComponentChildren',
           description:
-            'Child elements nested inside this one, recursive to any depth. A template child is a component or a text string; unlike a page child it cannot be a `$ref`, because a template is itself what a `$ref` resolves to.',
+            'Child elements nested inside this one, recursive to any depth. A template child is a component, a placement of another template by name (`component` or `$ref`, with `vars`), or a text string.',
         })
       ),
       ComponentSlotSchema,
     ]).annotate({
       description:
-        "Child elements nested inside this one, recursive to any depth (components or text strings), or `$children`, which makes this node the template's slot: the page components a placement passes as `children` are drawn here.",
+        "Child elements nested inside this one, recursive to any depth (components, placements of other templates, or text strings), or `$children`, which makes this node the template's slot: the page components a placement passes as `children` are drawn here.",
     })
   ),
 }).pipe(

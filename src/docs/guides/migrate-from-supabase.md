@@ -129,7 +129,7 @@ Each user with an email becomes an account with the `member` role, named from th
 
 Each bucket becomes a `buckets:` entry. Its name is made a Sovrium bucket name (lower case, letters, digits and hyphens), and it keeps its visibility, its size limit as `maxFileSize` and its accepted types as `allowedMimeTypes`. Each file is written under `seed/import/buckets/<bucket>/`, at the same path it had in Supabase.
 
-Storage policies are listed by name in the report, not translated: each bucket arrives with Sovrium's defaults for its visibility. See [Buckets](/en/docs/buckets) to set who may upload and read.
+Storage policies are listed by name in the report, not translated: each bucket arrives with Sovrium's defaults for its visibility. See [Bucket Permissions](/en/docs/buckets-permissions) to set who may upload and read.
 
 ## 4. Write and seed
 

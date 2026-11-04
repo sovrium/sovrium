@@ -8,8 +8,6 @@
 import templateInputsBody from '@/domain/models/app/components/template-inputs.docs.md' with { type: 'file' }
 import { AutoSaveConfigSchema } from '@/domain/models/app/pages/components/auto-save'
 import componentsOverviewBody from '@/domain/models/app/pages/components/component-types/component-types.docs.md' with { type: 'file' }
-import contentComponentsBody from '@/domain/models/app/pages/components/component-types/content/content-components.docs.md' with { type: 'file' }
-import mediaComponentsBody from '@/domain/models/app/pages/components/component-types/content/media-components.docs.md' with { type: 'file' }
 import reusableComponentsBody from '@/domain/models/app/pages/components/component-types/custom/custom.docs.md' with { type: 'file' }
 import layoutComponentsBody from '@/domain/models/app/pages/components/component-types/layout/layout-components.docs.md' with { type: 'file' }
 import sidebarClientNavigationBody from '@/domain/models/app/pages/components/component-types/layout/sidebar-client-navigation.docs.md' with { type: 'file' }
@@ -19,8 +17,6 @@ import componentModulesBody from '@/domain/models/app/pages/components/component
 import structuralComponentsBody from '@/domain/models/app/pages/components/component-types/structural/structural.docs.md' with { type: 'file' }
 import { VisibilitySchema } from '@/domain/models/app/pages/components/visibility'
 import { componentType } from './component-directives'
-import { presentationComponentArticles } from './components-presentation'
-import { primitiveComponentArticles } from './components-primitives'
 import { defineArticle, defineSection } from './define'
 
 /**
@@ -195,58 +191,5 @@ export const section = defineSection({
       documents: [],
       stories: ['US-DESIGN-SYSTEM-COMPONENT-TYPES-STRUCTURAL'],
     }),
-    defineArticle({
-      slug: 'content-components',
-      title: 'Content Components',
-      description:
-        'Text and prose blocks — text and markdown, highlighted code with frames and composed content, keycaps, an auto-generated table of contents, and the search box.',
-      keywords: ['sovrium', 'content', 'text', 'markdown', 'code block', 'syntax highlighting'],
-      order: 3220,
-      sidebarLabel: 'Content Components',
-      body: contentComponentsBody,
-      documents: [
-        componentType('text'),
-        componentType('code'),
-        componentType('kbd'),
-        componentType('search-input'),
-      ],
-      stories: [
-        'US-DESIGN-SYSTEM-COMPONENT-TYPES-CONTENT',
-        'US-DESIGN-SYSTEM-COMPONENT-TYPES-CONTENT-KBD',
-        'US-PAGES-LAYOUT-CODE-CONTENT-FROM',
-        'US-PAGES-LAYOUT-CONTENT-BLOCKS-001',
-        'US-PAGES-LAYOUT-CONTENT-BLOCKS-002',
-        'US-PAGES-LAYOUT-CONTENT-BLOCKS-003',
-        'US-PAGES-LAYOUT-CONTENT-BLOCKS-004',
-        'US-PAGES-LAYOUT-CONTENT-BLOCKS-005',
-        'US-PAGES-LAYOUT-CONTENT-BLOCKS-006',
-        'US-PAGES-LAYOUT-CONTENT-BLOCKS-007',
-        'US-PAGES-LAYOUT-CONTENT-BLOCKS-008',
-        // The pages search requirement (search-term highlighting) moved to the
-        // `search-components` article: highlighting is a `listDisplay` and
-        // in-component-search behaviour, not a property of the input this
-        // article documents.
-      ],
-    }),
-    defineArticle({
-      slug: 'media-components',
-      title: 'Media Components',
-      description: 'Media page components — image, icon, video, audio, iframe, and qr-code.',
-      keywords: ['sovrium', 'image', 'icon', 'lucide', 'video', 'audio'],
-      order: 3224,
-      sidebarLabel: 'Media Components',
-      body: mediaComponentsBody,
-      documents: [componentType('image'), componentType('qr-code'), componentType('file-preview')],
-      stories: [
-        'US-PAGES-LAYOUT-ICONS',
-        'US-PAGES-MEDIA-MEDIA-COMPONENTS-001',
-        'US-PAGES-MEDIA-MEDIA-COMPONENTS-002',
-        'US-PAGES-MEDIA-MEDIA-COMPONENTS-003',
-        'US-PAGES-MEDIA-MEDIA-COMPONENTS-004',
-        'US-PAGES-MEDIA-MEDIA-COMPONENTS-005',
-      ],
-    }),
-    ...presentationComponentArticles,
-    ...primitiveComponentArticles,
   ],
 })

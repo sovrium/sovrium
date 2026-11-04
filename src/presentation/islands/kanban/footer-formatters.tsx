@@ -71,6 +71,16 @@ function plainChipText(
   }
 }
 
+/**
+ * An item's text after its `label`, when it declares one — « Amount: €48,500.00 »,
+ * with French's no-break space before the colon, as a grid summary label reads.
+ * Inside the item's own text, so a screen reader reads the label with the value.
+ */
+const labelled = (item: KanbanCardFooterItem, text: string, locale: string): string =>
+  item.label === undefined
+    ? text
+    : `${item.label}${locale.toLowerCase().startsWith('fr') ? '\u00A0: ' : ': '}${text}`
+
 /** A `badge` footer chip, with its server-resolved paint and leading dot. */
 function renderBadge(label: string, paint: OptionChipPaint | undefined): ReactNode {
   return (
@@ -99,15 +109,19 @@ function renderBadge(label: string, paint: OptionChipPaint | undefined): ReactNo
  * translated it, never the stored value.
  */
 function renderBadgeItem(
-  field: string,
+  item: KanbanCardFooterItem,
   stored: unknown,
   label: string,
   format: KanbanFormat
 ): ReactNode {
-  const text = format.recordText?.[field]
+  const text = format.recordText?.[item.field]
   return renderBadge(
-    text === undefined ? label : formatRecordText(stored, text, format.locale, new Date()),
-    format.fieldMeta?.[field]?.paints?.[String(stored)]
+    labelled(
+      item,
+      text === undefined ? label : formatRecordText(stored, text, format.locale, new Date()),
+      format.locale
+    ),
+    format.fieldMeta?.[item.field]?.paints?.[String(stored)]
   )
 }
 
@@ -135,17 +149,17 @@ export function renderFooterItem(
         >
           {initialsOf(label)}
         </span>
-        <span>{label}</span>
+        <span>{labelled(item, label, format.locale)}</span>
       </span>
     )
   }
-  if (item.format === 'badge') return renderBadgeItem(item.field, stored, label, format)
+  if (item.format === 'badge') return renderBadgeItem(item, stored, label, format)
   return (
     <span
       data-footer-format={item.format ?? 'text'}
       className={computeKanbanCardFooterChipClasses()}
     >
-      {plainChipText(item, stored, label, format)}
+      {labelled(item, plainChipText(item, stored, label, format), format.locale)}
     </span>
   )
 }

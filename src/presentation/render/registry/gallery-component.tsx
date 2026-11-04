@@ -17,6 +17,7 @@ import { declaredGalleryPartClasses } from '@/presentation/design/gallery-part-c
 import { resolveWeekdayFields } from '@/presentation/render/props/resolve-weekday-fields'
 import { hostClassName, namedHost } from '@/presentation/render/registry/island-host-attributes'
 import { boundViewGroupBy } from '@/presentation/render/resolve/list-island-inputs'
+import { resolveCardLayoutClasses } from '@/presentation/render/styling/card-layout-classes'
 import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
 import { islandFallback, specimenEmpty } from './specimen-island-states'
 import type { ComponentDispatchConfig, ComponentRenderer } from './component-dispatch-config'
@@ -43,7 +44,7 @@ function extractGalleryProps(
     ...(weekdays === undefined ? {} : { weekdays }),
     dataSource: elementProps.dataSource,
     gridColumns: elementProps.gridColumns,
-    galleryCard: resolveCardBadgeClasses(elementProps.galleryCard),
+    galleryCard: resolveCardLayoutClasses(resolveCardBadgeClasses(elementProps.galleryCard)),
     emptyMessage: elementProps.emptyMessage,
     layout: elementProps.layout,
     featured: elementProps.featured,

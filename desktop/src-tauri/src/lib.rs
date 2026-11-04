@@ -239,7 +239,10 @@ fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
     // about rendering, and a headless runner is exactly where a webview is
     // least dependable.
     if let Some(config) = smoke::config() {
-        log::info!("SOVRIUM_DESKTOP_SMOKE is set; running the self-test in {:?}", config.dir);
+        log::info!(
+            "SOVRIUM_DESKTOP_SMOKE is set; running the self-test in {:?}",
+            config.dir
+        );
         if let Some(window) = app.get_webview_window("main") {
             let _ = window.hide();
         }

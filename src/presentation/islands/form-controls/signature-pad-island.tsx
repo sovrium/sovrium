@@ -10,10 +10,10 @@
  *
  * The statement sits above a dashed well; the signer draws, or (with
  * `allowTyped`) types their full name instead, and presses Sign. The mark is
- * uploaded as a PNG and the signature written onto the record — image, signer,
- * instant, method and the statement as it read — by `writeSignature`. Once
- * written, the pad becomes the reading "Signed by … on …", which is what the
- * server renders for a signed field from then on.
+ * posted as a PNG to the field's signing route by `writeSignature`, with the
+ * page it is drawn on and the digest of the statement shown; the server stores
+ * the signature it authors. Once stored, the pad becomes the reading "Signed by
+ * … on …", which is what the server renders for a signed field from then on.
  */
 
 import { useEffect, useRef, useState, type ReactElement } from 'react'
@@ -38,9 +38,9 @@ interface SignaturePadIslandProps {
   readonly table: string
   readonly recordId: string | number
   readonly field: string
-  readonly bucket: string
+  readonly page: string
   readonly statement: string
-  readonly signerName: string
+  readonly statementDigest: string
   readonly height: number
   readonly penWidth: number
   readonly allowTyped: boolean
@@ -58,7 +58,7 @@ type Status =
   | { readonly kind: 'failed' }
   | { readonly kind: 'signed'; readonly signerName: string; readonly signedAt: string }
 
-/** Sign with the mark in hand: upload it and write the signature; reports the outcome. */
+/** Sign with the mark in hand: post it to the signing route; reports the outcome. */
 async function signWith(
   props: SignaturePadIslandProps,
   mark: {
@@ -74,10 +74,10 @@ async function signWith(
       table: props.table,
       recordId: props.recordId,
       field: props.field,
-      bucket: props.bucket,
-      statement: props.statement,
-      signerName: mark.typed ? mark.name : props.signerName,
+      page: props.page,
+      statementDigest: props.statementDigest,
       method: mark.typed ? 'typed' : 'drawn',
+      ...(mark.typed ? { typedName: mark.name } : {}),
     })
     return { kind: 'signed', ...written }
   } catch {

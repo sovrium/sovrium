@@ -52,7 +52,7 @@ import {
 import { makeOllamaLanguageModel, OllamaCallConfig } from './ollama-language-model'
 import { getCachedOllamaReachable } from './ollama-reachability'
 import { openAiCompatCall, openAiCompatLanguageModelLayer } from './openai-compat-model'
-import { parseAiEnvConfig } from './parse-ai-env-config'
+import { aiEnvRefusal, parseAiEnvConfig } from './parse-ai-env-config'
 
 /**
  * AI Service Live adapter.
@@ -294,6 +294,10 @@ export const AiServiceLive = Layer.effect(
   AiService,
   Effect.gen(function* () {
     const env = yield* ProcessEnv
+    // A refused AI_* value stops the boot naming that variable, before the
+    // decode below could report it under its internal property name.
+    const refusal = aiEnvRefusal(env)
+    if (refusal !== undefined) return yield* Effect.die(new Error(refusal))
     const config = parseAiEnvConfig(env)
     const ollamaBaseUrl = resolveOllamaBaseUrl(env)
     // Each connection's language model, built once into THIS layer's scope.

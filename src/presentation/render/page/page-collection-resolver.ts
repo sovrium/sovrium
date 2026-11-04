@@ -32,6 +32,10 @@ import { resolveAddressedDrawerTitle } from '@/presentation/render/resolve/drawe
 import { withoutEmptyCommentThreads } from '@/presentation/render/resolve/empty-comment-thread-pass'
 import { drawInlineSvgs } from '@/presentation/render/resolve/inline-svg-resolver'
 import { resolvePageInvitation } from '@/presentation/render/resolve/invitation-resolver'
+import {
+  resolvePageItemList,
+  type ItemListContext,
+} from '@/presentation/render/resolve/item-list-structured-data'
 import { withLocalizedRows } from '@/presentation/render/resolve/localized-rows-db'
 import {
   resolveCollectionPage,
@@ -51,6 +55,7 @@ import { resolveRouteBoundTables } from '@/presentation/render/resolve/route-bou
 import { resolvePageRouteParams } from '@/presentation/render/resolve/route-param-props-resolver'
 import { type RowLevelReadCheck } from '@/presentation/render/resolve/row-rule-read-check'
 import { stampSessionEnded } from '@/presentation/render/resolve/session-ended-stamp'
+import { resolvePageSigning } from '@/presentation/render/resolve/signing-context-resolver'
 import { resolveTabsLazyPanels } from '@/presentation/render/resolve/tabs-lazy-resolver'
 import { translateReferencedKeys } from '@/presentation/render/resolve/translated-references-resolver'
 import { resolvePageTwoFactorAttempt } from '@/presentation/render/resolve/two-factor-attempt-resolver'
@@ -219,26 +224,30 @@ interface ResolveCollectionAndFilterInput {
 }
 
 /**
- * The passes reading the request itself: the page's invitation, its code forms,
- * then its sign-in forms when a refused session sent the reader here.
+ * The passes reading the request itself: a signing page's `$signing`, the
+ * page's invitation, its code forms, then its sign-in forms when a refused
+ * session sent the reader here.
  */
 const resolveRequestBoundPasses = async (input: ResolveCollectionAndFilterInput): Promise<Page> =>
   stampSessionEnded(
-    await resolvePageTwoFactorAttempt(await resolvePageInvitation(input.matchedPage, input), input),
+    await resolvePageTwoFactorAttempt(
+      await resolvePageInvitation(resolvePageSigning(input.matchedPage, input), input),
+      input
+    ),
     input.requestQuery
   )
 
 /**
- * A resolved page's two closing passes. A drawing goes last: every row exists by
- * then, and no later pass substitutes a token into a string.
+ * A resolved page's closing passes: its `itemList` rows, then a drawing, last:
+ * every row exists by then, and no later pass substitutes a token into a string.
  */
 const finishedPage = async <T extends Page | object | undefined>(
   page: T,
   written: Page,
-  context: Parameters<typeof withoutEmptyCommentThreads>[1] & { readonly db: DataSourceDb }
+  context: Parameters<typeof withoutEmptyCommentThreads>[1] & ItemListContext
 ): Promise<T> =>
   drawInlineSvgs(
-    await withoutEmptyCommentThreads(page, context),
+    await resolvePageItemList(await withoutEmptyCommentThreads(page, context), context),
     written,
     context.db.readPublicFile
   )
@@ -313,7 +322,7 @@ export async function resolveCollectionAndFilter(
       callerCapabilities: input.callerCapabilities,
     }),
     urlLanguage: input.urlLanguage,
-  }).then((page) => finishedPage(page, input.matchedPage, { app, session, db }))
+  }).then((page) => finishedPage(page, input.matchedPage, { ...input, app, session, db }))
   return withRecordLanguageAddresses(filtered, collectionResolution)
 }
 

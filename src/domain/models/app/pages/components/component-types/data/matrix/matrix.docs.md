@@ -40,10 +40,10 @@ An intersection with no matching edge still renders as a cell: empty, holding th
 
 ### When the glyph cannot express the cell
 
-`glyph` is one value and a real grid usually needs more than one, because the right mark depends on the **shape of the operations**, not on the row. So `glyph` names the cell's _primary_ rendering, and a cell it cannot express steps down rather than losing what it knows:
+`glyph` is one value and a real grid usually needs more than one, because the right mark depends on the **shape of the operations**, not on the row. So `glyph` names the cell's _primary_ rendering, and a cell it cannot express steps down and keeps what it knows:
 
 1. a cell whose operations the declared glyph can express is drawn in it;
-2. a cell it cannot falls back to `ops-label`: the letters are printed rather than dropped, because dropping them would make two different grants look identical;
+2. a cell it cannot falls back to `ops-label`: the letters are printed, because dropping them would make two different grants look identical;
 3. a matching edge carrying **no** operations renders `filled`: connected, with nothing further claimed.
 
 One grid declaring `glyph: quadrant` therefore draws quadrants where the operations have four parts, letters where they do not, and solid marks where there are none. You do not configure that per row; it follows the data.

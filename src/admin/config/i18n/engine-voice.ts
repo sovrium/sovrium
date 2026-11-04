@@ -47,7 +47,6 @@ export default {
   'sovrium.datatable.loadFailedIn': '{table} couldn’t load.',
   'sovrium.dialog.typeToConfirm': 'To confirm, type “{text}”',
   'sovrium.dialog.typeToConfirmAsked': 'To confirm, type the text asked for',
-  'sovrium.filePreview.cannotShow': '{name} cannot be shown here. Download it to open it.',
   'sovrium.fileUpload.dropPrompt': 'Drop files here',
   'sovrium.form.confirmPrompt': 'This takes effect right away.',
   'sovrium.form.dropFiles': 'Drop files here or click to browse',

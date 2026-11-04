@@ -20,8 +20,14 @@ import type { PrivacySignalSettings, TrackerConsentHold } from './privacy-signal
  * every `history.pushState` and `popstate`. Each send first asks `K()` (see
  * `trackerConsentReader`), so a visitor who turned measuring off in a
  * `consent-choice` control sends nothing from that moment on.
+ *
+ * A page the browser prerenders ahead of a click (`document.prerendering`) has
+ * not been opened yet: every send waits for `prerenderingchange`, then runs
+ * once. Adding the same listener twice is a no-op, so sends asked for during
+ * the prerender collapse into the one page view the visitor opens.
  */
 const PAGE_VIEW_SENDER = `var u=function(){
+if(document.prerendering){document.addEventListener("prerenderingchange",u,{once:true});return}
 if(K())return;
 try{var s=new URLSearchParams(location.search);
 var d={p:location.pathname,t:document.title,r:document.referrer||void 0,

@@ -189,7 +189,7 @@ export const renderEnvVariable = (input: {
       ...mention.lines,
       '',
     ]),
-    `Read the whole article with \`sovrium docs ${input.mentions[0]?.address ?? 'cli-api/env-vars'}\`.`,
+    `Read the whole article with \`sovrium docs ${input.mentions[0]?.address ?? 'configuration/env-vars'}\`.`,
     '',
   ].join('\n')
 
@@ -204,6 +204,13 @@ export const envTemplateLines = (template: string, variable: string): readonly s
 // cli <verb>
 // =============================================================================
 
+/**
+ * An address under one of the CLI rail groups: `cli-api` and the groups split
+ * out of it as the command surface grew (`cli-ship`, `cli-migration`,
+ * `cli-tools`).
+ */
+const CLI_SECTION_ADDRESS = /^cli-[a-z]+\//
+
 /** Whether a body invokes `sovrium <verb>` as a whole word. */
 const namesCommand = (body: string, verb: string): boolean =>
   new RegExp(`\\bsovrium ${verb}(?![a-z0-9-])`).test(body)
@@ -217,9 +224,9 @@ const namesCommand = (body: string, verb: string): boolean =>
  * asks is the same one `check-doc-coverage.ts` asks: does some fragment name
  * this command?
  *
- * A CLI-section article wins over any other, because a verb is quoted all over
+ * A CLI-group article wins over any other, because a verb is quoted all over
  * the manual — `sovrium start` appears in most get-started prose — and the
- * article that DOCUMENTS the command is the one filed under the CLI section.
+ * article that DOCUMENTS the command is the one filed under a CLI group.
  * Without the preference the answer would depend on section order.
  */
 export const findCliArticle = (
@@ -227,7 +234,7 @@ export const findCliArticle = (
   verb: string
 ): DocsCorpusEntry | undefined => {
   const naming = corpus.filter((entry) => namesCommand(entry.body, verb))
-  return naming.find((entry) => entry.address.startsWith('cli-api/')) ?? naming[0]
+  return naming.find((entry) => CLI_SECTION_ADDRESS.test(entry.address)) ?? naming[0]
 }
 
 /**

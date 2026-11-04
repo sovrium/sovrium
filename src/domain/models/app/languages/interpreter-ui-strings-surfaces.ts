@@ -13,7 +13,8 @@
  * the refusals a hosted form receives, the
  * account forms, the comment thread's controls and the presence indicator, the
  * rich-text toolbar and slash menu, the dictation button and a chart's folded
- * remainder, and the grid's new row and pickers. Part
+ * remainder, the grid's new row and pickers, the docs layout's search
+ * field, outline and pager, and a toast's close button. Part
  * of {@link INTERPRETER_UI_STRINGS} through the components table; kept apart
  * only so no file outgrows its ceiling. English is today's literal word for
  * word, French is built in, and an author renames any key under
@@ -194,4 +195,15 @@ export const SURFACE_UI_STRINGS: Readonly<Record<string, Readonly<Record<string,
   // ---- A code block's copy button and its confirmation, when the author names neither ----
   'code.copy': { en: 'Copy', fr: 'Copier' },
   'code.copied': { en: 'Copied', fr: 'Copié' },
+
+  // ---- The docs layout: its sidebar search field, its outline and its pager ----
+  'docs.search': { en: 'Search the docs', fr: 'Rechercher' },
+  'docs.outline': { en: 'Table of contents', fr: 'Table des matières' },
+  /** The pager's links under an article; the arrows are drawn beside these words. */
+  'docs.pager.previous': { en: 'Previous', fr: 'Précédent' },
+  'docs.pager.next': { en: 'Next', fr: 'Suivant' },
+  // ---- The close button of a toast that stays until it is dismissed ----
+  'toast.dismiss': { en: 'Dismiss', fr: 'Fermer' },
+  // ---- The docs layout's phone button that opens the sections, and the drawer it opens ----
+  'docs.menu': { en: 'Menu', fr: 'Menu' },
 }

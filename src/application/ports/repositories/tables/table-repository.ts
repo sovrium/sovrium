@@ -313,6 +313,7 @@ export class TableRepository extends Context.Service<
         readonly unlinks?: readonly RecordLinkWrite[]
         readonly expectedUpdatedAt?: string
         readonly auditContext?: Readonly<Record<string, string>>
+        readonly writeOnce?: readonly string[] // written only while empty, else ValidationError
         readonly accounts?: RecordWriteExtras<RecordLinkWrite>['accounts']
         readonly judge?: InTransactionRuleJudge
       }

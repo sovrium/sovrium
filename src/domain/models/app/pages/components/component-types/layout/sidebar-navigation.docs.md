@@ -127,7 +127,7 @@ The disclosure holding the current page is open on arrival, resolved on the serv
 
 **Omit `href` and the whole row becomes the toggle**: one `button` carrying the icon, the label, any badge and the chevron, with hover treatment and no selected state. `href` is optional only on a **top-level** entry, and only on one declaring `children` or `source`; sub-entries and leaf entries always require one.
 
-Two consequences follow, and both are the point rather than a limitation. The row is never marked as the current page. `aria-current` says "this is the page you are on", and a row that goes nowhere can never be one, so `activeMatch` is **refused** on it. And its accessible name is its own label, read with the state `aria-expanded` already announces, so `expandLabel` and `collapseLabel` are refused for the same reason: on a row whose visible text is its name, a second string would shadow the words on the screen.
+Two consequences follow, and both are intended. The row is never marked as the current page. `aria-current` says "this is the page you are on", and a row that goes nowhere can never be one, so `activeMatch` is **refused** on it. And its accessible name is its own label, read with the state `aria-expanded` already announces, so `expandLabel` and `collapseLabel` are refused for the same reason: on a row whose visible text is its name, a second string would shadow the words on the screen.
 
 An entry with **neither** `href` nor `children` nor `source` is refused at startup, naming the entry and saying which it is missing. Such a row is neither a link nor a control: rendered, unclickable, and legal in every remaining field, which is exactly why nothing but this rule can catch it.
 
@@ -177,7 +177,7 @@ A sidebar wide enough to read costs a laptop roughly a quarter of its width, and
 
 `below` is a **strict lower bound**: the rail applies at every width below the named breakpoint, and at it and above the sidebar renders exactly as it does without the key. So a console that wants a rail on a laptop and the full sidebar on a wide desktop names the breakpoint at which the desktop starts (`xl`), not the one at which the laptop does.
 
-The tokens are `responsive`'s: `sm`, `md`, `lg`, `xl`, `2xl`. **`mobile` is refused** rather than accepted and ignored: it is the base rather than a breakpoint, so "below mobile" is the empty range and the rail would never apply, on every page, with nothing logged.
+The tokens are `responsive`'s: `sm`, `md`, `lg`, `xl`, `2xl`. **`mobile` is refused** instead of being accepted and ignored: it is the base, and not a breakpoint, so "below mobile" is the empty range and the rail would never apply, on every page, with nothing logged.
 
 Below the breakpoint the sidebar takes a fixed 56px width, every entry centres its icon in it, and the entry labels, entry badges and group headings stop being painted. Give every entry an `icon`: a row with none is a 56px column of nothing.
 

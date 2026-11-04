@@ -77,6 +77,17 @@ const ConnectionBaseFields = {
 
   /** Endpoints of the service, callable by name from automation steps */
   operations: Schema.optional(ConnectionOperationsSchema),
+
+  /** The messaging API shape an engine feature sends through, rather than an automation step */
+  provider: Schema.optional(
+    Schema.Literals(['twilio']).pipe(
+      Schema.annotate({
+        description:
+          'The messaging API behind this connection, for an engine feature that sends through it itself, such as the text-message codes of a signing flow. twilio: the Messages API, reached at baseUrl (https://api.twilio.com when baseUrl is left out), with a basic connection whose username is the account id and whose password is the auth token.',
+        defaultNote: 'twilio, the only shape supported today',
+      })
+    )
+  ),
 }
 
 // ─── OAuth2 Connection ───────────────────────────────────────────────────────

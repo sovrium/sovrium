@@ -41,12 +41,21 @@ import type { TemplateCatalog } from '@/cli/commands/templates-catalog'
  * names this command accepts cannot disagree. A catalogue that does not
  * decode is a build defect and exits 1.
  */
+const loadedCatalog: { value?: TemplateCatalog } = {}
+
+/**
+ * The catalogue, read and decoded once per process: `init` consults it from
+ * several validation helpers, and the embedded file never changes under a
+ * running command.
+ */
 const templateCatalog = (): TemplateCatalog => {
+  if (loadedCatalog.value !== undefined) return loadedCatalog.value
   // A synchronous read of the embedded catalogue, inside a synchronous helper.
   const outcome = Effect.runSync(Effect.result(readEmbeddedTemplateCatalog))
   if (outcome._tag === 'Failure') {
     return stopCommand(1, `Error: ${outcome.failure.message}`)
   }
+  loadedCatalog.value = outcome.success
   return outcome.success
 }
 

@@ -50,14 +50,32 @@ export const unconfiguredNamesOf = (
 }
 
 /**
+ * The declared `oauth2` connections using the `clientCredentials` grant: the
+ * app requests and renews their token itself, so nobody ever connects them.
+ * The grant lives only in the declaration, never in `system.connections`.
+ */
+export const clientCredentialsNamesOf = (
+  connections:
+    | ReadonlyArray<{ readonly name: string; readonly type?: string; readonly props?: unknown }>
+    | undefined
+): ReadonlySet<string> =>
+  new Set(
+    (connections ?? [])
+      .filter(
+        (connection) =>
+          connection.type === 'oauth2' &&
+          (connection.props as { readonly grantType?: unknown } | undefined)?.grantType ===
+            'clientCredentials'
+      )
+      .map((connection) => connection.name)
+  )
+
+/**
  * The `label` each declared connection gives itself, keyed by its `name` — the
  * key a `system.connections` row shares with its `app.connections[]` entry.
  * A connection declaring no label (or an empty one) is absent from the map.
  */
 export type DeclaredConnectionLabels = ReadonlyMap<string, string>
-
-/** No declared labels: every connection is named by `name · provider`. */
-export const NO_DECLARED_LABELS: DeclaredConnectionLabels = new Map()
 
 /** Read the declared labels off `app.connections[]`. */
 export function declaredLabelsOf(

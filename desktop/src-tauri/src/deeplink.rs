@@ -138,8 +138,7 @@ impl Refusal {
                 truncate(s, 16)
             ),
             Self::CredentialsInUrl => {
-                "That address carries a user name or password, so Sovrium will not open it."
-                    .into()
+                "That address carries a user name or password, so Sovrium will not open it.".into()
             }
             Self::Unparseable => "That link could not be read.".into(),
         }
@@ -548,7 +547,10 @@ mod tests {
     #[test]
     fn refuses_every_scheme_but_https() {
         for (link, scheme) in [
-            ("sovrium://new?url=http%3A%2F%2Fexample.com%2Fa.yaml", "http"),
+            (
+                "sovrium://new?url=http%3A%2F%2Fexample.com%2Fa.yaml",
+                "http",
+            ),
             ("sovrium://new?url=file%3A%2F%2F%2Fetc%2Fpasswd", "file"),
             ("sovrium://new?url=ftp%3A%2F%2Fx.test%2Fa.yaml", "ftp"),
         ] {
@@ -593,8 +595,14 @@ mod tests {
     #[test]
     fn a_bundle_takes_the_same_shape_rules_as_an_address() {
         for (link, scheme) in [
-            ("sovrium://new?bundle=http%3A%2F%2Fexample.com%2Fa.tar.gz", "http"),
-            ("sovrium://new?bundle=file%3A%2F%2F%2Ftmp%2Fa.tar.gz", "file"),
+            (
+                "sovrium://new?bundle=http%3A%2F%2Fexample.com%2Fa.tar.gz",
+                "http",
+            ),
+            (
+                "sovrium://new?bundle=file%3A%2F%2F%2Ftmp%2Fa.tar.gz",
+                "file",
+            ),
             ("sovrium://new?bundle=ftp%3A%2F%2Fx.test%2Fa.tar.gz", "ftp"),
         ] {
             assert_eq!(parse(link), Err(Refusal::NotHttps(scheme.into())), "{link}");
@@ -677,10 +685,9 @@ mod tests {
 
     #[test]
     fn the_url_prompt_names_the_host_before_the_path() {
-        let intent = parse(
-            "sovrium://new?url=https%3A%2F%2Fevil.test%2Fa%2Fvery%2Flong%2Fpath%2Fapp.yaml",
-        )
-        .unwrap();
+        let intent =
+            parse("sovrium://new?url=https%3A%2F%2Fevil.test%2Fa%2Fvery%2Flong%2Fpath%2Fapp.yaml")
+                .unwrap();
         let prompt = confirmation_prompt(&intent).expect("a URL link has a native prompt");
         let host_at = prompt.find("evil.test").expect("host is shown");
         let path_at = prompt.find("/a/very/long").expect("path is shown");
@@ -735,7 +742,11 @@ mod tests {
     #[test]
     fn finds_a_link_in_argv_and_skips_everything_else() {
         assert_eq!(
-            link_in_argv(["/Applications/Sovrium.app", "--flag", "sovrium://new?template=crm"]),
+            link_in_argv([
+                "/Applications/Sovrium.app",
+                "--flag",
+                "sovrium://new?template=crm"
+            ]),
             Some("sovrium://new?template=crm".to_string())
         );
         assert_eq!(link_in_argv(["/Applications/Sovrium.app", "--flag"]), None);

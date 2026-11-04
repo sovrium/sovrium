@@ -168,7 +168,9 @@ export const MarkdownSchema = Schema.Struct({
   /**
    * Classes for the parts the markdown layout draws: the frame's regions
    * (`frame`, the row holding the three columns; `sidebar`, `navGroup`,
-   * `navGroupLabel`, `navLink`, `menuButton`, `toc`, `tocLinkActive` (the
+   * `navGroupLabel`, `navGroupChevron` (the disclosure icon of a collapsible
+   * group), `navLink`, `menuButton`, `drawer` (the phone's panel the
+   * navigation opens in), `toc`, `tocLinkActive` (the
    * outline's link to the section being read), `article`,
    * `articleHeader`, `articleActions`, `articleLinks`, `lastUpdated`, `callout`
    * and its per-kind parts) and the article's prose (`heading1`, `paragraph`,

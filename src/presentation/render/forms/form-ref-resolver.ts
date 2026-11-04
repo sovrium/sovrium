@@ -39,19 +39,16 @@ import {
   synthesizedComponent,
 } from '@/presentation/render/resolve/component-rewrite'
 import { isComponentHiddenForSession } from '@/presentation/render/resolve/visibility-filter'
-import { composerWrapper } from './form-composer'
 import { resolveDocumentLang, resolveText } from './form-field-resolver'
-import { renderNativeSuccessPage } from './form-native-success'
-import { applyNodeFormParts } from './form-part-classes'
 import {
+  closedNoticeFor,
+  drawEmbeddedForm,
   scopeControlIds,
   findFormForReader,
   resolveEmbedPrefill,
   readHeadingLevel,
-  applySubmitLabelOverride,
   optionSetsFor,
 } from './form-ref-embedding'
-import { embedHeaderOptions, formForEmbedHeader } from './form-ref-header'
 import { buildWrapperProps } from './form-ref-wrapper'
 import { renderEmbeddedFormBody } from './form-renderer'
 import { isInlinePrefill, type InlinePrefillShape } from './record-prefill-resolver'
@@ -161,17 +158,12 @@ function isFormRefEmbedding(component: Component): boolean {
 }
 
 /**
- * Expand a single page-form component that references a top-level form into
- * an equivalent `customHTML` component. Returns the original component
- * unchanged if the component is not a `formRef` form OR if the referenced form
- * cannot be located (cross-validation should prevent this; a defensive
- * fallback for a malformed schema that bypassed validation).
- *
- * When `inlinePrefill` is present and `ctx.parentRecord` is supplied,
- * `$parent.<field>` tokens resolve against the host page's record so
- * relationship columns auto-fill (Y-5 inline-create flow). `lockPrefill`
- * routes the resolved values into hidden `<input type="hidden">` markup
- * so the submitter cannot edit them.
+ * Expand a page-form component referencing a top-level form into an equivalent
+ * `customHTML` component; the component unchanged when it is not a `formRef`
+ * form or the form cannot be located (a defensive fallback: cross-validation
+ * prevents it). A form whose availability window is not open draws its closed
+ * notice in the form's place, as its own page does. `inlinePrefill` tokens
+ * resolve against `ctx.parentRecord` (Y-5 inline-create flow).
  */
 function expandFormRefComponent(
   component: Component,
@@ -182,28 +174,10 @@ function expandFormRefComponent(
   if (formRefInfo === undefined) return component
   const form = findFormForReader(formRefInfo.formRef, app, ctx)
   if (form === undefined) return component
-
-  // Defaults + `$query` prefill are EDITABLE starting values; the inline prefill
-  // wins on the keys it names and, when locked, renders them as hidden inputs. A
-  // post made without JavaScript comes back with its success page in the form's place.
   const titleAs = readHeadingLevel(formRefInfo.originalProps)
-  const composed = composerWrapper(app, component, ctx.activeLang)
-  const formBodyHtml = scopeControlIds(
-    renderNativeSuccessPage(app, form, { ...ctx, titleAs }) ??
-      renderEmbeddedFormBody(
-        app,
-        formForEmbedHeader(applySubmitLabelOverride(form, formRefInfo.originalProps), component),
-        resolveEmbedPrefill(app, form, formRefInfo.inlinePrefill, ctx),
-        {
-          activeLang: ctx.activeLang,
-          titleAs,
-          ...embedHeaderOptions(component),
-          ...optionSetsFor(form, ctx),
-        }
-      ),
-    form.name,
-    ctx
-  )
+  const trustedContent =
+    closedNoticeFor(app, form, ctx, titleAs) ??
+    drawEmbeddedForm(component, app, { form, ...formRefInfo, titleAs }, ctx)
   // The embedded-form markup is server-generated, fully-trusted HTML drawn from
   // the validated `forms[]` schema. It rides `trustedContent` (NOT `content`) so
   // the `customHTML` renderer skips the rich-text sanitiser, which drops every
@@ -215,7 +189,7 @@ function expandFormRefComponent(
   return synthesizedComponent({
     type: 'customHTML',
     props: buildWrapperProps(formRefInfo.formRef, formRefInfo.originalProps),
-    trustedContent: composed(applyNodeFormParts(formBodyHtml, app.design, component)),
+    trustedContent,
     authoredType: 'form',
     ...(classes === undefined ? {} : { classes }),
     ...(_exportNodeId === undefined ? {} : { _exportNodeId }),

@@ -1,6 +1,6 @@
 ---
 name: sovrium-design
-description: Use when the visual system of a Sovrium app needs to be set or reviewed — it plans and checks the `design` block (colour palette, dark colours, ramps and colour roles, type scale and font families, spacing, radius, elevation, motion, breakpoints, density, zones, logo, imagery, principles and voice) and the four customisation keys `design`, `design.components`, `classes` and `className`. Use for a brand, a theme, design tokens, dark mode colours, fonts, square or rounded corners everywhere, restyling every button or table at once, "it looks like a template", a design-system review, importing tokens from Figma or Claude Design, or `sovrium design-system`. Not this skill for one page's layout, data binding, states or words — that is `sovrium-pages`; nor for page weight or the `ECO_DESIGN_LAYER` lever, which is `sovrium-performance`.
+description: Use when the visual system of a Sovrium app needs to be set or reviewed — it plans and checks the `design` block (colour palette, dark colours, ramps and colour roles, type scale and font families, spacing, radius, elevation, motion, breakpoints, density, zones, logo, imagery, principles and voice) and the four customisation keys `design`, `design.components`, `classes` and `className`. Use for a brand, a theme, design tokens, dark mode colours, fonts, square or rounded corners everywhere, restyling every button or table at once, "it looks like a template", a design-system review, importing tokens from Figma or Claude Design, a DESIGN.md for design agents, or `sovrium design-system`. Not this skill for one page's layout, data binding, states or words — that is `sovrium-pages`; nor for page weight or the `ECO_DESIGN_LAYER` lever, which is `sovrium-performance`.
 license: BSL-1.1
 metadata:
   author: sovrium
@@ -11,7 +11,7 @@ metadata:
 
 A bare agent styles a Sovrium app the way it would style a website it owns: it writes a `theme` block (removed, and refused by `sovrium validate`), pastes the same hex value and `rounded-none` onto forty buttons one `className` at a time, writes `var(--brand)` as a colour (refused: a colour value is exactly one colour), writes `hover:` inside `states.hover` (refused: the engine adds the prefix), declares a dark-only token in `darkColors` that `colors` never declared (it mints nothing), sets sizes and line heights in `design.typeScale.families` (they reach nothing), "cleans up" focus with `ring-0`, and files the light-ink logo under `src`. There is no stylesheet to write: the deliverable is the `design` block and the four customisation keys, and the binary compiles them into one stylesheet per app.
 
-Run the core loop from `sovrium-app` underneath this skill. Manual: `sovrium docs theming/design`, `sovrium docs theming/design-components`, `sovrium docs theming/theme`, `sovrium docs theming/theme-dark-mode`, `sovrium docs theming/theme-typography`, `sovrium docs theming/design-type-scale`, `sovrium docs theming/theme-spacing`, `sovrium docs theming/responsive-design`, `sovrium docs theming/animations`, `sovrium docs theming/design-density`, `sovrium docs theming/design-pages-import`, `sovrium docs admin/design-system-console`, `sovrium docs components/components-overview`.
+Run the core loop from `sovrium-app` underneath this skill. Manual: `sovrium docs theming/design`, `sovrium docs theming/design-components`, `sovrium docs theming/theme`, `sovrium docs theming/theme-dark-mode`, `sovrium docs theming/theme-typography`, `sovrium docs theming/design-type-scale`, `sovrium docs theming/theme-spacing`, `sovrium docs theming/responsive-design`, `sovrium docs theming/animations`, `sovrium docs theming/design-density`, `sovrium docs theming/design-pages-import`, `sovrium docs theming/design-md`, `sovrium docs admin/design-system-console`, `sovrium docs components/components-overview`.
 
 ## Scope
 
@@ -54,12 +54,15 @@ Copy this checklist into your notes and tick it as you go.
 - [ ] 6 sovrium validate; fix every finding; repeat until valid
 - [ ] 7 /_admin/design-system/foundations in light, then ?scheme=dark: contrast measured, no surprise inherited value
 - [ ] 8 Keep the app running (the sovrium-app loop) and make one browser pass on the changed pages: both schemes, 375 / 768 / 1280 px, Tab through, reduced motion
-- [ ] 9 Fix everything found in one batch; back to 6; at most one confirmation pass; report
+- [ ] 9 Fix everything found in one batch; back to 6; at most one confirmation pass
+- [ ] 10 If the project keeps a generated DESIGN.md, regenerate it with --format design-md (briefs, PRODUCT.md kept; hook or CI); report
 ```
 
 **Plan in tokens, not in components.** Ground the plan in the subject's world before reaching for a colour: a clinic, a bakery and a law firm should not share a palette. Spend boldness once — one memorable decision, everything else quiet. When the request names a look, follow it, even one this skill would not choose; the author's brief outranks these defaults. [S2][S3]
 
 **Importing from a design tool** is one command, never a hand copy: `sovrium design-system import <file|folder> --config <config>` shows the change, `--write` applies it. Only tokens map; components are never imported. Details: `references/design-system-cli.md`.
+
+**A project with a DESIGN.md** keeps it generated: after any change to `design`, run `sovrium design-system <config> --format design-md --output DESIGN.md` again (suggest a pre-commit hook or CI step), and write hand notes only inside its narrative blocks. The same run rewrites `.impeccable/design.json`; it never replaces existing surface briefs or `PRODUCT.md`, which stay as the author left them. A design agent's proposal comes back through `design`, never as a stylesheet. Details: `references/design-system-cli.md`.
 
 ## The checklist
 

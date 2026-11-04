@@ -10,6 +10,11 @@ import { basename, join } from 'node:path'
 import { ENV_EXAMPLE_CONTENT } from '@/cli/commands/env-example-template'
 import { printCodeNotice } from '@/cli/commands/init/code-notice'
 import { generateClaudeMd, scaffoldDefault } from '@/cli/commands/init/default-scaffold'
+import {
+  designRecordsRoadFor,
+  writeDesignRecordsForScaffold,
+  type DesignRecordsRoad,
+} from '@/cli/commands/init/design-records'
 import { assertNotABundleUrl } from '@/cli/commands/init/from-bundle-source'
 import { isWebFacingTemplate, scaffoldFromTemplate } from '@/cli/commands/init/from-template'
 import { assertForkableUrl, type ForkedConfig } from '@/cli/commands/init/from-url'
@@ -283,7 +288,11 @@ const scaffoldProject = async (options: InitCommandOptions): Promise<void> => {
 
   // Scaffold the additive support files (`.gitignore`, `.env.example`,
   // `public/`) the project doesn't already own.
-  const supportFiles = await scaffoldSupportFiles(targetDir, isWebFacingTemplate(templateName))
+  const supportFiles = await scaffoldSupportFiles(
+    targetDir,
+    isWebFacingTemplate(templateName),
+    designRecordsRoadFor(templateName, forked !== undefined)
+  )
 
   // AFTER the support files: the commit below stages what is on disk, and the
   // `.gitignore` those files include is what keeps `.sovrium/` and `.env` out
@@ -333,7 +342,8 @@ const printInitSummary = (
  */
 export const scaffoldSupportFiles = async (
   targetDir: string,
-  isWebFacing: boolean
+  isWebFacing: boolean,
+  records: DesignRecordsRoad
 ): Promise<readonly string[]> => {
   const wroteGitignore = await writeGitignoreIfMissing(targetDir)
   const wroteEnvExample = await writeEnvExampleIfMissing(targetDir)
@@ -342,12 +352,15 @@ export const scaffoldSupportFiles = async (
   // template and `--from-url` alike — so this one call is how each of them gets
   // the agent skills. Add-only, like the other support files.
   const skillsCreated = await writeSkillsForScaffold(targetDir)
+  // PRODUCT.md, and DESIGN.md with its records when `init` wrote the config itself.
+  const recordsCreated = await writeDesignRecordsForScaffold(targetDir, records)
 
   return [
     ...(wroteGitignore ? [join(targetDir, '.gitignore')] : []),
     ...(wroteEnvExample ? [join(targetDir, '.env.example')] : []),
     ...publicCreated,
     ...skillsCreated,
+    ...recordsCreated,
   ]
 }
 

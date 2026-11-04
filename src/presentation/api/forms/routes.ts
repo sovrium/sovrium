@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { revalidateInlinePrefillParent } from '@/application/use-cases/forms/inline-prefill-revalidation'
 import { resolveFormOptionSources } from '@/application/use-cases/forms/resolve-form-option-sources'
 import { findFormByName, submitFormProgram } from '@/application/use-cases/forms/submit-form'
+import { trackingDeclinedUnder } from '@/domain/models/app/analytics/privacy-signals-service'
 import { evaluateAvailabilityWindow } from '@/domain/models/app/forms/form-availability-flow'
 import { hashIp, resolveIpHashSalt } from '@/infrastructure/forms/ip-hash'
 import {
@@ -24,14 +25,13 @@ import {
   type FormLinkState,
 } from '@/presentation/api/forms/access-link-handlers'
 import { checkSubmissionAttachmentReferences } from '@/presentation/api/forms/attachment-reference-guard'
-import {
-  multipartFileFieldNames,
-  transformMultipartFiles,
-} from '@/presentation/api/forms/file-upload-handler'
+import { multipartFileFieldNames } from '@/presentation/api/forms/file-upload-handler'
+import { signThenUploadAnswers } from '@/presentation/api/forms/signed-answer-uploads'
 import {
   handleGetStepFragment,
   handlePostDraftReset,
   handlePostStepAdvance,
+  keepStep,
   mergeStepDraftIntoBody,
   type StepFragmentRenderer,
 } from '@/presentation/api/forms/step-handlers'
@@ -42,6 +42,7 @@ import { microphonePolicyHeaders } from '@/presentation/api/runtime/microphone-p
 import { pageWriteLanguage } from '@/presentation/api/runtime/page-write-language'
 import { answerNotFound } from '@/presentation/api/runtime/run-effect'
 import { formRecordsAudio } from '@/presentation/render/page/page-microphone-detection'
+import { answerFlowBound, isFlowBound } from './flow-signature-submission'
 import { buildPrefillContext, formForCaller } from './form-page-context'
 import { awaitForm, runFormProgram } from './form-program'
 import { answerSubmission, rememberPageApp } from './native-post-answer'
@@ -142,7 +143,7 @@ const respondWithForm = (
 ) =>
   Effect.gen(function* () {
     const { renderers, editLink } = view
-    const { decision, session } = yield* evaluateFormAccessForRequest(c, form)
+    const { decision, session } = yield* evaluateFormAccessForRequest(c, form, app)
     const denied = denyFormAccess(c, form.name, decision, 'html')
     if (denied !== undefined) return yield* awaitForm(() => denied)
     const activeLang = c.req.query('lang')
@@ -289,7 +290,7 @@ const handlePostSubmission = (c: Context, app: App, read: TableReader): Promise<
       if (!form) return formNotFound(c)
       // Enforce the form access gate before reading the
       // body. `authenticated` denial → 401; role denial → 404 (anti-enumeration).
-      const { decision, session } = yield* evaluateFormAccessForRequest(c, form)
+      const { decision, session } = yield* evaluateFormAccessForRequest(c, form, app)
       const denied = denyFormAccess(c, form.name, decision, 'json')
       if (denied !== undefined) return yield* awaitForm(() => denied)
       // A duplicate under its idempotency key is answered here, before anything
@@ -310,6 +311,7 @@ const acceptSubmission = (
 ) =>
   Effect.gen(function* () {
     const { c, app, session, isJsonClient } = request
+    if (isFlowBound(request, rawBody)) return yield* answerFlowBound(request, rawBody)
     // Checked and kept over the fields the form offers this submitter.
     const form = yield* formForCaller(c, app, request.form, { session, read: request.read })
     const { name } = form
@@ -330,7 +332,7 @@ const acceptSubmission = (
     // replace the raw File with canonical `{ url, name, size, mimeType }`
     // metadata BEFORE the inline-prefill revalidation pass and the bound-
     // table write. JSON / urlencoded bodies pass through untouched.
-    const uploadResult = yield* Effect.result(transformMultipartFiles(app, form, rawBody, session))
+    const uploadResult = yield* Effect.result(signThenUploadAnswers(app, form, rawBody, session))
     if (uploadResult._tag === 'Failure') {
       return respondSubmissionFailure(c, isJsonClient, uploadResult.failure)
     }
@@ -392,13 +394,10 @@ const submitAndAnswer = (config: Readonly<RunSubmitProgramConfig>) =>
     // An embedded form posts to `?surface=embed` (`buildFormAttributes`); the
     // program reads that marker off the query (`splitSubmissionSurface`).
     const query = c.req.query() as Record<string, string>
-    // A forms spec + S5: hash-on-write at the route boundary so the raw IP
-    // is bounded to the rate-limiter's volatile in-memory state and never
-    // crosses into the application layer or persistence. When the request
-    // arrives without an IP (no X-Forwarded-For / X-Real-IP), hash the empty
-    // string against the same salt so the ledger column stays populated
-    // (64 hex chars guaranteed) and anonymous traffic shares a stable
-    // rate-limit bucket.
+    // S5: hash-on-write at the route boundary, so the raw IP never crosses
+    // into the application layer or persistence. A request without an IP
+    // hashes the empty string, so the ledger column stays populated and
+    // anonymous traffic shares a stable rate-limit bucket.
     const submitterIpHash = hashIp(resolveIpHashSalt(), ipAddress ?? '')
     const links = submissionLinkTokens(c, app, formName)
     const program = submitFormProgram({
@@ -415,6 +414,8 @@ const submitAndAnswer = (config: Readonly<RunSubmitProgramConfig>) =>
       ...(visitor !== undefined ? { visitor } : {}),
       ...links.hashes,
       writeLanguage: pageWriteLanguage(c, app),
+      // DNT / Sec-GPC skip the submission's analytics event, as they skip a page view.
+      declinesTracking: trackingDeclinedUnder(app.analytics, (name) => c.req.header(name)),
     })
     const result = yield* Effect.result(program)
     return yield* awaitForm(() =>
@@ -476,19 +477,14 @@ export function chainFormRoutes<T extends Hono>(
     // Multi-step navigation. Registered alongside the canonical submission
     // endpoint so the cross-validator's step-aware rules and the per-step
     // SSR share the same Hono app instance and access the same `app` payload.
+    // Previous keeps the answers of the step it leaves (`keep`), unchecked.
     .post('/api/forms/:name/steps/:stepId/advance', uploads.advance)
+    .post('/api/forms/:name/steps/:stepId/keep', keepStep(app, renderers.readTableAsCaller))
     // Draft reset backs `onSuccess: reset` on a multi-step form. Deliberately
     // NOT under `/steps/` — a form is free to declare a step whose id is
     // literally `reset`, and this must not be reachable by naming a step.
     .post('/api/forms/:name/draft/reset', (c) => handlePostDraftReset(c, app))
-    .get('/api/forms/:name/steps/:stepId', (c) =>
-      handleGetStepFragment(c, app, {
-        renderStepFragment: renderers.renderStepFragment,
-        ...(renderers.readTableAsCaller === undefined
-          ? {}
-          : { readTableAsCaller: renderers.readTableAsCaller }),
-      })
-    )
+    .get('/api/forms/:name/steps/:stepId', (c) => handleGetStepFragment(c, app, renderers))
 
   // Register custom-path aliases. Each form with a `path` is reachable
   // both at `/forms/{name}` (canonical) and at the configured path.

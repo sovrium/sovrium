@@ -35,7 +35,7 @@ import { traceAutomationRun } from '@/infrastructure/telemetry/automation-run-tr
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { autoPauseOnFailures } from './auto-pause-on-failures'
 import { expandRefActions, type ActionTemplateLike } from './expand-action-refs'
-import { notifyPlatformFailure } from './notify-platform-failure'
+import { notifyPlatformFailure, noteRunSuccess } from './notify-platform-failure'
 import { loadPausedAutomationNames } from './paused-automation-names'
 import { resolveRunTimeoutMs, runActionsWithTimeout } from './run/action-loop'
 import { enqueueAndAdmit, type Admission } from './run/admission'
@@ -405,7 +405,7 @@ export const dispatchPostRunFailureEffects = (input: {
     if (input.trigger.type === 'automation-failure') return
     const timedOut = finalState.runStatus === 'timed-out'
     const failed = finalState.runStatus === 'failure' || finalState.runStatus === 'exhausted'
-    if (!timedOut && !failed) return
+    if (!timedOut && !failed) return yield* noteRunSuccess(name, finalState, input.finishedAtDate)
     if (failed) yield* cascadeToFailureHandlers(input)
     // Platform operator alert —
     // analogous to Zapier's built-in "Zap failed" email. A different concern

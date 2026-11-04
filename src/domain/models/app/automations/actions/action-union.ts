@@ -36,6 +36,7 @@ import { PathActionSchema } from './path'
 import { PdfActionSchema } from './pdf'
 import { RecordActionSchema } from './record'
 import { ActionRefSchema } from './ref'
+import { SignatureActionSchema } from './signature'
 import { SovriumActionSchema } from './sovrium'
 import { StateActionSchema } from './state'
 import { WebhookActionSchema } from './webhook'
@@ -121,6 +122,7 @@ export type Action =
   | Schema.Schema.Type<typeof FileActionSchema>
   | Schema.Schema.Type<typeof DocumentActionSchema>
   | Schema.Schema.Type<typeof PdfActionSchema>
+  | Schema.Schema.Type<typeof SignatureActionSchema>
   | Schema.Schema.Type<typeof DataActionSchema>
   | Schema.Schema.Type<typeof StateActionSchema>
   | Schema.Schema.Type<typeof DigestActionSchema>
@@ -163,6 +165,7 @@ export const ActionSchema: Schema.Codec<Action, unknown> = Schema.Union([
   FileActionSchema,
   DocumentActionSchema,
   PdfActionSchema,
+  SignatureActionSchema,
   DataActionSchema,
   StateActionSchema,
   DigestActionSchema,

@@ -17,14 +17,16 @@
  */
 
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
-import { HELP_TEXT_CLASS } from './form-field-chrome'
+import { HELP_TEXT_CLASS, helpTextIdOf, type HelpTextField } from './form-field-chrome'
 
-/** A field's help text: `<small class="help-text">`, or nothing. */
-export function HelpText({ html }: { readonly html: string | undefined }) {
+/** A field's help text: `<small class="help-text">` with its id, or nothing. */
+export function HelpText({ field }: { readonly field: HelpTextField }) {
+  const html = field.helpTextHtml
   if (html === undefined || html === '') return undefined
   const safeHtml = sanitizeRichTextHTML(html)
   return (
     <small
+      id={helpTextIdOf(field)}
       className={HELP_TEXT_CLASS}
       dangerouslySetInnerHTML={{ __html: safeHtml }}
     />

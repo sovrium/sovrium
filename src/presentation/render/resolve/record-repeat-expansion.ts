@@ -100,6 +100,7 @@ import {
   walkComponentSlots,
   type ComponentListEntry,
 } from './component-slot-walk'
+import { withLinkedRows } from './linked-rows'
 import {
   substituteRecordInComponent,
   substituteScopesInContent,
@@ -132,7 +133,7 @@ const isFields = (value: unknown): value is Fields =>
 export const pageRecordScope = (record: Fields): RecordScope => ({
   printable: { [RECORD_NAMESPACE]: printableRecordFields(record) },
   raw: { [RECORD_NAMESPACE]: record },
-  nearest: record,
+  nearest: withLinkedRows(record), // a to-many field a repeat iterates holds its rows
 })
 
 /** The tables a collection page's record is read from, as the record text context holds them. */

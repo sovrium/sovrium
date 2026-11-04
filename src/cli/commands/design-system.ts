@@ -6,14 +6,16 @@
  */
 
 /**
- * `sovrium design-system [config] [--format md|json|bundle] [--mode light|dark] [--output <file|dir>] [--force]`
+ * `sovrium design-system [config] [--format md|json|design-md|bundle] [--mode light|dark] [--output <file|dir>] [--force]`
  *
  * The third projection of `buildDesignSystem(app)`, beside `sovrium schema` and
  * `sovrium validate` — and the one that makes the design system genuinely
- * useful to an agent. `sovrium design-system --output DESIGN.md` writes a file
- * beside `app.ts` that `CLAUDE.md` can reference, so "build me a pricing page
- * for this app" produces something on-brand on the first attempt, because the
- * rules were handed over rather than guessed.
+ * useful to an agent. The markdown brief can be referenced from `CLAUDE.md`,
+ * so "build me a pricing page for this app" produces something on-brand on the
+ * first attempt, because the rules were handed over rather than guessed.
+ * `--format design-md --output DESIGN.md` writes the DESIGN.md design agents
+ * read, with its sidecar, surface briefs and PRODUCT.md
+ * (`design-system/design-md.ts`).
  *
  * ─── OFFLINE BY CONSTRUCTION ────────────────────────────────────────────────
  *
@@ -69,6 +71,9 @@ const JSON_FORMAT = 'json'
 
 /** The directory format: the portable bundle (`design-system/bundle.ts`). */
 const BUNDLE_FORMAT = 'bundle'
+
+/** The DESIGN.md design agents read (`design-system/design-md.ts`). */
+const DESIGN_MD_FORMAT = 'design-md'
 
 /** Options as parsed from argv. */
 export interface DesignSystemCommandOptions {
@@ -234,6 +239,16 @@ const writeBundleFor = async (
   })
 }
 
+/** Print the DESIGN.md of a decoded app, or write it with its records at `--output`. */
+const writeDesignMdFor = async (
+  app: Awaited<ReturnType<typeof decodeForExport>>,
+  configPath: string,
+  options: DesignSystemCommandOptions
+): Promise<void> => {
+  const { exportDesignMd } = await import('@/cli/commands/design-system/design-md')
+  await exportDesignMd(app, configPath, options)
+}
+
 /**
  * Handle the `design-system` command.
  *
@@ -244,7 +259,7 @@ const exportDesignSystem = async (options: DesignSystemCommandOptions): Promise<
   // the format learns it immediately rather than after a config decode.
   const format = resolveDocumentFormat(
     options.format,
-    [JSON_FORMAT, BUNDLE_FORMAT],
+    [JSON_FORMAT, DESIGN_MD_FORMAT, BUNDLE_FORMAT],
     'the markdown brief, which is what an agent reads.'
   )
   refuseModeOutsideJson(options.mode, format)
@@ -255,10 +270,8 @@ const exportDesignSystem = async (options: DesignSystemCommandOptions): Promise<
   const configPath = options.configFile ?? (await discoverDesignSystemConfig())
   const app = await decodeForExport(configPath)
 
-  if (format === BUNDLE_FORMAT) {
-    await writeBundleFor(app, configPath, options, drawFlags)
-    return
-  }
+  if (format === BUNDLE_FORMAT) return writeBundleFor(app, configPath, options, drawFlags)
+  if (format === DESIGN_MD_FORMAT) return writeDesignMdFor(app, configPath, options)
 
   const { buildDesignSystem } = await import('@/domain/models/app/design/design-system-service')
   const document = buildDesignSystem(app, mode)

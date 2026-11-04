@@ -1919,6 +1919,155 @@
                         },
                         {
                           "type": "container",
+                          "key": "code",
+                          "element": "section",
+                          "props": {
+                            "className": "flex scroll-mt-6 flex-col gap-4",
+                            "id": "code",
+                            "data-design-section": "code"
+                          },
+                          "children": [
+                            {
+                              "type": "text",
+                              "element": "h2",
+                              "props": {
+                                "className": "text-foreground text-lg font-semibold tracking-tight"
+                              },
+                              "content": "$t:admin.ds.found.code"
+                            },
+                            {
+                              "type": "text",
+                              "element": "p",
+                              "props": {
+                                "className": "text-foreground-subtle max-w-md text-sm leading-relaxed"
+                              },
+                              "content": "$t:admin.ds.found.codeIntro"
+                            },
+                            {
+                              "type": "container",
+                              "key": "code-2",
+                              "element": "div",
+                              "props": {
+                                "className": "flex flex-col divide-y divide-border"
+                              },
+                              "dataSource": {
+                                "system": {
+                                  "endpoint": "/api/admin/design-system/tokens",
+                                  "query": {
+                                    "group": "code"
+                                  },
+                                  "rowsKey": "items",
+                                  "idKey": "path"
+                                }
+                              },
+                              "children": [
+                                {
+                                  "type": "container",
+                                  "key": "code-2-1",
+                                  "element": "div",
+                                  "props": {
+                                    "className": "flex flex-wrap items-center gap-x-6 gap-y-2 py-2",
+                                    "data-testid": "design-system-code-$record.leaf"
+                                  },
+                                  "children": [
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground w-24 font-mono text-sm"
+                                      },
+                                      "content": "$record.leaf"
+                                    },
+                                    {
+                                      "type": "text",
+                                      "element": "span",
+                                      "props": {
+                                        "className": "text-foreground-subtle min-w-32 font-mono text-sm"
+                                      },
+                                      "content": "$record.token"
+                                    },
+                                    {
+                                      "type": "container",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex items-center gap-2"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border size-4 shrink-0 rounded-sm border",
+                                            "aria-hidden": "true",
+                                            "style": {
+                                              "backgroundColor": "$record.hex"
+                                            }
+                                          },
+                                          "children": []
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle text-xs"
+                                          },
+                                          "content": "$t:admin.ds.found.codeLight"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground font-mono text-xs"
+                                          },
+                                          "content": "$record.hex"
+                                        }
+                                      ]
+                                    },
+                                    {
+                                      "type": "container",
+                                      "element": "div",
+                                      "props": {
+                                        "className": "flex items-center gap-2"
+                                      },
+                                      "children": [
+                                        {
+                                          "type": "container",
+                                          "element": "div",
+                                          "props": {
+                                            "className": "border-border size-4 shrink-0 rounded-sm border",
+                                            "aria-hidden": "true",
+                                            "style": {
+                                              "backgroundColor": "$record.darkHex"
+                                            }
+                                          },
+                                          "children": []
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground-subtle text-xs"
+                                          },
+                                          "content": "$t:admin.ds.found.codeDark"
+                                        },
+                                        {
+                                          "type": "text",
+                                          "element": "span",
+                                          "props": {
+                                            "className": "text-foreground font-mono text-xs"
+                                          },
+                                          "content": "$record.darkHex"
+                                        }
+                                      ]
+                                    }
+                                  ]
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "container",
                           "key": "breakpoints",
                           "element": "section",
                           "props": {
@@ -2262,6 +2411,16 @@
                             "data-design-kit-type": "link"
                           },
                           "content": "$t:admin.ds.found.motion"
+                        },
+                        {
+                          "type": "link",
+                          "props": {
+                            "href": "#code",
+                            "className": "text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium",
+                            "data-design-rail-entry": "breakpoints",
+                            "data-design-kit-type": "link"
+                          },
+                          "content": "$t:admin.ds.found.code"
                         },
                         {
                           "type": "link",

@@ -9,12 +9,13 @@ import { AI_CHAT_UI_STRINGS } from './interpreter-ui-strings-ai-chat'
 import { CONSOLE_UI_STRINGS } from './interpreter-ui-strings-console'
 import { CONTROL_UI_STRINGS } from './interpreter-ui-strings-controls'
 import { RECORD_SHEET_UI_STRINGS } from './interpreter-ui-strings-record-sheet'
+import { SIGNING_UI_STRINGS } from './interpreter-ui-strings-signing'
 import { SURFACE_UI_STRINGS } from './interpreter-ui-strings-surfaces'
 
 /**
  * The interpreter strings of the page components that draw their own states —
  * empty, failed, unreadable — and of the controls that carry their own words:
- * the tree, the signature pad, the file upload, a button field's outcome, the
+ * the tree, the file upload, a button field's outcome, the
  * matrix and the graph, the `ai-chat` panel and the console's conversation
  * list. Part of {@link INTERPRETER_UI_STRINGS}, which spreads this table in;
  * kept apart only so neither file outgrows its ceiling. The contract is the
@@ -95,26 +96,6 @@ export const COMPONENT_UI_STRINGS: Readonly<Record<string, Readonly<Record<strin
   'graph.detail': { en: 'Detail', fr: 'Détail' },
   'graph.reaches': { en: 'Reaches', fr: 'Atteint' },
 
-  // ---- Signature pad: `{name}` signed on `{date}`, a day already in the page language ----
-  'signaturePad.label': { en: 'Signature', fr: 'Signature' },
-  'signaturePad.well': {
-    en: 'Signing well: draw your signature',
-    fr: 'Zone de signature : dessinez votre signature',
-  },
-  'signaturePad.fullName': { en: 'Full name', fr: 'Nom complet' },
-  'signaturePad.clear': { en: 'Clear', fr: 'Effacer' },
-  'signaturePad.typeInstead': { en: 'Type your name instead', fr: 'Saisir mon nom plutôt' },
-  'signaturePad.drawInstead': { en: 'Draw instead', fr: 'Dessiner plutôt' },
-  'signaturePad.sign': { en: 'Sign', fr: 'Signer' },
-  'signaturePad.signing': { en: 'Signing…', fr: 'Signature en cours…' },
-  'signaturePad.saveFailed': {
-    en: 'The signature could not be saved. Check the connection and sign again.',
-    fr: 'La signature n’a pas pu être enregistrée. Vérifiez la connexion et signez à nouveau.',
-  },
-  'signaturePad.signedBy': { en: 'Signed by {name} on {date}', fr: 'Signé par {name} le {date}' },
-  'signaturePad.unknownSigner': { en: 'an unknown signer', fr: 'un signataire inconnu' },
-  'signaturePad.unknownDate': { en: 'an unknown date', fr: 'une date inconnue' },
-
   // ---- File upload: the button with no `label`, the drop zone, its limits and refusals ----
   'fileUpload.button': { en: 'Upload file', fr: 'Envoyer un fichier' },
   'fileUpload.uploading': { en: 'Uploading…', fr: 'Envoi en cours…' },
@@ -141,6 +122,8 @@ export const COMPONENT_UI_STRINGS: Readonly<Record<string, Readonly<Record<strin
 
   // ---- A button field's automation run, told in a toast ----
   'action.completed': { en: 'Action completed.', fr: 'Action terminée.' },
+  /** A run accepted and still going: waiting for a slot, or running past the request. */
+  'action.accepted': { en: 'The action is under way.', fr: 'L’action est en cours.' },
   /** A denial or an absent record: the same words for both, as the API answers. */
   'action.unavailable': {
     en: 'This action is not available on this record.',
@@ -231,5 +214,6 @@ export const COMPONENT_UI_STRINGS: Readonly<Record<string, Readonly<Record<strin
   ...CONTROL_UI_STRINGS,
   ...CONSOLE_UI_STRINGS,
   ...RECORD_SHEET_UI_STRINGS,
+  ...SIGNING_UI_STRINGS,
   ...SURFACE_UI_STRINGS,
 }

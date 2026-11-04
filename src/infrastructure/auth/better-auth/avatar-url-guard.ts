@@ -6,6 +6,7 @@
  */
 
 import { APIError } from 'better-auth/api'
+import { PROFILE_WRITING_ROUTES } from './account-opening-routes'
 import type { createAuthMiddleware } from 'better-auth/api'
 
 /**
@@ -43,12 +44,7 @@ type AuthMiddlewareCtx = Parameters<typeof createAuthMiddleware>[0] extends (
  * `role` under `data` for the same reason. Reading the wrong key there silently
  * skips validation, so the location is data, not a conditional.
  */
-const IMAGE_WRITING_PATHS: ReadonlyMap<string, 'body' | 'data'> = new Map([
-  ['/sign-up/email', 'body'],
-  ['/update-user', 'body'],
-  ['/admin/create-user', 'data'],
-  ['/admin/update-user', 'data'],
-])
+const IMAGE_WRITING_PATHS = PROFILE_WRITING_ROUTES
 
 /**
  * Read the `image` field, distinguishing "absent" from "present and null".

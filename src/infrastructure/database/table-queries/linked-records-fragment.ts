@@ -51,7 +51,7 @@ const linkedTextFragment = (
   const display = sql`${target}.${sql.identifier(value.displayField)}`
   // sql-literal: keyword -- the escape character is a module constant
   const escape = sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)
-  const match = sql`lower(${display}) LIKE lower(${likePatternOf(value.operator, value.text)}) ESCAPE ${escape}`
+  const match = sql`lower(CAST(${display} AS TEXT)) LIKE lower(${likePatternOf(value.operator, value.text)}) ESCAPE ${escape}`
   const live = sql`${target}.${sql.identifier('deleted_at')} IS NULL`
   const joined = sql`${tableIdentifier(value.relatedTable)} AS ${target} ON ${target}.${sql.identifier('id')} = ${relatedEnd}`
   return sql`(${OUTER_ID} IN (SELECT ${source} FROM ${from} JOIN ${joined} WHERE ${match} AND ${live}))`

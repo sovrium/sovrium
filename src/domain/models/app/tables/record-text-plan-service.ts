@@ -19,10 +19,12 @@
  */
 
 import { dateTimeGlueOf } from './cell-value-format'
+import { clockRecipeOf, fieldDateTimeRecipeOf } from './datetime-display-service'
 import { defaultTextFormatOfFieldType } from './field-type-presentation-service'
 import { CURRENCY_DISPLAY_KEYS, withInheritedCurrency } from './rollup-currency-service'
 import type { RecordTextField } from './record-text-service'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
+import type { DateRecipe } from '@/domain/kernel/format/date-recipe'
 import type { DurationDisplayFormat } from '@/domain/kernel/format/duration-format'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 
@@ -114,11 +116,15 @@ export const declaredCurrencyOf = (
   return field.type === 'currency' || display.currency !== undefined ? display : undefined
 }
 
-/** What a field is drawn with in every format: its zone, its currency, a `duration` field's unit. */
+/**
+ * What a field is drawn with in every format: its zone, its currency, a
+ * `duration` field's unit, and the clock its `timeFormat` names for a `time` reading.
+ */
 export interface FieldFormatOptions {
   readonly timeZone: string
   readonly currency?: CurrencyDisplayOptions
   readonly durationUnit?: 'seconds'
+  readonly clock?: DateRecipe
 }
 
 /**
@@ -135,8 +141,10 @@ export const fieldFormatOptionsOf = (
   const field = planFieldOf(table, fieldName)
   const fieldType = planFieldTypeOf(field, fieldName)
   const currency = table === undefined ? undefined : resolvers.currencyOf(table, fieldName)
+  const clock = clockRecipeOf(field)
   return {
     timeZone: planZoneOf(field, fieldType, resolvers.timeZone),
+    ...(clock === undefined ? {} : { clock }),
     ...(currency === undefined ? {} : { currency }),
     // A `duration` field stores seconds; every other number a `duration`
     // format reads is milliseconds (the formatter's default).
@@ -151,12 +159,17 @@ export const cellTextFieldOf = (
   format: ColumnFormat,
   resolvers: RecordTextResolvers
 ): RecordTextField => {
-  const { timeZone, currency, durationUnit } = fieldFormatOptionsOf(table, fieldName, resolvers)
+  const { timeZone, currency, durationUnit, clock } = fieldFormatOptionsOf(
+    table,
+    fieldName,
+    resolvers
+  )
   // Only a date reads a zone: the prop an island receives carries nothing else.
-  const dated = format === 'short-date' || format === 'datetime'
+  const dated = format === 'short-date' || format === 'datetime' || format === 'time'
   return {
     format,
     ...(dated ? { timeZone } : {}),
+    ...(format === 'time' && clock !== undefined ? { recipe: clock } : {}),
     ...(currency && { currency }),
     ...(format === 'datetime' ? { glue: dateTimeGlueOf(resolvers.locale) } : {}),
     ...(format === 'duration' && durationUnit !== undefined ? { durationUnit } : {}),
@@ -215,7 +228,23 @@ export const recordTextFieldOf = (
     const displayFormat = field?.['displayFormat'] as DurationDisplayFormat | undefined
     return displayFormat === undefined ? { format } : { format, displayFormat }
   }
-  return cellTextFieldOf(table, fieldName, format, resolvers)
+  return defaultCellTextFieldOf(table, fieldName, format, resolvers)
+}
+
+/**
+ * A field read by its type through a column format, carrying a `datetime`
+ * field's own display options — no format of the surface overrides them here.
+ */
+const defaultCellTextFieldOf = (
+  table: PlanTable | undefined,
+  fieldName: string,
+  format: ColumnFormat,
+  resolvers: RecordTextResolvers
+): RecordTextField => {
+  const cell = cellTextFieldOf(table, fieldName, format, resolvers)
+  const recipe =
+    format === 'datetime' ? fieldDateTimeRecipeOf(planFieldOf(table, fieldName)) : undefined
+  return recipe === undefined ? cell : ({ ...cell, recipe } as RecordTextField)
 }
 
 /** The fields a record carries text for: the system timestamps first, then the declared ones. */

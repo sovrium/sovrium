@@ -139,6 +139,7 @@ const loadInputOtp = () => import('./form-controls/input-otp-island')
 const loadResizable = () => import('./resizable/resizable-island')
 const loadStepper = () => import('./disclosure/stepper-island')
 const loadSignaturePad = () => import('./form-controls/signature-pad-island')
+const loadSignaturePadFlow = () => import('./form-controls/signature-pad-flow-island')
 const loadSidebarGroups = () => import('./navigation/sidebar-groups-island')
 const loadSidebarBadge = () => import('./navigation/sidebar-badge-island')
 const loadSidebarDisclosure = () => import('./navigation/sidebar-disclosure-island')
@@ -169,6 +170,8 @@ export const PRIORITY_ISLAND_LOADERS: Readonly<Record<string, IslandLoader>> = {
   // The first gesture on a pad is the stroke in its well, which does not exist
   // until the island has mounted.
   'signature-pad': loadSignaturePad,
+  // The same pad on a flow's signing page, for the same reason.
+  'signature-pad-flow': loadSignaturePadFlow,
   'page-record-system': loadPageRecordSystem,
   'ai-chat': loadAiChat,
   tabs: loadTabs,
@@ -240,6 +243,8 @@ export const ISLANDS: Record<string, React.ComponentType<any>> = {
   // `stepper` — renders nothing; moves between the server-rendered step bodies.
   stepper: lazy(loadStepper),
   'signature-pad': lazy(loadSignaturePad),
+  // A `signature-pad` on a flow's signing page: keyed apart so the inline pad pays nothing for it.
+  'signature-pad-flow': lazy(loadSignaturePadFlow),
   // `tree` — reads its rows from the records API and nests them; lazy (eco R2).
   tree: lazy(() => import('./tree/tree-island')),
   // `map` — a dependency-free pin layer over the operator's tiles or a grid.

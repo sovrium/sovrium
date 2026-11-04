@@ -71,9 +71,14 @@ export const startUnixServer = (
       const {
         port: _port,
         hostname: _hostname,
+        idleTimeout,
         ...options
       } = buildBunServeOptions(honoApp, 0, SOCKET_HOST, maxRequestBodySize)
-      const server = Bun.serve({ ...options, unix: socketPath })
+      // Bun reads `idleTimeout` on a socket listener too (`ServerConfig.rs`
+      // parses it whatever the address); its typings declare it for a TCP one
+      // only, so it is spread in as an untyped extra.
+      const idleGuard: Record<never, never> = { idleTimeout }
+      const server = Bun.serve({ ...options, ...idleGuard, unix: socketPath })
       chmodSync(socketPath, SOCKET_MODE)
       return server
     },

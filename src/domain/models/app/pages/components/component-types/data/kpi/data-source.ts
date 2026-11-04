@@ -49,6 +49,8 @@ export const KpiDbDataSourceSchema = DataSourceSchema
  *     endpoint: /api/admin/overview     # required — the read endpoint path
  *     valuePath: records.total          # dotted path to a scalar in the envelope
  *     query: { period: 24h }            # optional STATIC query params merged in
+ *     refreshMode: poll                 # optional: re-read every pollIntervalMs
+ *     pollIntervalMs: 15000
  * # — or a value template —
  * dataSource:
  *   system:
@@ -97,6 +99,33 @@ export const KpiSystemSourceSchema = Schema.Struct({
     ).annotate({
       description: 'Static query params merged into the request to the endpoint',
     })
+  ),
+  /**
+   * How the figure is refreshed after the first read (default: none). `poll`
+   * re-reads the endpoint every `pollIntervalMs`, with the meaning, values and
+   * bounds the two keys have on every other system read. Tiles reading one
+   * endpoint with the same static `query` still share ONE request per read.
+   * There is no `realtime`: an endpoint has no change feed to follow.
+   */
+  refreshMode: Schema.optional(
+    Schema.Literals(['none', 'poll']).annotate({
+      title: 'KPI System Refresh Mode',
+      description:
+        "How the figure is refreshed after the first read (default: 'none'). 'poll' re-reads the endpoint every pollIntervalMs, so a figure that changes elsewhere shows without a reload; tiles reading one endpoint with the same query still share one request per read. A failed poll keeps the last figure on screen. 'realtime' is refused: an endpoint has no change feed to follow.",
+      defaultNote: 'none',
+    })
+  ),
+  /** Poll interval in milliseconds, used when `refreshMode` is `poll`. */
+  pollIntervalMs: Schema.optional(
+    Schema.Finite.pipe(
+      Schema.annotate({
+        description:
+          "Polling interval in milliseconds for refreshMode: poll (min 1000, max 300000). Defaults to 30000 when omitted, and is ignored unless refreshMode is 'poll'.",
+        defaultNote: '30000',
+        examples: [15_000, 30_000],
+      }),
+      Schema.check(Schema.isInt(), Schema.isBetween({ minimum: 1000, maximum: 300_000 }))
+    )
   ),
 }).annotate({
   title: 'KPI System Source',

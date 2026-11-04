@@ -24,6 +24,11 @@ import type { Context, Hono } from 'hono'
  * the reader may not open is simply absent: never a 403, which would confirm it
  * exists.
  *
+ * `&page=<name>` narrows the answer to the articles of that one collection
+ * page: the docs sidebar's search field sends the page it is drawn on, so it
+ * never lists another collection's articles nor a plain page. A name that
+ * names no collection page answers `200 []`, as a query nothing matches does.
+ *
  * The static `/sovrium-search/index.json` is untouched and stays public-only.
  */
 
@@ -55,7 +60,13 @@ const buildPageSearchHandler =
           const query = (c.req.query('q') ?? '').trim()
           if (query.length < MIN_QUERY_LENGTH) return answerHits(c, [])
           const reader = yield* resolvePageReader(c, app, getSession)
-          const hits = yield* searchReadablePages(app, query, reader)
+          const pageName = c.req.query('page')
+          const hits = yield* searchReadablePages(
+            app,
+            query,
+            reader,
+            pageName === undefined || pageName === '' ? undefined : pageName
+          )
           return answerHits(c, hits)
         })
       )

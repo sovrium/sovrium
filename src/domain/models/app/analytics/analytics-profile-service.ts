@@ -81,6 +81,8 @@ export const SHARED_IDENTIFIER_EVENT_TYPES = ['link_click', 'qr_scan', 'form_sub
 /** One stored analytics event, as far as the profile is concerned. */
 export interface ProfiledEvent {
   readonly eventType: string
+  /** The stored `event_name`; a page view's is its path, minimised as the path is. */
+  readonly eventName?: string | null
   readonly visitorHash: string
   readonly sessionHash: string
   readonly properties: Readonly<Record<string, unknown>>
@@ -174,17 +176,34 @@ const sameProperties = (
  */
 export function minimiseEvent(event: ProfiledEvent): ProfiledEvent | undefined {
   const properties = audienceOnlyProperties(event.eventType, event.properties)
+  const eventName = audienceOnlyEventName(event.eventType, event.eventName)
   const shares = (SHARED_IDENTIFIER_EVENT_TYPES as readonly string[]).includes(event.eventType)
   const moves =
     shares &&
     (event.visitorHash !== SHARED_IDENTIFIERS.visitorHash ||
       event.sessionHash !== SHARED_IDENTIFIERS.sessionHash)
-  if (!moves && sameProperties(properties, event.properties)) return undefined
+  const renamed = eventName !== event.eventName
+  if (!moves && !renamed && sameProperties(properties, event.properties)) return undefined
   return {
     eventType: event.eventType,
+    ...(event.eventName === undefined ? {} : { eventName }),
     ...(moves
       ? SHARED_IDENTIFIERS
       : { visitorHash: event.visitorHash, sessionHash: event.sessionHash }),
     properties,
   }
+}
+
+/**
+ * The `event_name` an event keeps under `audience-only`: a page view's is its
+ * path, so it loses its query string as `properties.path` does; every other
+ * event type's name (a host, a slug, a form's name) is kept as it is.
+ */
+function audienceOnlyEventName(
+  eventType: string,
+  eventName: string | null | undefined
+): string | null | undefined {
+  return eventType === 'page_view' && typeof eventName === 'string'
+    ? withoutQuery(eventName)
+    : eventName
 }

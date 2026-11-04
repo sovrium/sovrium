@@ -37,6 +37,10 @@ permissions: {}
 jobs:
   publish-templates:
     name: Publish template repositories (manual)
+    # TEMPLATES_PUBLISH_TOKEN is a secret of the `release` environment, so this
+    # job runs there and waits for its reviewer. The environment admits only
+    # `v*` refs: dispatch it from a release tag ("Use workflow from" → Tags).
+    environment: release
     runs-on: ubuntu-latest
     permissions:
       contents: read

@@ -56,7 +56,7 @@ export const TableCalendarFeedSchema = Schema.Struct({
   ),
   url: Schema.optional(
     feedFieldName(
-      "The field shown as the event's link — a join link or the event's page: a `url` field of this table. A person who may not read it sees events without a link."
+      "The field shown as the event's link, such as a join link or the event's page: a `url` field of this table. A person who may not read it sees events without a link."
     )
   ),
 }).pipe(

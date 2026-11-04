@@ -167,6 +167,7 @@ const CAPABILITY_PREDICATES: Readonly<
   analytics: analyticsIsEnabled,
   'analytics.full': analyticsKeepsEveryEvent,
   decisions: (app) => (app.decisions?.length ?? 0) > 0,
+  signatures: (app) => (app.signatures?.length ?? 0) > 0,
   pages: (app) => (app.pages?.length ?? 0) > 0,
   components: (app) => (app.components?.length ?? 0) > 0,
   'assets.templates': (app) =>

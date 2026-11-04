@@ -39,11 +39,11 @@ On a page laid out as a window-high shell (a row exactly one window high, its ov
 
 ## What it is, and what it is not
 
-The badge is server-rendered chrome with **zero telemetry**: a single static `<a>` linking to the project site: no beacon, no pixel, no client-side JavaScript. Its label follows the page's active locale, and the text itself is not customisable. It stays legible in the dark theme.
+The badge is server-rendered chrome with **zero telemetry**: a single static `<a>` linking to the project site, with no beacon, no pixel and no client-side JavaScript. Its label follows the page's active locale, and the text itself is not customisable. It stays legible in the dark theme.
 
 It appears on app pages, the default homepage, error pages and standalone form pages. It is always absent from the operator console and from embedded form variants, whatever the config says.
 
-**Removing it is one line, it applies everywhere, and it will stay free.** It is never licence-gated. Keeping the badge is simply a way to support the project.
+**Removing it is one line, it applies everywhere, and it will stay free.** It is never licence-gated. Keeping the badge is a way to support the project.
 
 ## Related reading
 

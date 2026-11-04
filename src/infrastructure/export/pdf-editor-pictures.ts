@@ -9,6 +9,7 @@ import { sniffContentType } from '@/domain/kernel/identity/content-sniff'
 import { layImageOnPage } from '@/domain/models/app/automations/actions/pdf/image-page-layout-service'
 import { convertImage } from '@/infrastructure/storage/image-processor'
 import { pdfLib } from './pdf-editor-library'
+import { assertRewritable } from './pdf-rewrite-guard'
 import type { BuiltPdf } from '@/application/ports/services/pdf-editor'
 import type { ImageLayoutRequest } from '@/domain/models/app/automations/actions/pdf/image-page-layout-service'
 import type { PDFDocument, PDFImage } from '@cantoo/pdf-lib'
@@ -74,8 +75,8 @@ export const buildPdfFromPictures = async (
   pictures: readonly Uint8Array[],
   layout: Omit<ImageLayoutRequest, 'picture'>
 ): Promise<BuiltPdf> => {
-  const { PDFDocument: Document } = await pdfLib()
-  const document = await Document.create()
+  const lib = await pdfLib()
+  const document = await lib.PDFDocument.create()
   const images = await Promise.all(
     pictures.map((bytes, index) =>
       embedPicture(document, bytes, index).catch((cause: unknown) => {
@@ -88,5 +89,7 @@ export const buildPdfFromPictures = async (
     await previous
     await addPicturePage(document, image, layout)
   }, Promise.resolve())
+  // A fresh document holds no signature; checked so every save site refuses alike.
+  assertRewritable(lib, document)
   return { bytes: await document.save(), pages: document.getPageCount() }
 }

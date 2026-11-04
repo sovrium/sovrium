@@ -58,7 +58,7 @@ import { Schema } from 'effect'
 export const DataTableLayoutSchema = Schema.Literals(['flow', 'fill']).annotate({
   title: 'Table Layout',
   description:
-    "How the table occupies its parent. 'flow' (default) takes the table's natural height and lets the page scroll. 'fill' makes the table fill the remaining height of a bounded parent and own its own scroll: the rows scroll inside the component, the header row stays pinned to the top of that scroll, and the pagination bar is pinned to the bottom edge. 'fill' needs an ancestor with a resolved height; in an ordinary flowing document it degrades to the natural height.",
+    "How the table occupies its parent. 'flow' (default) takes the table's natural height and lets the page scroll. 'fill' makes the table fill the remaining height of a bounded parent and own its own scroll: the rows scroll inside the component, the header row stays pinned to the top of that scroll, and the pagination bar is pinned to the bottom edge. 'fill' needs an ancestor with a resolved height; in an ordinary flowing document it degrades to the natural height. A filling grid holding no row draws its empty state compactly, without a bottom bar.",
   examples: ['fill'],
 })
 

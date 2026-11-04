@@ -79,6 +79,10 @@ export function delegate<E extends Element>(
  * by the automation / auth / fetch button setups, which differ only in their
  * per-button click body.
  *
+ * A button its read disables (`data-read-disabled`, drawn by the server and
+ * toggled by `read-state.ts`) is skipped here too, so a press before any data
+ * script has loaded sends nothing.
+ *
  * Delegated, so a button that arrives with a refreshed region works on its first
  * click. Each caller's body opens by reading the button's own configuration
  * attribute and returning without it — see {@link delegate} for why that guard
@@ -88,7 +92,11 @@ export function bindActionButtons(
   actionType: string,
   onClick: (button: HTMLButtonElement) => void
 ): void {
-  delegate<HTMLButtonElement>('click', `button[data-action-type="${actionType}"]`, onClick)
+  delegate<HTMLButtonElement>(
+    'click',
+    `button[data-action-type="${actionType}"]:not([data-read-disabled])`,
+    onClick
+  )
 }
 
 // ─── Automation button handling ──────────────────────────────────────────────

@@ -30,14 +30,25 @@ export const FORM_RUNTIME_FIELD_ERRORS_SCRIPT = `
   function errorIdOf(input) {
     return 'field-error-' + formName + '-' + (input.name || '')
   }
+  // The control a reader focuses: the named input, or — when that input only
+  // carries the value out of reach (a Select's, a date picker's) — the control
+  // the field's label names.
+  function controlOf(input) {
+    if (input.type !== 'hidden' && input.getAttribute('aria-hidden') !== 'true') return input
+    var wrapper = input.closest('.form-field')
+    var label = wrapper && wrapper.querySelector('label[for]')
+    var control = label && document.getElementById(label.getAttribute('for'))
+    return control && wrapper.contains(control) ? control : input
+  }
   function unmarkInvalid(input) {
-    input.removeAttribute('aria-invalid')
+    var control = controlOf(input)
+    control.removeAttribute('aria-invalid')
     var errId = errorIdOf(input)
-    var rest = (input.getAttribute('aria-describedby') || '').split(/\\s+/).filter(function (t) {
+    var rest = (control.getAttribute('aria-describedby') || '').split(/\\s+/).filter(function (t) {
       return t && t !== errId
     })
-    if (rest.length > 0) input.setAttribute('aria-describedby', rest.join(' '))
-    else input.removeAttribute('aria-describedby')
+    if (rest.length > 0) control.setAttribute('aria-describedby', rest.join(' '))
+    else control.removeAttribute('aria-describedby')
   }
   function clearFieldErrors() {
     var errs = form.querySelectorAll('[data-field-error]')
@@ -82,24 +93,27 @@ export const FORM_RUNTIME_FIELD_ERRORS_SCRIPT = `
         ? labelOf(input) + message.slice(input.name.length)
         : message
     wrapper.appendChild(err)
-    input.setAttribute('aria-invalid', 'true')
-    var described = (input.getAttribute('aria-describedby') || '').split(/\\s+/).filter(function (t) {
+    var control = controlOf(input)
+    control.setAttribute('aria-invalid', 'true')
+    var described = (control.getAttribute('aria-describedby') || '').split(/\\s+/).filter(function (t) {
       return t && t !== errId
     })
-    input.setAttribute('aria-describedby', described.concat([errId]).join(' '))
+    control.setAttribute('aria-describedby', described.concat([errId]).join(' '))
   }
   // A reason naming the field, in the page language when the server sent one.
   function namedMessage(key, label, english) {
     var t = S[key]
     return t ? t.split('{label}').join(label) : label + english
   }
-  function requiredMessage(label) {
-    return namedMessage('form.requiredNamed', label, ' is required')
+  // The label already sits above the field and names it, so the reason does
+  // not quote it: a consent sentence or a question makes a poor subject.
+  function requiredMessage() {
+    return S['form.required'] || 'This field is required'
   }
   function fieldErrorMessage(input) {
     var v = input.validity
     var label = labelOf(input)
-    if (v.valueMissing) return requiredMessage(label)
+    if (v.valueMissing) return requiredMessage()
     if (v.typeMismatch) {
       if (input.type === 'email') {
         return namedMessage('form.invalidEmailNamed', label, ' must be a valid email address')

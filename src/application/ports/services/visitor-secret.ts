@@ -14,15 +14,21 @@ import type { Effect } from 'effect'
  * One secret per calendar day, held for the life of the server and never
  * written anywhere: a new day, or a new server, starts from a new secret, so
  * an identifier means nothing outside the day and the instance that issued it.
+ *
+ * Callers receive a handle, never the secret itself: a non-extractable HMAC
+ * SHA-256 `CryptoKey` that can sign and do nothing else. A key is immutable,
+ * so a request still holding yesterday's key after midnight signs with that
+ * whole key rather than with a secret rotated under it.
  */
 export class VisitorSecret extends Context.Service<
   VisitorSecret,
   {
     /**
-     * The secret of one calendar day (`YYYY-MM-DD` in the operator timezone).
-     * Only the newest day asked for is held: a later day replaces it, and an
-     * earlier day gets a one-off secret that leaves the held one in place.
+     * The signing key of one calendar day (`YYYY-MM-DD` in the operator
+     * timezone). Only the newest day asked for is held: a later day replaces
+     * it, and an earlier day gets a one-off key that is never stored and
+     * leaves the held one in place.
      */
-    readonly secretFor: (day: string) => Effect.Effect<Uint8Array<ArrayBuffer>>
+    readonly keyFor: (day: string) => Effect.Effect<CryptoKey>
   }
 >()('VisitorSecret') {}

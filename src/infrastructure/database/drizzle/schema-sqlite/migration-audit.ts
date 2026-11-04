@@ -74,4 +74,6 @@ export const sovriumSchemaChecksum = systemTable('schema_checksum', {
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).$defaultFn(() => new Date()),
   /** See the PostgreSQL mirror: `0` reads as older than any formula engine. */
   formulaEngineVersion: integer('formula_engine_version').notNull().default(0),
+  /** See the PostgreSQL mirror: the profile the last start's analytics sweep ran under. */
+  analyticsProfile: text('analytics_profile'),
 })

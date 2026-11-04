@@ -109,8 +109,9 @@ const refreshLockFile = (
  * port while the watcher printed that the previous server was still serving.
  *
  * @param deps - The live listener and the builders bound to it.
- * @returns A `reload` function taking the DECODED new config plus the hash of
- *   the config file it came from.
+ * @returns A `reload` function taking the SERVED new config (decoded, then
+ *   derived by `servedAppOf`, exactly as a boot runs it) plus the hash of the
+ *   config file it came from.
  */
 export const createServerReload =
   (deps: ServerReloadDeps) =>

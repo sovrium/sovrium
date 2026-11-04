@@ -1,0 +1,111 @@
+# Contracts: HR drafts a contract, attaches its PDF, and sends it for
+# signature. Only an admin opens this page. The signatures, the signed file
+# and the proof file arrive by themselves once everyone has signed.
+name: contracts
+path: /contracts
+access:
+  require: [admin]
+  redirectTo: /sign-in
+meta:
+  title: Contracts · Meridian People
+  description: Employment contracts, from draft to signed.
+  favicon: ./favicon.svg
+components:
+  - type: container
+    props:
+      className: flex h-screen overflow-hidden bg-background text-foreground max-md:flex-col
+    children:
+      - $ref: ./_shell.yaml
+      - type: container
+        element: div
+        props:
+          className: flex min-w-0 flex-1 flex-col overflow-y-auto
+        children:
+          - type: container
+            props:
+              className: flex h-12 flex-none items-center gap-3 border-b border-border bg-background px-5
+            children:
+              - type: text
+                element: h1
+                props:
+                  className: text-[15px] font-semibold text-foreground
+                content: Contracts
+              - type: container
+                props:
+                  className: grow
+              - type: button
+                content: Add contract
+                props:
+                  className: h-7 px-3 text-[13px]
+                  interactions:
+                    click:
+                      modal: add-contract-dialog
+          - type: dialog
+            props:
+              id: add-contract-dialog
+              title: Add contract
+              description: It stays a draft until you send it for signature.
+            formRef: add-contract
+          - type: container
+            props:
+              className: flex flex-col gap-3 px-5 pb-5 pt-4
+            children:
+              # Read-only: the engine writes the signing columns, and sending
+              # is a button, not a cell edit.
+              - type: table
+                readOnly: true
+                props:
+                  id: contract-list
+                dataSource:
+                  table: contracts
+                  sort:
+                    - { field: created_at, direction: desc }
+                columns:
+                  - { field: title, label: Contract }
+                  - { field: employee_name, label: Employee }
+                  - { field: manager_name, label: Countersigned by }
+                  - { field: stage, label: Stage }
+                  - { field: signing_status, label: Signature }
+                  - type: actions
+                    actions:
+                      - label: Send for signature
+                        icon: send
+                        visibleWhen: { field: stage, eq: Draft }
+                        confirm: Send this contract for signature? The employee gets a link by email first, then the manager.
+                        action:
+                          type: fetch
+                          url: /api/tables/contracts/records/$record.id
+                          method: PATCH
+                          body:
+                            fields:
+                              stage: Ready to sign
+                          onSuccess:
+                            type: toast
+                            message: Sent to the employee for signature
+                            variant: success
+                            refetch: contract-list
+                onRowClick:
+                  action: openSheet
+                  component: contract-detail
+                pagination:
+                  pageSize: 25
+                emptyMessage: No contracts yet. Add one with its PDF, then send it for signature.
+          # One contract, opened from the list: who signs it, where it stands,
+          # and the files. The signed file and the proof file appear once both
+          # have signed.
+          - type: sheet
+            id: contract-detail
+            drawerSide: right
+            drawerSize: md
+            dataSource:
+              table: contracts
+            props:
+              title: '$record.title'
+            recordFields:
+              - { name: employee_name, type: single-line-text, label: Employee }
+              - { name: manager_name, type: single-line-text, label: Countersigned by }
+              - { name: stage, type: single-select, label: Stage }
+              - { name: signing_status, type: status, label: Signature }
+              - { name: draft_pdf, type: single-attachment, label: Draft }
+              - { name: signed_pdf, type: single-attachment, label: Signed contract }
+              - { name: proof_pdf, type: single-attachment, label: Proof file }

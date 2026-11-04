@@ -28,11 +28,6 @@ import { toastComponent } from './toast-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 
 /**
- * Structural HTML components (section, header, footer, main, etc.)
- *
- * These components render semantic HTML elements for page structure.
- */
-/**
  * The marker a repeating container carries into the browser (the record-drawer children-slot design, CAP-6).
  *
  * Spelled LITERALLY on both sides of the SSR boundary — here, and in
@@ -89,6 +84,11 @@ function mainRegionFocus(
     : {}
 }
 
+/**
+ * Structural HTML components (section, header, footer, main, etc.)
+ *
+ * These components render semantic HTML elements for page structure.
+ */
 export const structuralComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   ...bubbleComponents,
   container: ({

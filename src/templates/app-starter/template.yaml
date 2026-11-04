@@ -6,6 +6,9 @@ intro: |
   application blocks: every way in (password, emailed link, passkey, two-step, single
   sign-on, invitations), a dashboard with a period selector, settings and profile pages, and
   a list of projects that each open in a side panel and on their own page.
+audience: >-
+  A team starting a business app of its own, who replaces the sample projects with its own
+  records. Its users are the team, invited by an admin; strangers cannot open an account.
 glance:
   - '**Tables** (8): projects, tasks, activity, clients, people, workspace_settings, reminders, bookings'
   - |-

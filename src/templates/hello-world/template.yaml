@@ -6,6 +6,9 @@ intro: |
   the lines of `app.yaml` that make it, and links the documentation and the templates; a page
   at `/404` answers any address that has no page yet, with the way back. No tables, no
   sign-in.
+audience: >-
+  Someone who has just run `sovrium init` and wants to see an app start and change. There are no
+  tables and no sign-in.
 glance:
   - '**Pages** (2): home (`/`), not-found (`/404`, served for any address that answers nothing)'
   - '**Singletons**: design (inline: twelve colour roles per scheme, `colorScheme: system`)'

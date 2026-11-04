@@ -104,12 +104,26 @@ const withAuthCodeDefaults = (
  *
  * Returns `{ response }` when one or more fields are missing (caller
  * should return verbatim) or `{ props }` when all three are valid.
+ *
+ * Both refusals are the configuration's, so both answer 400 rather than
+ * a server error: a `clientCredentials` connection has no consent step to
+ * send anyone to (the app requests its token itself), and an
+ * authorization-code connection that names no `authorizationUrl` (nor a
+ * provider supplying one) has nowhere to send them.
  */
 export const requireAuthCodeFields = (
   c: Context,
   declared: OAuth2Props,
   callbackPath: string
 ): { readonly response: Response } | { readonly props: OAuth2AuthCodeProps } => {
+  if (declared.grantType === 'clientCredentials') {
+    return {
+      response: connectionError(c, 400, 'connection_not_authorizable', {
+        message:
+          'This connection uses the clientCredentials grant, which has no consent step: the app requests its token itself',
+      }),
+    }
+  }
   const props = withAuthCodeDefaults(c, declared, callbackPath)
   const missing: readonly string[] = (
     [
@@ -122,7 +136,7 @@ export const requireAuthCodeFields = (
     .map(([name]) => name)
   if (missing.length > 0) {
     return {
-      response: connectionError(c, 500, 'connection_misconfigured', {
+      response: connectionError(c, 400, 'connection_misconfigured', {
         message: `OAuth2 authorization-code flow requires: ${missing.join(', ')}`,
       }),
     }

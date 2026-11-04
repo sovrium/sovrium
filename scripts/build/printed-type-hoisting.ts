@@ -137,10 +137,15 @@ export const printedTypeOccurrenceMatcher = (block: string): RegExp => {
   return new RegExp(pattern, 'g')
 }
 
-/** The two spellings a printed optional property key can take. */
+/**
+ * The spellings a printed optional property key can take: bare, or quoted. A
+ * key built by a mapped type prints in double quotes; one written as a quoted
+ * literal in the source keeps that literal's single quotes.
+ */
 const optionalKeyMarkers = (key: string): readonly string[] => [
   `readonly ${key}?: `,
   `readonly "${key}"?: `,
+  `readonly '${key}'?: `,
 ]
 
 /**

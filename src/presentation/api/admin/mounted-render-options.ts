@@ -65,9 +65,9 @@ export interface MountedRenderOptionsInput {
  * `isAdminEquivalent`, `canEditOperations`), so a drawn control and an
  * admitted write agree. A capability set cannot be read as a role, cannot
  * resolve `$user.*`, and cannot reach a row filter; the anonymous public
- * carve-out holds no session and is given nothing. Her id and email travel
- * too (`viewerIdentity`), answering a `$user.id` / `$user.email` condition and
- * nothing else.
+ * carve-out holds no session and is given nothing. Her id, email and two-step
+ * state travel too (`viewerIdentity`), answering a `$user.id` / `$user.email` /
+ * `$user.twoFactorEnabled` condition and nothing else.
  */
 export const mountedRenderOptions = ({
   mount,
@@ -113,7 +113,7 @@ export const mountedRenderOptions = ({
   fetchSystemRecord: systemRecordFetcher(c),
   callerCapabilities: grantedCallerCapabilities(session, config.app),
   callerFieldReader: callerFieldReaderOf(session),
-  // The reader's IDENTITY — id and email, never her role, groups or session —
+  // The reader's IDENTITY — id, email and two-step state, never her role, groups or session —
   // so a `$user.email neq $param.email` gate can tell her own account page.
   viewerIdentity: viewerIdentityOf(session),
 })

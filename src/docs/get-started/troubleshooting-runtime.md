@@ -1,6 +1,6 @@
 # Troubleshooting: Auth, Email & MCP
 
-> The warnings and errors that appear once Sovrium is running: signing keys and stored credentials the current encryption key cannot read, email and AI disabled when the config needs them, and MCP refusing to start over a retired credential variable.
+> Warnings once Sovrium runs: signing keys and credentials it cannot read, email or AI disabled while the config needs them, and MCP refusing a retired variable.
 
 Once the server boots, the next class of problem comes from the services layered on top. These are the ones that most often surprise people. The first two are warnings rather than failures, so the app looks healthy while something quietly does not work. The MCP ones are the opposite: a hard refusal to start, on a variable that used to be correct.
 
@@ -27,7 +27,7 @@ The two are handled differently on purpose. A signing key is derived material, s
 
 **Adopt the key before you drop the variable.** Removing `SOVRIUM_ENCRYPTION_KEY` from a working deployment produces exactly these warnings, because the next start finds no key file and generates one. Run `sovrium secret adopt` first. It persists the key you already have, so removing the variable changes nothing.
 
-## "Email sending disabled — SMTP not configured"
+## `Email sending disabled — SMTP not configured`
 
 ```text
 ⚠ Email sending disabled — SMTP not configured (set SMTP_HOST to enable)
@@ -65,7 +65,7 @@ In **production** you get a single line and nothing else:
 Email sending disabled (SMTP not configured) — skipped sending to "admin@example.com" with subject "Reset your password"
 ```
 
-No body, no links. A reset link is a bearer credential, and a production log is shipped, retained, and read by people who are not the developer. Writing one there would hand account takeover to anyone holding log access.
+The line carries neither the body nor the links. A reset link is a bearer credential, and a production log is shipped, retained, and read by people who are not the developer. Writing one there would hand account takeover to anyone holding log access.
 
 ### Enabling delivery
 
@@ -80,7 +80,7 @@ SMTP_PASS=<secret>
 
 See **Environment Variables** for the full set, and **Email Integration** for provider setup. Anything with email verification or password reset should be tested against a real SMTP host before it ships.
 
-## "AI disabled — AI_PROVIDER not set"
+## `AI disabled — AI_PROVIDER not set`
 
 ```text
 ⚠ AI disabled — AI_PROVIDER not set (agents are inert, ai-* fields fall back to their baseline)

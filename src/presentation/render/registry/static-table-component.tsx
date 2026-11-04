@@ -18,8 +18,8 @@
  *
  * `static-table` and `data-table` merged into one `table` literal, so ONE
  * registry entry now serves both modes and has to choose between them. That
- * entry lives beside the bound renderer in `island-data-components.tsx`,
- * because the bound mode is the one that carries the island. Lifting the static
+ * entry lives in `island-data-components.tsx` and hands the bound mode, the one
+ * that carries the island, to `bound-table-component.tsx`. Lifting the static
  * markup here rather than inlining it there keeps that file under the 300-line
  * cap React modules are held to, and keeps the two modes readable as two
  * things — which is what they still are. Only the name the author writes is

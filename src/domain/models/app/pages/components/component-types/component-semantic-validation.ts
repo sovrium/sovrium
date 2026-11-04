@@ -9,7 +9,7 @@
  * The component-type rules the schema cannot hold, gathered behind ONE entry
  * so the decode boundary (`decodeAppConfigObject` → `runSemanticChecks`) calls
  * one function for all of them: what a restricted container may hold, what a
- * `label` may name, what an image `attachment` must carry, what a
+ * `label` may name, how a list nests, what an image `attachment` must carry, what a
  * `questionnaire` submits through, which field a choice control's
  * `optionsFrom` may name, which form a grid's answer columns come from, that a grid starts with a
  * column drawn, and that a table-bound form draws a text control over text.
@@ -33,6 +33,7 @@ import { validateDayCalendarDefaults } from './form-controls/day-calendar-valida
 import { validateLabelTargets } from './form-controls/label-for-validation'
 import { validateSelectOptionsFrom } from './form-controls/select-options-from-validation'
 import { validateIconButtons } from './interactive/button-size-validation'
+import { validateListNesting } from './layout/list-nesting-validation'
 
 /**
  * Every component-type rule the config breaks, as finished messages.
@@ -41,6 +42,7 @@ import { validateIconButtons } from './interactive/button-size-validation'
  */
 export const validateComponentSemantics = (config: unknown): readonly string[] => [
   ...validateComponentChildren(config),
+  ...validateListNesting(config),
   ...validateLabelTargets(config),
   ...validateAttachmentMedia(config),
   ...validateQuestionnaires(config),

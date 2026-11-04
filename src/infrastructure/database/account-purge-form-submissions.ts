@@ -24,6 +24,13 @@ import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
  *    `draft` rows: a sent anonymous submission that merely carried the address
  *    is not the user's to have deleted by this match. An address that could
  *    not be read is never matched as an empty string.
+ *
+ * Before either, the `form_submission` analytics events that point at the
+ * user's submissions (`properties.submissionId`, written under the `full`
+ * profile) are hard-deleted, with the identifier they hold: they are selected
+ * by the ledger ids, so they go while those rows still exist. An event under
+ * `audience-only` names no submission and is not matched; a draft never has
+ * one.
  */
 export async function deleteFormSubmissionsOf(
   { tx, dialect }: TransactionOn,
@@ -31,6 +38,16 @@ export async function deleteFormSubmissionsOf(
   erasedEmail: string | undefined
 ): Promise<void> {
   const ledger = dialect.sql.systemTableRef('form_submissions')
+  const events = dialect.sql.systemTableRef('analytics_events')
+  const submissionId = dialect.sql.jsonExtractPath(
+    sql`${sql.identifier('properties')}`,
+    'submissionId'
+  )
+  await executeRawOn(
+    dialect.kind,
+    tx,
+    sql`DELETE FROM ${events} WHERE event_type = 'form_submission' AND ${submissionId} IN (SELECT id FROM ${ledger} WHERE submitter_user_id = ${userId})`
+  )
   await executeRawOn(
     dialect.kind,
     tx,

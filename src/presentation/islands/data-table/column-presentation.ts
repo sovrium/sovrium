@@ -40,13 +40,16 @@ const TONE_CELL: Readonly<Record<Tone, string>> = {
  * at the column's width. The width is read from a custom property the cell
  * carries, because a table cell ignores its own `max-width`: the bound has to
  * sit on the content. An entry that sets a glyph before its link
- * (`data-cell-entry`, a file) stays a row, so the glyph keeps the link's line.
+ * (`data-cell-entry`, a file) stays a row, so the glyph keeps the link's line;
+ * a value with its second line under it (`data-cell-lines`) stays a column,
+ * each line cut on its own.
  */
 const TRUNCATE = [
   'max-w-[var(--sv-cell-width,20rem)] truncate',
   '[&>*]:block [&>*]:max-w-[var(--sv-cell-width,20rem)] [&>*]:truncate',
   '[&_a]:block [&_a]:max-w-[var(--sv-cell-width,20rem)] [&_a]:truncate',
   '[&>[data-cell-entry]]:flex',
+  '[&>[data-cell-lines]]:flex [&>[data-cell-lines]>*]:truncate',
 ].join(' ')
 
 /**

@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { AppValidationError } from '@/application/errors/app-validation-error'
 import { ProcessEnv } from '@/application/ports/services/process-env'
 import { speechConfigurationRefusal } from '@/application/use-cases/ai/validate-speech-configuration'
+import { aiEnvRefusal } from '@/domain/models/process-env/ai/ai'
 import { validateModelString } from '@/domain/models/process-env/ai/ai-model-string'
 import {
   SUPPORTED_AI_PROVIDERS,
@@ -65,36 +66,6 @@ const checkModelStringFormat = (rawModel: string | undefined): string | undefine
   if (rawModel === undefined) return undefined
   const result = validateModelString('AI_MODEL', rawModel)
   return result.ok ? undefined : result.message
-}
-
-/**
- * Common-parameter range check for `AI_TEMPERATURE`: when present it must
- * parse as a number in the inclusive range 0–1. Returns `undefined` when
- * absent or valid.
- */
-const checkTemperatureRange = (rawTemperature: string | undefined): string | undefined => {
-  if (rawTemperature === undefined || rawTemperature.trim() === '') return undefined
-  const value = Number(rawTemperature)
-  if (Number.isNaN(value)) {
-    return `AI_TEMPERATURE must be a number between 0 and 1 (got "${rawTemperature}").`
-  }
-  if (value < 0 || value > 1) {
-    return `AI_TEMPERATURE must be a number between 0 and 1 (got "${rawTemperature}").`
-  }
-  return undefined
-}
-
-/**
- * Common-parameter range check for `AI_MAX_TOKENS`: when present it must
- * parse as a positive integer. Returns `undefined` when absent or valid.
- */
-const checkMaxTokensRange = (rawMaxTokens: string | undefined): string | undefined => {
-  if (rawMaxTokens === undefined || rawMaxTokens.trim() === '') return undefined
-  const value = Number(rawMaxTokens)
-  if (!Number.isInteger(value) || value <= 0) {
-    return `AI_MAX_TOKENS must be a positive integer (got "${rawMaxTokens}").`
-  }
-  return undefined
 }
 
 /**
@@ -194,8 +165,7 @@ const aiConfigurationRefusal = (
     checkBaseUrlPresence(provider, processEnv) ??
     checkModelPresence(provider, processEnv) ??
     checkModelStringFormat(processEnv['AI_MODEL']) ??
-    checkTemperatureRange(processEnv['AI_TEMPERATURE']) ??
-    checkMaxTokensRange(processEnv['AI_MAX_TOKENS']) ??
+    aiEnvRefusal(processEnv) ??
     speechConfigurationRefusal(app, processEnv)
   )
 }

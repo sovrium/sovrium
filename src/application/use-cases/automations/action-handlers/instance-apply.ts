@@ -121,7 +121,7 @@ export const handleInstanceApply = instanceHandler('apply', (props, _action, app
   Effect.gen(function* () {
     const { slug, revision, env, signed, named } = yield* applyPropsOf(props)
     // Nothing touches the host until signature and entries check out; then the socket, the app.
-    const gate = starterFileGate(app, automation)
+    const gate = starterFileGate(app, automation, 'control-plane-objects')
     const verified = yield* verifiedBundleOf(props['bundle'], signed, gate)
     const { engine, raises } = yield* releaseEngineOf(slug, revision, named)
     const supervisor = yield* InstanceSupervisor

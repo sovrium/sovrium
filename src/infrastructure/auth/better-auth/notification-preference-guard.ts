@@ -7,6 +7,7 @@
 
 import { APIError, getSessionFromCtx } from 'better-auth/api'
 import { isAdminTier } from '@/domain/models/app/auth/roles/role'
+import { UPDATE_USER_PATH } from './account-opening-routes'
 import { presentsApiKey } from './api-key-admin-plane-guard'
 import type { AdminRoleResolvable } from '@/domain/models/app/auth/roles/role'
 import type { createAuthMiddleware } from 'better-auth/api'
@@ -91,7 +92,7 @@ export async function applyNotificationPreferenceGuard(
   ctx: AuthMiddlewareCtx,
   app: AdminRoleResolvable
 ): Promise<void> {
-  if (ctx.path !== '/update-user') return
+  if (ctx.path !== UPDATE_USER_PATH) return
   if (!carriesPreference(ctx.body)) return
   if (presentsApiKey(ctx)) throw preferenceRefusal()
 

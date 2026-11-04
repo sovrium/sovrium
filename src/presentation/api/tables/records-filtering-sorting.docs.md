@@ -47,7 +47,7 @@ Comma-separated `field:direction` segments, leftmost first.
 GET /api/tables/tasks/records?sort=priority:desc,name:asc
 ```
 
-A segment sorts ascending unless its direction is exactly `desc`. A single-select field sorts by its declared option order rather than alphabetically, so `low` / `medium` / `high` orders the way it was authored instead of the way it spells.
+A segment sorts ascending unless its direction is exactly `desc`. A single-select field sorts by its declared option order, so `low` / `medium` / `high` orders the way it was authored instead of alphabetically.
 
 A text field (single-line text, long text, rich text, an email, a URL or a phone number) sorts by the alphabet whatever the capitals: `atelier nord` comes before `Brasserie Martin`, on SQLite and PostgreSQL alike. Accents are compared as stored.
 

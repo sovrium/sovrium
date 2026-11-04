@@ -11,10 +11,11 @@
  * the blob store, removed after the commit (`account-purge.ts` runs the rest).
  */
 
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, notLike, sql } from 'drizzle-orm'
 import { Effect, Layer } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { AVATAR_BUCKET_NAME, avatarStorageKeyFromUrl } from '@/domain/models/app/auth/avatar-url'
+import { SIGNATURE_REQUEST_EVIDENCE_PREFIX } from '@/domain/models/app/signatures/signature-capture-service'
 import { fileStorageMetadataTable } from '@/infrastructure/database/drizzle/dialect-schema'
 import { Database, type DatabaseService } from '@/infrastructure/database/drizzle/layer'
 import { logError } from '@/infrastructure/logging/logger'
@@ -151,6 +152,11 @@ export async function removeErasedObjects(
  * ({@link removeErasedObjects}): read anywhere else — before the transaction,
  * say — a file she uploaded in between would lose its row here and keep its
  * bytes, unreachable, after an Art. 17 erasure.
+ *
+ * A file a signing request holds as evidence is not hers alone to erase: it is
+ * kept until the request's retention ends. Its row stays, and the FK clears her
+ * id from it when her account goes. The mark of a signature she gave on a
+ * record, which declares no retention, goes with her other files.
  */
 export async function deleteCatalogRows(
   tx: Readonly<PortableTx>,
@@ -159,7 +165,12 @@ export async function deleteCatalogRows(
   const files = fileStorageMetadataTable()
   const rows = await tx
     .delete(files)
-    .where(eq(files.uploadedById, userId))
+    .where(
+      and(
+        eq(files.uploadedById, userId),
+        notLike(files.key, `${SIGNATURE_REQUEST_EVIDENCE_PREFIX}%`)
+      )
+    )
     .returning({ key: files.key })
   return rows.map((row) => row.key)
 }

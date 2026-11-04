@@ -6,6 +6,7 @@
  */
 
 import { formatCalendarDate } from '@/domain/kernel/format/calendar-date'
+import { formatDateRecipe } from '@/domain/kernel/format/date-recipe'
 import { formatDateTimeInstant } from '@/domain/kernel/format/date-time-instant'
 import { formatDurationValue } from '@/domain/kernel/format/duration-format'
 import { computeDurationClasses } from '../../design/cell-affordances-default-classes'
@@ -90,12 +91,32 @@ export function DateTimeCell({
   fieldOptions?: CellFieldOptions
 }): React.ReactNode {
   if (isMissing(value)) return EMPTY_VALUE
+  const locale = fieldOptions?.locale ?? resolvePageLocale()
+  return readDateTime(
+    value,
+    fieldOptions?.display,
+    locale,
+    fieldOptions?.timeZone ?? resolvePageTimezone()
+  )
+}
+
+/**
+ * A moment through the field's own `format`, `dateFormat` or `timeFormat` (a
+ * recipe the server decided), else the platform reading with its `weekday`.
+ */
+function readDateTime(
+  value: unknown,
+  display: CellFieldOptions['display'],
+  locale: string,
+  timeZone: string | undefined
+): string {
+  if (display?.recipe !== undefined)
+    return formatDateRecipe(value, display.recipe, locale, timeZone)
+  const weekday = display?.weekday
   return (
-    formatDateTimeInstant(value, fieldOptions?.locale ?? resolvePageLocale(), {
-      timeZone: fieldOptions?.timeZone ?? resolvePageTimezone(),
-      ...(fieldOptions?.display?.weekday === undefined
-        ? {}
-        : { weekday: fieldOptions.display.weekday }),
+    formatDateTimeInstant(value, locale, {
+      timeZone,
+      ...(weekday === undefined ? {} : { weekday }),
     }) ?? String(value)
   )
 }

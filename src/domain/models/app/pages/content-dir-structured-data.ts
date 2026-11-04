@@ -155,9 +155,11 @@ export interface BreadcrumbRootCrumb {
  *     (the zone's first article IS the current page — e.g. a single-file changelog
  *     collection), the root crumb is DROPPED entirely so no position-1 item equals
  *     the page item. The trail becomes section → page (or just page).
- *   - REDUNDANCY (edge case b): when the section value equals `rootCrumb.name`
- *     (e.g. a `section: Tables` page in the Tables zone), the redundant middle
- *     section crumb is DROPPED so the trail never reads "Tables / Tables / <page>".
+ *   - REDUNDANCY (edge case b): when the section's label (its `nav.groupLabels`
+ *     entry, else its raw value) equals `rootCrumb.name` (e.g. a `section: Tables`
+ *     page in the Tables zone), the redundant middle section crumb is DROPPED so
+ *     the trail never reads "Tables / Tables / <page>". A surviving section crumb
+ *     that would link the same address as the root crumb keeps its name only.
  *
  * Positions are numbered 1..n over the crumbs that survive the collapses.
  */
@@ -208,6 +210,31 @@ const buildSectionItem = (
   return item === undefined || item === url ? { name } : { name, item }
 }
 
+/**
+ * The section crumb, if any survives the collapses against the root crumb:
+ *   - REDUNDANCY (edge case b): dropped when the label the sidebar shows for the
+ *     section equals the zone tab name, so the trail never reads
+ *     "Tables / Tables / <page>";
+ *   - REPEATED ADDRESS: kept by name but unlinked when it would link the same
+ *     address as the root crumb before it.
+ */
+const buildSectionItems = (
+  rawSection: string | undefined,
+  context: {
+    readonly sections: BreadcrumbSections | undefined
+    readonly url: string
+    readonly rootCrumb: BreadcrumbRootCrumb | undefined
+    readonly rootItems: readonly { readonly name: string; readonly item?: string }[]
+  }
+): readonly { readonly name: string; readonly item?: string }[] => {
+  if (rawSection === undefined) return []
+  const { sections, url, rootCrumb, rootItems } = context
+  const item = buildSectionItem(rawSection, sections, url)
+  if (rootCrumb !== undefined && item.name === rootCrumb.name) return []
+  const previous = rootItems.at(-1)?.item
+  return previous !== undefined && item.item === previous ? [{ name: item.name }] : [item]
+}
+
 const buildBreadcrumbList = ({
   frontmatter,
   url,
@@ -219,16 +246,9 @@ const buildBreadcrumbList = ({
   const rawSection = frontmatter[sectionField] ?? frontmatter['section'] ?? frontmatter['category']
   const pageName = frontmatter['title'] ?? url
 
-  // REDUNDANCY collapse (edge case b): drop the section when it equals the zone
-  // tab name so the trail never reads "Tables / Tables / <page>".
-  const sectionRedundant =
-    rootCrumb !== undefined && rawSection !== undefined && rawSection === rootCrumb.name
-  const section = sectionRedundant ? undefined : rawSection
-
   // Crumbs without their position (added after collapses, so numbering has no gaps).
   const rootItems = buildRootCrumbItems(rootCrumb, url)
-  const sectionItems: readonly { readonly name: string; readonly item?: string }[] =
-    section !== undefined ? [buildSectionItem(section, sections, url)] : []
+  const sectionItems = buildSectionItems(rawSection, { sections, url, rootCrumb, rootItems })
   const pageItem = { name: pageName, item: url }
 
   const itemListElement = [...rootItems, ...sectionItems, pageItem].map((item, index) => ({

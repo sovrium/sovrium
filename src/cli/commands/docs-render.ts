@@ -337,7 +337,7 @@ const answerEnv = async (manual: Manual, variable: string | undefined, format: D
     return refuse(
       `Error: The manual does not document an environment variable "${variable}".\n\n` +
         '  Names are UPPER_SNAKE_CASE. The full reference is\n' +
-        '  `sovrium docs cli-api/env-vars`.'
+        '  `sovrium docs configuration/env-vars`.'
     )
 
   return ok(

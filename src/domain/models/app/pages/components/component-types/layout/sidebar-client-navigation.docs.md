@@ -30,7 +30,7 @@ The first page whose sidebar takes part mounts the navigation, and from then on 
 
 **What is never intercepted.** A click with a modifier key, a middle click, a link with `target="_blank"` or `download`, a link to another origin, a link to `/_admin`, `/api/` or `/assets/`, a fragment link within the current page, and any link carrying the `data-no-spa` attribute. Each behaves exactly as it would without the option. Use `data-no-spa` on a link that must always load a fresh document.
 
-**Pages that always load in full.** A destination that declares `scripts`, sets `presence: true`, or uses a record-bound `layout.sidebar` is loaded as a whole document, because each of those lives outside the swapped region. The same happens when the destination answers with an error, redirects (to sign-in, for example), or when the page the reader is leaving has a record-bound `layout.sidebar` or `presence: true` of its own. The reader still arrives; it is simply a page load.
+**Pages that always load in full.** A destination that declares `scripts`, sets `presence: true`, or uses a record-bound `layout.sidebar` is loaded as a whole document, because each of those lives outside the swapped region. The same happens when the destination answers with an error, redirects (to sign-in, for example), or when the page the reader is leaving has a record-bound `layout.sidebar` or `presence: true` of its own. The reader still arrives, through a full page load.
 
 **Static builds.** A static host answers no partial request, so `sovrium build` reads a sidebar that leaves the option out as off: its pages ship no navigation and every link loads a whole document. Set `clientSideNavigation: true` explicitly to keep the swap in a static build.
 

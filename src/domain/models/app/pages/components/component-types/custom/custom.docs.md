@@ -35,17 +35,19 @@ A name that matches no template in `app.components` is refused when the config i
 
 A placement may carry a `key` beside `vars`, like any component of the page, which names that placement for the tools that read your pages (see The Component Model). A page export draws a placement expanded, as a visitor sees it, but treats it as one node: its inside belongs to the template, and to every page that places it. The components a page passes to its slots are the exception: they are the page's own nodes, which a design tool may edit.
 
+A template may place another template the same way a page does, in any of its children: `{ component: nav-item, vars: { … } }` or `{ $ref: nav-item, vars: { … } }`. The inner placement's `vars` may read the outer template's own variables (`label: $title`), so each placement of the outer template passes its values down. A template that places itself, directly or through other templates, is refused when the config is validated or the app starts, naming the templates in the cycle (`menu → submenu → menu`).
+
 ## Template properties
 
-| Property   | Description                                                                                             |
-| ---------- | ------------------------------------------------------------------------------------------------------- |
-| `name`     | Unique kebab-case identifier used by `$ref`. Must start with a lowercase letter.                        |
-| `type`     | The component type the template renders: any type a page can use.                                       |
-| `props`    | Component properties. Values may contain `$variable` placeholders.                                      |
-| `content`  | Text content. May contain `$variable` placeholders.                                                     |
-| `children` | Nested child components, which may themselves carry placeholders, or `$children`, the slot (see below). |
-| `render`   | `named` (the default) or `transparent`: draw exactly what the tree draws written inline (see below).    |
-| `inputs`   | The values a placement passes, by name and kind: `text`, `number`, `boolean`, `json` or `slot`.         |
+| Property   | Description                                                                                                                   |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| `name`     | Unique kebab-case identifier used by `$ref`. Must start with a lowercase letter.                                              |
+| `type`     | The component type the template renders: any type a page can use.                                                             |
+| `props`    | Component properties. Values may contain `$variable` placeholders.                                                            |
+| `content`  | Text content. May contain `$variable` placeholders.                                                                           |
+| `children` | Nested child components or placements of other templates, which may carry placeholders, or `$children`, the slot (see below). |
+| `render`   | `named` (the default) or `transparent`: draw exactly what the tree draws written inline (see below).                          |
+| `inputs`   | The values a placement passes, by name and kind: `text`, `number`, `boolean`, `json` or `slot`.                               |
 
 ## Slots: a template around the page's own components
 

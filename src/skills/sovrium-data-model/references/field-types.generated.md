@@ -88,7 +88,7 @@ Read: `sovrium docs fields/attachment-fields`
 | --- | --- |
 | `barcode` | Stores barcode values with various format support. Used for product identification and inventory. |
 | `multiple-attachments` | Stores multiple file attachments. The storage backend is configured globally through STORAGE_* environment variables, not per field. |
-| `signature` | Stores one signature: image, signer name, date, method and the statement agreed to. Written once by a signature-pad; a signed value cannot be changed by an edit. |
+| `signature` | Stores one signature: image, signer name, date, method, the statement agreed to and how the signer was identified. Written once, by the server, when a person signs through a signature-pad; a client write to the field is refused. |
 | `single-attachment` | Stores a single file attachment. The storage backend is configured globally through STORAGE_* environment variables, not per field. |
 
 ## User fields

@@ -64,6 +64,7 @@ Before writing a table, get one-sentence answers to these. If the person cannot 
 - [ ] One naming convention across the app: singular snake_case field names (`due_date`, `customer`), table names naming the collection.
 - [ ] The field people recognise a record by is short, unique where it can be (`unique: true`), and meaningful — not an internal code.
 - [ ] Field type picked for the behaviour you need, not the look: see the choice table below and `references/field-types.generated.md`.
+- [ ] A `signature` field is written by the engine only, from a `signature-pad`, a form field bound to it, or a signing flow: never seed it, import it, map a form answer onto it, or set it from an automation. A table whose records are sent for signature also holds the PDF in a `single-attachment` field and the fields the flow writes back (the signed document, the proof file, a status), which nothing else writes either. Manual: `sovrium docs signatures/signing-flows`.
 
 **Permissions**
 
@@ -100,6 +101,7 @@ Before writing a table, get one-sentence answers to these. If the person cannot 
 | A value computed from the same row              | `formula`                                              | an automation writing a field          |
 | Money                                           | `currency`                                             | `decimal` plus a currency text field   |
 | Who and when                                    | `created-by`, `created-at`, `updated-by`, `updated-at` | fields filled by hand                  |
+| A person's agreement, with evidence             | `signature`, signed through a pad or a signing flow    | a checkbox, an image, or a typed name  |
 
 The full list with every option, generated from the binary you run: `references/field-types.generated.md`, or `sovrium docs config tables[].fields[].type`.
 

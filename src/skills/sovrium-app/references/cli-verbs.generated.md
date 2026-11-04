@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every verb the `sovrium` binary dispatches (38), with its usage line and what it is for. `sovrium <verb> --help` prints the full options of one verb; `sovrium docs cli-api` is the manual section about them.
+Every verb the `sovrium` binary dispatches (39), with its usage line and what it is for. `sovrium <verb> --help` prints the full options of one verb; `sovrium docs cli-api` is the manual section about them.
 
 ## Verbs
 
@@ -17,7 +17,7 @@ Every verb the `sovrium` binary dispatches (38), with its usage line and what it
 | `changelog` | `sovrium changelog [<version>] [--list] [--since <version>] [--format md\|json]` | Read the release notes this binary carries |
 | `client` | `sovrium client [config] [--output <file>] [--audience <role\|all>] [--check]` | Write sovrium-client.ts, a typed client for the records API |
 | `deploy` | `sovrium deploy [config] [--app <slug>] [options]` | Ship the app to your Sovrium cloud, follow it until live |
-| `design-system` | `sovrium design-system [config] [options]` | Export the design system as a brief, DTCG JSON or a bundle (--pages) |
+| `design-system` | `sovrium design-system [config] [options]` | Export the design system as a brief, DTCG JSON, a DESIGN.md or a bundle |
 | `dev` | `sovrium dev [config] [options]` | Boot on fresh seed data with a dev account, reload on save |
 | `docs` | `sovrium docs [address] [options]`<br>`sovrium docs <subcommand> <argument> [options]` | Read the platform manual out of this binary |
 | `env` | `sovrium env push <file> [config] [options]`<br>`sovrium env list [config] [--json]`<br>`sovrium env unset <NAME>… [config] [--yes]` | Set, list or remove the variables of a hosted app |
@@ -39,6 +39,7 @@ Every verb the `sovrium` binary dispatches (38), with its usage line and what it
 | `schema` | `sovrium schema [options]` | Print JSON Schema to stdout |
 | `secret` | `sovrium secret generate [scope]` | Print fresh secrets as .env lines; Persist $SOVRIUM_ENCRYPTION_KEY to the data dir |
 | `seed` | `sovrium seed [config] [options]`<br>`sovrium seed --app <slug> \| --remote [options]` | Load seed/<table>.yaml data into the tables |
+| `signature` | `sovrium signature verify <export> [--json]` | Check a signing evidence export offline (verify) |
 | `skills` | `sovrium skills [--output <dir>] [--target claude\|agents\|all] [--check] [--force]` | Write this version's agent skills into .claude/skills/ |
 | `start` | `sovrium start [config] [options]` | Start the server (default command) |
 | `stop` | `sovrium stop` | Stop the running server |

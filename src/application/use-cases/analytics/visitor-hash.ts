@@ -29,28 +29,21 @@ const toHex = (buffer: ArrayBuffer): string =>
 /**
  * The visitor identifier of one visitor on one day.
  *
- * Stable for the same secret, day and request; different as soon as any of
+ * Stable for the same key, day and request; different as soon as any of
  * them changes.
  *
- * @param secret - The day's secret, from {@link VisitorSecret}
+ * @param key - The day's HMAC SHA-256 signing key, from {@link VisitorSecret}
  * @param day - The calendar day (`YYYY-MM-DD`) in the operator timezone
  * @param address - The client address the identifier is computed from
  * @param userAgent - The client User-Agent string
  * @returns 64 lowercase hexadecimal characters
  */
 export const computeVisitorHash = async (
-  secret: Uint8Array<ArrayBuffer>,
+  key: CryptoKey,
   day: string,
   address: string,
   userAgent: string
 ): Promise<string> => {
-  const key = await crypto.subtle.importKey(
-    'raw',
-    secret,
-    { name: 'HMAC', hash: 'SHA-256' },
-    false,
-    ['sign']
-  )
   const message = new TextEncoder().encode(`${day}|${address}|${userAgent}`)
   return toHex(await crypto.subtle.sign('HMAC', key, message))
 }
@@ -96,7 +89,7 @@ export interface VisitorRequest {
 
 /**
  * The visitor and session identifiers of one request, keyed by the server's
- * secret of the current day.
+ * key of the current day.
  */
 export const visitorIdentifiers = (
   request: VisitorRequest
@@ -107,12 +100,12 @@ export const visitorIdentifiers = (
 > =>
   Effect.gen(function* () {
     const day = zonedIsoDate(new Date(), request.timeZone)
-    const secret = yield* (yield* VisitorSecret).secretFor(day)
+    const key = yield* (yield* VisitorSecret).keyFor(day)
     const address =
       request.profile === 'audience-only' ? truncateToNetwork(request.address) : request.address
-    // effect-promise: total -- Web Crypto always supports both algorithms used here, the key is always 32 bytes and every input is a valid BufferSource, so neither call has a rejection path.
+    // effect-promise: total -- the port hands out an HMAC SHA-256 key with the `sign` usage and the message is a `TextEncoder` result, so signing has no rejection path.
     const visitorHash = yield* Effect.promise(() =>
-      computeVisitorHash(secret, day, address, request.userAgent)
+      computeVisitorHash(key, day, address, request.userAgent)
     )
     // effect-promise: total -- a digest over a `TextEncoder` result has no rejection path.
     const sessionHash = yield* Effect.promise(() =>

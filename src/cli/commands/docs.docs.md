@@ -43,6 +43,8 @@ sovrium docs --section search
 
 Every other section is addressable by name.
 
+An article answers to its slug alone as well (`sovrium docs llms-txt`), because a slug is unique across the whole manual. A `<section>/<slug>` address keeps answering after its article moves to another section: the slug finds the article wherever it now sits, so an address saved against an earlier release, in a script or an installed Agent Skill, still prints the same article. `--format json` reports the address it lives at now. A slug the manual does not carry is refused by name, whatever section it is filed under.
+
 ## Two halves, assembled at read time
 
 The narrative is authored as markdown fragments co-located with the code they describe: the article about the `llms` key sits beside the schema file and its tests. The option tables are **not authored at all**: a fragment carries a directive naming a schema, and the command expands it from that schema's own annotations when it prints.

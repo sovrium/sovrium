@@ -223,6 +223,19 @@ export const designTokenRowSchema = Schema.Struct({
       'The last segment of `path`: the token’s own name, without its group. Published because a page cannot split a string, and a per-token testid or anchor needs exactly this.',
     examples: ['background', 'signature'],
   }),
+  // ─── THE ONE CODE-ONLY FIELD ─────────────────────────────────────────────
+  //
+  // A `code.*` row's `value` is the DTCG alias the document carries
+  // (`{color.clay}`), which a page can neither resolve nor cut. So the row also
+  // publishes the colour token it names, spelled as that token's own `path`, and
+  // its colour fields describe THAT token as it paints. ABSENT on every other row.
+  token: optionalField(
+    Schema.String.annotate({
+      description:
+        'On a `code.*` row: the path of the colour token this syntax role is painted with (`color.clay`), the token whose colour the row’s `hex`, `darkValue` and contrast fields describe. ABSENT on every other row.',
+      examples: ['color.clay'],
+    })
+  ),
   // ─── THE FIVE COLOUR-ONLY FIELDS, AND WHY THEY ARE ON THIS ROW ───────────
   //
   // Absent on every non-colour row, which is the honest shape: a spacing token

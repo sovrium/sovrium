@@ -37,9 +37,9 @@
  */
 
 import { Menu } from '@base-ui/react/menu'
-import { computeMenuItemClasses, computeMenuItemToggleTrackClasses } from './menu-default-classes'
+import { computeMenuItemToggleTrackClasses } from './menu-default-classes'
 import { MenuItemBody, MenuItemToggleThumb } from './menu-popup-body'
-import { useMenuKind } from './menu-slot-context'
+import { useMenuItemClasses, useMenuKind } from './menu-slot-context'
 import type { MenuItem, MenuSurface } from './menu-item-types'
 import type { ReactElement } from 'react'
 
@@ -65,7 +65,7 @@ export function ToggleMenuItem({
       data-variant={item.variant ?? 'default'}
       disabled={item.disabled}
       defaultChecked={item.toggle === 'checked'}
-      className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
+      className={useMenuItemClasses({ variant: item.variant ?? 'default', surface })}
     >
       <MenuItemBody item={item} />
       <Menu.CheckboxItemIndicator

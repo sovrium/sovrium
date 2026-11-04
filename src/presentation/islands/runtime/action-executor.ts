@@ -129,9 +129,10 @@ async function performFetchAction(
     const exit = fetchSuccessExit(action.onSuccess, body, options.record)
     const answered = evaluateFetchEnvelope(envelope, res.status, body)
     const ok = answered && exit !== 'refused'
-    if (answered && exit !== 'refused') runFetchSuccess(action, body, exit, options)
-    else renderActionToast(action.onError, options, again, options.failureNote?.(res.status, body))
-    return { ok, status: res.status, body }
+    const result = { ok, status: res.status, body }
+    if (ok) runFetchSuccess(action, body, exit, options)
+    else renderActionToast(action.onError, options, again, result)
+    return result
   } catch {
     renderActionToast(action.onError, options, again)
     return { ok: false, status: 0, body: undefined }
@@ -241,7 +242,10 @@ export async function executeFetchAction(
   // Every mode that answers settles its inline failure alert the same way. Its
   // Retry runs the same action again, past the confirmation already given.
   const again = () => void executeFetchAction(action, { ...options, confirm: () => true })
-  settleErrorStatus(action, result.ok, options.retry ?? again, options.record)
+  // An `oauth` refusal, unreachable server or refused destination shows
+  // `onError` exactly as the default mode reports its own failure.
+  if (mode === 'oauth' && !result.ok) renderActionToast(action.onError, options, again, result)
+  settleErrorStatus(action, result, options.retry ?? again, options.record)
   return result
 }
 

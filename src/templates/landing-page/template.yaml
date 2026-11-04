@@ -6,6 +6,9 @@ intro: |
   English and in French: one sentence, the product itself, three things it does, three steps,
   and a demo request the owner reads in the admin. Visitors never sign in; nobody can open an
   account.
+audience: >-
+  Someone launching a product who needs one page to present it in English and French. Visitors
+  never sign in; the owner reads the demo requests in the admin.
 glance:
   - |-
     **Pages** (1): home (`/`, also `/en/` and `/fr/`) — its body is `_body.yaml`; the sharing

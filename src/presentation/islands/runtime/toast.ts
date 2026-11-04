@@ -26,7 +26,8 @@
  * container around it. Two selector families depend on it —
  * `[data-sonner-toaster]` with an inner `[data-toast][data-variant]`, and the
  * looser `[data-toast-container], [role="status"], [aria-live="polite"]` — so
- * the container's marker and `display:flex` stacking are load-bearing.
+ * the container's marker and its flex stacking (the stylesheet's
+ * `[data-sonner-toaster]` rule) are load-bearing.
  *
  * The message has a node of its own because a control inside `[data-toast]`
  * joins that element's `textContent`: without it, appending a dismiss button
@@ -62,6 +63,7 @@ import {
   appendToastDismissControl,
   appendToastMessage,
   appendToastRetry,
+  applyToastDesign,
   keepToastsClearOfFocus,
   markToastPoliteness,
   resolveToastDismissLabel,
@@ -82,8 +84,9 @@ function ensureToasterContainer(): Element {
   const container = document.createElement('div')
   container.setAttribute('data-sonner-toaster', '')
   container.setAttribute('data-toast-container', '')
-  ;(container as HTMLElement).style.cssText =
-    'position:fixed;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px'
+  // The stacking (a flex column, 8px apart) is the stylesheet's
+  // `[data-sonner-toaster]` rule; only the pinning is written here.
+  ;(container as HTMLElement).style.cssText = 'position:fixed;right:16px;z-index:9999'
   document.body.appendChild(container)
   return container
 }
@@ -119,6 +122,7 @@ export function renderToast(
   const toast = document.createElement('div')
   toast.setAttribute('data-toast', '')
   markToastTiming(toast, { variant, duration })
+  applyToastDesign(toast, variant)
   markToastPoliteness(toast, variant)
   appendToastMessage(toast, message)
   decorate?.(toast)
@@ -127,15 +131,13 @@ export function renderToast(
   const dismissAfter = resolveToastDuration({ duration, variant, hasAction: retry !== undefined })
   if (dismissAfter === undefined) {
     appendToastDismissControl(toast, resolveToastDismissLabel(container))
-    container.appendChild(toast)
-    keepToastsClearOfFocus(container)
-    return
+  } else {
+    setTimeout(() => {
+      toast.remove()
+    }, dismissAfter)
   }
   container.appendChild(toast)
   keepToastsClearOfFocus(container)
-  setTimeout(() => {
-    toast.remove()
-  }, dismissAfter)
 }
 
 /**

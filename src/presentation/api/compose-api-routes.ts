@@ -24,6 +24,8 @@
 
 import { resolveAnalyticsProfile } from '@/domain/models/app/analytics/analytics-profile-service'
 import { resolvePrivacySignals } from '@/domain/models/app/analytics/privacy-signals-service'
+import { resolveSessionTimeout } from '@/domain/models/app/analytics/session-timeout-service'
+import { getSupportedLanguageCodes } from '@/domain/models/app/languages/language-detection'
 import { linkTargets } from '@/domain/models/app/links'
 import { createAvatarProfileStore } from '@/infrastructure/auth/better-auth/avatar-profile-store'
 import { FormRenderers } from '@/infrastructure/layers/form-renderer-layer'
@@ -62,6 +64,7 @@ import { type PageReaderResolver } from '@/presentation/api/search/page-reader'
 import { chainPageSearchRoutes } from '@/presentation/api/search/page-search-routes'
 import { chainRecentRoutes } from '@/presentation/api/search/recent-routes'
 import { chainCommandSearchRoutes } from '@/presentation/api/search/routes'
+import { chainSignatureRoutes } from '@/presentation/api/signatures/routes'
 import { chainActivityRoutes } from '@/presentation/api/tables/activity-feed-routes'
 import { chainRealtimeRoutes } from '@/presentation/api/tables/realtime-routes'
 import { chainTableRoutes } from '@/presentation/api/tables/routes'
@@ -97,10 +100,13 @@ const analyticsRouteConfig = (app: App) => {
     appName: app.name,
     retentionDays: settings?.retentionDays,
     excludedPaths: settings?.excludedPaths,
+    languages: getSupportedLanguageCodes(app),
     // Both default to true: an unset key honours the signal, as documented.
     ...resolvePrivacySignals(app.analytics),
     // `audience-only` unless the operator wrote `profile: full`.
     profile: resolveAnalyticsProfile(app.analytics),
+    // The session window page views and outbound clicks count in, as short links do.
+    sessionTimeout: resolveSessionTimeout(app.analytics),
     // Lets `/api/analytics/targets` name the destination each recorded
     // `targetIndex` resolves to; an index the current list no longer covers
     // reports null rather than being dropped from the split.
@@ -195,6 +201,8 @@ const apiRouteSteps = (
     (hono) => chainActiveScopeRoutes(hono, app),
     // Account self-service + GDPR export, delete and the purge-due scheduler.
     (hono) => chainAccountRoutes(hono, app, createAvatarProfileStore(auth)),
+    // Signing evidence for administrators: the evidence file, the export, erasure.
+    (hono) => chainSignatureRoutes(hono, app),
     // Internal scheduler triggers: operator notifications, the webhook outbox,
     // table and run-history retention, expired sign-in rows. 404 without the
     // scheduler token.

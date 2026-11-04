@@ -18,7 +18,9 @@
  * Everything here is read from the page address, so it is untrusted: a leaf
  * whose operator or value is not one a page filter can hold is refused, never
  * passed through. Which FIELDS a reader may filter on is judged later, against
- * the table and the reader's own field grants.
+ * the table and the reader's own field grants, and a value its column cannot
+ * hold is refused where every page condition is, by the read itself
+ * (`withUnholdableValuesRefused` in `tables/filter-value-fit-service.ts`).
  *
  * The one `$` value read from the address is a relative date (`$today`,
  * `$today-15d`, `$now-1h`), resolved here against the request's {@link
@@ -27,25 +29,10 @@
  * (`$currentUser.name`) is still refused.
  */
 
-import { filterConditionFit } from '../tables/filter-value-fit-service'
 import { resolveRelativeDate } from './components/relative-date-filter'
 import { fromRecordsApiOperator } from './data-filter-api-service'
 import { pageConditionsInBag } from './shared-filter-condition-service'
 import type { DataFilter } from './components/data-source'
-
-/**
- * `condition`, or one matching no row when its value its field cannot hold or
- * its operator is a text one on a number (`filter-value-fit-service.ts`): the
- * list is then empty, as the active chip describes, and the database is never
- * asked a comparison it would refuse. `typeOf` gives each field's declared type.
- */
-export const fittedChannelCondition = (
-  condition: DataFilter,
-  typeOf: (field: string) => string | undefined
-): DataFilter =>
-  filterConditionFit(typeOf(condition.field), condition.operator, condition.value) === 'fits'
-    ? condition
-    : { field: condition.field, operator: 'in', value: [] }
 
 /** The request's UTC day (`YYYY-MM-DD`) and minute instant, which relative dates resolve against. */
 export interface ChannelClock {

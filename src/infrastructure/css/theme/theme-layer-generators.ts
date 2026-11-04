@@ -140,10 +140,17 @@ export function buildLinkClasses(): readonly string[] {
  * is what kept this hidden; the element it was not hidden on is the
  * skip-to-main-content link, the first thing a keyboard user ever focuses.
  *
+ * The browser's own outline is cancelled beside these classes, by a plain
+ * declaration of the outline in the rule itself, and NOT by the outline
+ * utility that removes it. That utility also sets the custom property every
+ * outline utility reads its style from, on the focused element itself, so an
+ * author's own keyboard outline (a width and an offset written for
+ * `focus-visible`) resolved to no outline at all, whatever layer it came from.
+ *
  * @returns Array of CSS class names for focus-visible rings
  */
 export function buildFocusVisibleClasses(): readonly string[] {
-  return ['ring-2', 'ring-ring', 'ring-offset-2', 'ring-offset-background', 'outline-none']
+  return ['ring-2', 'ring-ring', 'ring-offset-2', 'ring-offset-background']
 }
 
 /**
@@ -344,7 +351,7 @@ export function generateBaseLayer(design?: Design): string {
       button:focus-visible,
       a:focus-visible,
       [role="button"]:focus-visible {
-        @apply ${focusVisibleClasses.join(' ')};
+        @apply ${focusVisibleClasses.join(' ')}; outline: none;
       }
 
       button:not(:disabled):not([aria-disabled="true"]),

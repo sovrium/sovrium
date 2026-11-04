@@ -118,6 +118,30 @@ const measureSchemes = (
   ]
 }
 
+/** One scheme's reading of a colour on the code block: the ground it sits on and its lowest ratio. */
+export interface CodeBlockReading {
+  readonly ground: 'muted' | 'code-block'
+  readonly ratio: number | undefined
+}
+
+/**
+ * The colour `name` read on the code block in each scheme, on exactly the grounds
+ * this rule measures: the design's `muted` in light, the fixed code-block chrome
+ * in dark, each the lower of the bare block and the line tint over it. The design
+ * system document publishes these, so the console grades a role where it is drawn.
+ */
+export const readCodeBlockContrast = (
+  design: CodeTokenDesignInput,
+  name: string
+): { readonly light: CodeBlockReading; readonly dark: CodeBlockReading } => {
+  const light = throughRamps(design, asString(design.colors?.[name]) ?? '')
+  const [onLight, onDark] = measureSchemes(design, name, light)
+  return {
+    light: { ground: 'muted', ratio: onLight?.ratio },
+    dark: { ground: 'code-block', ratio: onDark?.ratio },
+  }
+}
+
 /** The refusal for a role whose colour is unmeasurable or under the floor, or `true`. */
 const checkRole = (design: CodeTokenDesignInput, role: string, name: string): string | true => {
   const where = `\`design.code.tokens.${role}\``

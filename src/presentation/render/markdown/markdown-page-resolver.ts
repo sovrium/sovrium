@@ -7,16 +7,13 @@
 
 import { type MarkdownHeading } from '@/domain/kernel/markdown/markdown-renderer'
 import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
-import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
-import { hasCodeRoleClasses } from '@/domain/models/app/design/code-block-service'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { type ContentDirSeoMeta } from '@/domain/models/app/pages/content-dir-seo-meta'
 import { deriveContentDirSlugFromRouteParams } from '@/domain/models/app/pages/content-dir-slug'
 import { renderMarkdownToHtml } from '@/infrastructure/markdown/markdown-it-renderer'
-import { highlightCodeBlocks } from '@/infrastructure/markdown/shiki-highlighter'
 import { docsFrameOf, type DocsFrame } from '@/presentation/render/markdown/docs-frame'
 import { type DocsRootCrumb } from '@/presentation/render/markdown/docs-root-crumb'
-import { spliceMarkdownCodeFrames } from '@/presentation/render/markdown/markdown-code-frames'
-import { spliceMarkdownDirectives } from '@/presentation/render/markdown/markdown-directives'
+import { composeMarkdownHtml } from '@/presentation/render/markdown/markdown-html-composition'
 import { resolveMarkdownTranslations } from '@/presentation/render/markdown/markdown-i18n'
 import { buildToc } from '@/presentation/render/markdown/markdown-toc'
 import {
@@ -134,6 +131,12 @@ export interface ResolvedMarkdownPage extends DocsFrame {
    * chrome labels; `undefined` ⇒ the label getter falls back to English.
    */
   readonly lang?: string
+  /**
+   * Name of the phone button that opens the docs navigation, and of the drawer
+   * it opens: the `docs.menu` interface string in the page language, an app's
+   * `sovrium.docs.menu` override included.
+   */
+  readonly menuLabel?: string
 }
 
 const DEFAULT_LAYOUT = 'prose' as const
@@ -150,40 +153,6 @@ const hasNoMarkdownTrigger = (
   pageSourceFile: string | undefined
 ): boolean =>
   contentDirOutcome.kind === 'no-source' && !page.markdown && pageSourceFile === undefined
-
-/**
- * Compose the final HTML from a `RenderedMarkdown` payload by walking the
- * full presentation-layer pipeline:
- *
- *   1. Splice Shiki-highlighted markup into `<pre><code data-md-code="N">`
- *      placeholders (cluster 2 — class-based, no inline `style`).
- *   2. Sanitise the whole composed HTML via the canonical
- *      `sanitizeRichTextHTML` (security rule S2 — one sanitiser, no widening).
- *   3. Splice directive component HTML (alert, button, icon shell, code-block
- *      chrome) into the `<div class="md-directive md-directive-N">`
- *      placeholders the domain renderer emitted (cluster 3). Runs AFTER the
- *      sanitiser so the component chrome's `role`/`data-component`/`<button>`/
- *      `<svg>` survives — placeholders are sanitiser-safe (only `class`,
- *      which the allowlist keeps), so they pass through step 2 untouched.
- *      See `markdown-directives.ts` module header for the boundary rationale.
- *   4. Wrap every fence in the shared code-block frame — a header naming the
- *      block plus a server-rendered copy button — so a docs fence and a config
- *      `code` component are the same artifact in the markup, not merely to the
- *      eye. Post-sanitiser for the same reason as step 3, and AFTER step 3
- *      because directive placeholders are matched non-greedily to their first
- *      `</div>`.
- */
-const composeMarkdownHtml = async (
-  rendered: ReturnType<typeof renderMarkdownToHtml>,
-  app: App | undefined
-): Promise<string> => {
-  const highlightedHtml = await highlightCodeBlocks(rendered.html, rendered.codeBlocks, {
-    roleClasses: hasCodeRoleClasses(app?.design),
-  })
-  const sanitizedHtml = sanitizeRichTextHTML(highlightedHtml)
-  const withDirectives = spliceMarkdownDirectives(sanitizedHtml, rendered.directives, app?.design)
-  return spliceMarkdownCodeFrames(withDirectives, rendered.codeBlocks)
-}
 
 /**
  * Inline `$t:key` substitution runs
@@ -214,7 +183,13 @@ const buildCollectionNav = async (
   if (contentDir === undefined) return undefined
   if (contentDir.nav?.enabled !== true) return undefined
   const currentSlug = deriveContentDirSlugFromRouteParams(contentDir, routeParams)
-  return listContentDir(contentDir, primaryPagePath(page.path), currentSlug, isArticleReadable)
+  const nav = await listContentDir(
+    contentDir,
+    primaryPagePath(page.path),
+    currentSlug,
+    isArticleReadable
+  )
+  return nav === undefined ? undefined : { ...nav, pageName: page.name }
 }
 
 /**
@@ -341,7 +316,7 @@ export async function resolveMarkdownPage(
   const source = await pickMarkdownSource(contentDirOutcome, markdown, pageSourceFile)
   const localisedSource = localiseMarkdownSource(source, app, currentLang)
   const rendered = renderMarkdownToHtml(localisedSource)
-  const composedHtml = await composeMarkdownHtml(rendered, app)
+  const composedHtml = await composeMarkdownHtml(rendered, app, currentLang)
   const toc = buildToc(rendered, markdown.toc)
   const layout = markdown.layout ?? DEFAULT_LAYOUT
   const collectionNav = await buildCollectionNav(page, routeParams, isArticleReadable)
@@ -359,6 +334,7 @@ export async function resolveMarkdownPage(
     html: composedHtml,
     layout,
     frontmatter: rendered.frontmatter,
+    menuLabel: resolveInterpreterString('docs.menu', currentLang, app?.languages),
     ...docsFrameOf(markdown, app?.design),
     ...buildOptionalPageFields({ toc, collectionNav, currentLang, ...chrome }),
   }

@@ -50,6 +50,30 @@ import type { Database as BunSqlite } from 'bun:sqlite'
  * repetitive. A read-only handle gets the busy timeout alone: the WAL switch
  * needs write access to the file and to its `-wal` / `-shm` siblings, and
  * `foreign_keys` governs writes that a read-only handle cannot make.
+ *
+ * ## `legacy_alter_table` is pinned ON, never inherited
+ *
+ * The flag decides what `ALTER TABLE <old> RENAME TO <new>` rewrites, and its
+ * default is a build option of the SQLite library, not of Sovrium: the system
+ * SQLite `bun:sqlite` loads on macOS starts with it ON, the SQLite Bun bundles
+ * on Linux with it OFF. Left alone, the same migration ran two different
+ * renames: macOS left trigger bodies, views and other tables' `REFERENCES`
+ * naming the old relation (`REFERENCES` only while foreign keys are off, as
+ * the schema step runs them; with them on, legacy mode still rewrites
+ * `REFERENCES`), Linux rewrote all three and re-validated every view
+ * of the schema on the way, aborting on any view that named a relation the
+ * migration had dropped for the moment.
+ *
+ * The schema migration is written for the ON behaviour with foreign keys off
+ * (`runSqliteSchemaTransaction`), the one that touches nothing but the renamed
+ * table: the steps after a rename drop the triggers it
+ * carried (`renamed-relation-triggers.ts`, `renamed-table-companions.ts`),
+ * rebuild a table whose foreign key names a relation that is no longer a table
+ * (`sqlite-foreign-key-target-drift.ts`), rebuild a link table rather than
+ * rename it (`link-table-renames.ts`), and rebuild every view at the end. So
+ * every read-write connection sets it explicitly, and a migration renames the
+ * same way on every platform, Linux production included. A read-only handle
+ * runs no `ALTER` and is left alone.
  */
 
 /**
@@ -80,7 +104,8 @@ export interface SqlitePragmaOptions {
 }
 
 /**
- * Apply Sovrium's SQLite connection PRAGMAs to an open database.
+ * Apply Sovrium's SQLite connection PRAGMAs to an open database: busy
+ * timeout, then (read-write only) foreign keys, the rename mode and WAL.
  *
  * Every connection this process opens goes through here, so a connection
  * cannot be opened with a different set by omission. See the module docblock
@@ -94,6 +119,9 @@ export const applySqlitePragmas = (client: BunSqlite, options: SqlitePragmaOptio
   if (options.readOnly === true) return
 
   client.exec('PRAGMA foreign_keys = ON')
+  // The platform default differs (ON on macOS, OFF on Linux): see the module
+  // docblock for why the migration needs it ON everywhere.
+  client.exec('PRAGMA legacy_alter_table = ON')
   client.exec('PRAGMA journal_mode = WAL')
 }
 

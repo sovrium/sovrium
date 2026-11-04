@@ -1,0 +1,11 @@
+# One contract drafted and waiting to be sent: Dmitri's, countersigned by
+# Hannah, his manager. Open Contracts as an admin and send it for signature to
+# see the whole flow. The PDF is a sample in seed/assets/.
+records:
+  - key: dmitri_contract
+    fields:
+      title: Sales Development Rep, permanent contract
+      employee: '@employees.dmitri'
+      manager: '@employees.hannah'
+      draft_pdf: '@asset:employment-contract-sample.pdf'
+      stage: Draft

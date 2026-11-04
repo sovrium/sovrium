@@ -24,12 +24,13 @@ import {
   type ImportSource,
 } from '@/domain/models/app/design/adapters/import/canonical-tokens-service'
 import { type SpacingScale } from '@/domain/models/app/pages/page-layout-service'
+import { drawnAsOf } from './claude-design-canvas-added'
 import { PROTOTYPE_BOARD_ATTRIBUTE } from './claude-design-canvas-app'
 import { mergedStateBoards } from './claude-design-canvas-boards'
 import { lockedDigestOf } from './claude-design-canvas-digest'
 import { CANVAS_STAMP, CANVAS_STAMP_FILE, CANVAS_STAMP_FORMAT } from './claude-design-canvas-export'
 import { CANVAS_LINK_STAMP } from './claude-design-canvas-links'
-import { drawnRulesOf } from './claude-design-canvas-rules'
+import { CANVAS_RULE, drawnRulesOf } from './claude-design-canvas-rules'
 import {
   canvasLayoutOf,
   shownText,
@@ -40,13 +41,14 @@ import {
   type CanvasNodeLayout,
   type CanvasPaint,
 } from './claude-design-canvas-style'
+import { printsAnEngineVersion, withoutRepeatedCopies } from './claude-design-canvas-unedited'
 import {
   addedNodeIdOf,
   type PageDrawingFinding,
   type PageDrawingParse,
   type ParsedPageDrawing,
 } from './page-drawing'
-import type { DrawnRules } from '@/domain/models/app/pages/page-drawing'
+import type { DrawnAs, DrawnRules } from '@/domain/models/app/pages/page-drawing'
 
 /**
  * The Claude Design page adapter, parse half: a canvas project folder (its
@@ -173,6 +175,8 @@ interface Walk {
   readonly paints: Chunk.Chunk<readonly [string, CanvasPaint]>
   /** What each node the export drew does, as the board carries it, by node id. */
   readonly rules: Chunk.Chunk<readonly [string, DrawnRules]>
+  /** How each node the designer added was drawn, by node id. */
+  readonly drawnAs: Chunk.Chunk<readonly [string, DrawnAs]>
 }
 
 interface BoardContext {
@@ -192,6 +196,7 @@ const EMPTY_WALK: Walk = {
   conflicts: Chunk.empty(),
   paints: Chunk.empty(),
   rules: Chunk.empty(),
+  drawnAs: Chunk.empty(),
 }
 
 const merged = (left: Walk, right: Walk): Walk => ({
@@ -203,6 +208,7 @@ const merged = (left: Walk, right: Walk): Walk => ({
   conflicts: Chunk.appendAll(left.conflicts, right.conflicts),
   paints: Chunk.appendAll(left.paints, right.paints),
   rules: Chunk.appendAll(left.rules, right.rules),
+  drawnAs: Chunk.appendAll(left.drawnAs, right.drawnAs),
 })
 
 /** A walk with findings added to what it is not a kit component. */
@@ -248,7 +254,9 @@ const contentOf = (element: HtmlElementNode, stampedId: string | undefined): str
   const literal = stampedId !== undefined && attribute(element, CANVAS_STAMP.content) !== undefined
   const shown = () => shownTextOf(element, ownTextOf(element.children), isKitElement, literal)
   if (stampedId === undefined || literal) return shown()
-  return holdsKitElement(element.children) ? '' : shown()
+  if (holdsKitElement(element.children)) return ''
+  const text = shown()
+  return printsAnEngineVersion(attribute(element, CANVAS_RULE.bind), text) ? '' : text
 }
 
 /**
@@ -433,6 +441,10 @@ function kitNode(context: BoardContext, element: HtmlElementNode, added: number)
     conflicts: Chunk.appendAll(extras.conflicts, inner.conflicts),
     paints: Chunk.appendAll(extras.paints, inner.paints),
     rules: rules === undefined ? inner.rules : Chunk.prepend(inner.rules, [id, rules] as const),
+    drawnAs:
+      stampedId === undefined
+        ? Chunk.prepend(inner.drawnAs, [id, drawnAsOf(element)] as const)
+        : inner.drawnAs,
   }
 }
 
@@ -682,7 +694,7 @@ const parseBoard = (
     nodes: Chunk.toReadonlyArray(walk.nodes),
   })
   if (!tree.success) return refusal(board, `the board's nodes do not form a page tree of ${page}`)
-  const nodes = withoutDrawnTexts(tree.data.nodes, stamp?.texts ?? {})
+  const nodes = withoutDrawnTexts(withoutRepeatedCopies(tree.data.nodes), stamp?.texts ?? {})
   return {
     ok: true,
     state,
@@ -700,6 +712,7 @@ const parseBoard = (
       })),
       paints: Object.fromEntries(Chunk.toReadonlyArray(walk.paints)),
       rules: Object.fromEntries(Chunk.toReadonlyArray(walk.rules)),
+      drawnAs: Object.fromEntries(Chunk.toReadonlyArray(walk.drawnAs)),
       ...(declares === undefined ? {} : { declares }),
     },
   }

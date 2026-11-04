@@ -19,6 +19,7 @@ import { readTemplateSource, renderTemplateText, templateContext } from './docum
 import { starterFileGate, type StarterFileGate } from './starter-file-gate'
 import type { ActionRunContext, AutomationContext } from './shared'
 import type { EmailAttachment } from '@/application/ports/services/email-sender'
+import type { DocumentTemplateTrust } from '@/application/ports/services/template-engine'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -30,7 +31,9 @@ import type { App } from '@/domain/models/app'
  * inline or asset template is the operator's — its `<style>` rules are inlined
  * (`inlineCss`, default true) BEFORE the email-profile sanitizer cleans the
  * result, so an inlined declaration is filtered like an authored `style`
- * attribute; a bucket template is cleaned like `body` and loses every style.
+ * attribute; a bucket template is cleaned like `body`, loses every style, and
+ * keeps no link scheme beyond http, https and mailto (`allowedLinkSchemes` is
+ * the operator's, for the operator's own templates).
  * No `<style>` block is ever delivered. The text part is the `text` template
  * when there is one, else derived from the HTML.
  */
@@ -65,12 +68,25 @@ const renderPlain = (
     return rendering.text
   })
 
+/**
+ * The extra link schemes a template's links keep: the step's
+ * `allowedLinkSchemes` for the operator's own template (inline or asset), none
+ * for a template stored in a bucket. The list is the operator's statement about
+ * what their message carries, like the styles a bucket template also loses.
+ */
+export const templateLinkSchemes = (
+  trust: DocumentTemplateTrust,
+  stepSchemes: readonly string[]
+): readonly string[] => (trust === 'authored' ? stepSchemes : [])
+
 export const templatedEmail = Effect.fn('automations.email-templated-body')(function* (
   props: Raw,
   scope: {
     readonly app: App
     readonly automation: AutomationContext
     readonly runContext: ActionRunContext | undefined
+    /** The step's `allowedLinkSchemes`: link schemes an operator's template keeps beside http, https and mailto. */
+    readonly linkSchemes: readonly string[]
   }
 ) {
   const { app, runContext } = scope
@@ -92,6 +108,7 @@ export const templatedEmail = Effect.fn('automations.email-templated-body')(func
       : placed.html
   const { html, droppedLinks } = sanitizeRichTextHTMLReportingLinks(styled, {
     profile: authored ? 'email' : 'rich-text',
+    linkSchemes: templateLinkSchemes(template.trust, scope.linkSchemes),
   })
   const text =
     props['text'] === undefined

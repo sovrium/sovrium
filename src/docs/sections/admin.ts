@@ -32,7 +32,7 @@ export const section = defineSection({
       slug: 'admin-dashboard',
       title: 'Admin Dashboard',
       description:
-        'The operator console at `/_admin`: an admin-only, read-only console over records, runs, submissions, accounts, files and analytics, and the read API behind it.',
+        'The operator console at `/_admin`: an admin-only data console over records, runs, submissions, files and analytics, with only the writes your config grants.',
       keywords: [
         'sovrium',
         'admin dashboard',
@@ -196,6 +196,7 @@ export const section = defineSection({
         'US-ANALYTICS-PAGE-ANALYTICS-006',
         'US-ANALYTICS-PAGE-ANALYTICS-007',
         'US-ANALYTICS-UNIFIED-EVENTS-MODEL',
+        'US-LINKS-ON-PAGE-CLICK-TRACKING',
         'US-PAGES-INTERACTIVITY-ANALYTICS-OPT-OUT',
       ],
     }),

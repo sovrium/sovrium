@@ -8,6 +8,9 @@ intro: |
   latest news with who wrote it, what is coming up, who joined in the last 30 days, a
   searchable directory and the company's resources. Managers publish from their own page;
   nobody else is offered it.
+audience: >-
+  A company and its staff: every employee, who reads the hub and the
+  directory, the managers who publish announcements, and IT, who administers it.
 glance:
   - |-
     **Tables** (6): company (one row; its `headcount` counts the directory), members (the

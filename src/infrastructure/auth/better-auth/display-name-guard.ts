@@ -6,6 +6,13 @@
  */
 
 import { stripHtmlToText } from '@/domain/kernel/sanitize/html-sanitization'
+import {
+  ADMIN_CREATE_USER_PATH,
+  ADMIN_UPDATE_USER_PATH,
+  SIGN_UP_EMAIL_PATH,
+  UPDATE_USER_PATH,
+  type ProfileFieldLocation,
+} from './account-opening-routes'
 import type { createAuthMiddleware } from 'better-auth/api'
 
 /**
@@ -32,11 +39,11 @@ type AuthMiddlewareCtx = Parameters<typeof createAuthMiddleware>[0] extends (
  *   its `data` passthrough into the created row, so a name there wins.
  * - `/admin/update-user` — `body.data.name`, the mutation's only carrier.
  */
-const NAME_LOCATIONS: ReadonlyMap<string, readonly ('body' | 'data')[]> = new Map([
-  ['/sign-up/email', ['body']],
-  ['/update-user', ['body']],
-  ['/admin/create-user', ['body', 'data']],
-  ['/admin/update-user', ['data']],
+const NAME_LOCATIONS: ReadonlyMap<string, readonly ProfileFieldLocation[]> = new Map([
+  [SIGN_UP_EMAIL_PATH, ['body']],
+  [UPDATE_USER_PATH, ['body']],
+  [ADMIN_CREATE_USER_PATH, ['body', 'data']],
+  [ADMIN_UPDATE_USER_PATH, ['data']],
 ])
 
 /**

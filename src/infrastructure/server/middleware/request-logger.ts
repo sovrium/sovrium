@@ -5,8 +5,8 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { redactSecretPath } from '@/domain/kernel/url/secret-path-redaction'
 import { logDebug } from '@/infrastructure/logging/logger'
+import { loggedRequestPath } from '@/infrastructure/logging/request-log-path'
 import { recordHttpRequest } from '@/infrastructure/telemetry/metrics'
 import { emitMetric } from '@/infrastructure/telemetry/observability-runtime'
 import { getTelemetryConfig } from '@/infrastructure/telemetry/telemetry-config'
@@ -50,7 +50,7 @@ export const requestLogger: MiddlewareHandler = async (c, next) => {
   // A path whose segment is a credential (a calendar feed token) is logged as
   // its route template, never as written.
   logDebug(
-    `<-- ${c.req.method} ${redactSecretPath(path)} ${c.res.status} ${duration}ms${suffix}`,
+    `<-- ${c.req.method} ${loggedRequestPath(c.req.raw, path)} ${c.res.status} ${duration}ms${suffix}`,
     requestId ? { 'request.id': requestId } : undefined
   )
 

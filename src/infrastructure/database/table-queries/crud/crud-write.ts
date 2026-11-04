@@ -10,7 +10,7 @@ import {
   reportCommittedRows,
   type CommittedRowChange,
 } from '@/application/ports/services/record-change-feed'
-import { BusinessRuleViolationError, StaleWriteError } from '@/domain/errors'
+import { BusinessRuleViolationError, StaleWriteError, ValidationError } from '@/domain/errors'
 import {
   ForeignKeyViolationError,
   type DatabaseError,
@@ -44,7 +44,10 @@ import { logActivity } from '../query-helpers/activity-log-helpers'
 import { wrapDatabaseError } from '../statement/error-handling'
 import { wrapCreateRecordFailure, wrapUpdateRecordFailure } from './crud-write-failure'
 import type { InTransactionRuleJudge } from '@/application/ports/repositories/tables/in-transaction-rule-judge'
-import type { AccountReference } from '@/application/ports/repositories/tables/record-write-accounts'
+import type {
+  AccountReference,
+  UpdateRecordFailure,
+} from '@/application/ports/repositories/tables/record-write-accounts'
 import type { App } from '@/domain/models/app'
 import type { Session } from '@/infrastructure/auth/better-auth/schema'
 import type { PortableDb } from '@/infrastructure/database/drizzle/db'
@@ -227,10 +230,7 @@ export const updateRecord =
     tableName: string,
     recordId: string,
     params: Readonly<UpdateRecordInput>
-  ): Effect.Effect<
-    Record<string, unknown>,
-    DatabaseError | StaleWriteError | ForeignKeyViolationError | BusinessRuleViolationError
-  > => {
+  ): Effect.Effect<Record<string, unknown>, UpdateRecordFailure> => {
     const wrap = wrapUpdateRecordFailure(tableName, Object.keys(params.fields))
     return Effect.gen(function* () {
       const { recordBefore, updatedRecord, rowWritten } = yield* traceDbQuery(
@@ -244,7 +244,8 @@ export const updateRecord =
           catch: (error) =>
             error instanceof StaleWriteError ||
             error instanceof ForeignKeyViolationError ||
-            error instanceof BusinessRuleViolationError
+            error instanceof BusinessRuleViolationError ||
+            error instanceof ValidationError
               ? error
               : wrap(error),
         })

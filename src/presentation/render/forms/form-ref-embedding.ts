@@ -6,14 +6,22 @@
  */
 
 /**
- * What a formRef embedding reads beside the form it draws: the form the reader
- * may see, its starting values, its heading level and submit label, its option
- * sets, and control ids scoped so two embedded forms on one page never share
- * one.
+ * What a formRef embedding draws and reads beside the form: the form the reader
+ * may see, its markup (or, while its availability window is not open, its
+ * closed notice), its starting values, its heading level and submit label, its
+ * option sets, and control ids scoped so two embedded forms on one page never
+ * share one.
  */
 
+import { evaluateAvailabilityWindow } from '@/domain/models/app/forms/form-availability-flow'
+import { renderNow } from '@/presentation/render/page/render-clock'
+import { renderClosedFormNotice } from './form-closed-renderer'
+import { composerWrapper } from './form-composer'
+import { renderNativeSuccessPage } from './form-native-success'
+import { applyNodeFormParts } from './form-part-classes'
+import { embedHeaderOptions, formForEmbedHeader } from './form-ref-header'
 import { formForReader } from './form-ref-readers'
-import { resolveFormStartingValues } from './form-renderer'
+import { renderEmbeddedFormBody, resolveFormStartingValues } from './form-renderer'
 import {
   prefillColumnsOf,
   prefillUserOf,
@@ -27,9 +35,11 @@ import type { FormRefExpansionContext } from './form-ref-resolver'
 import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { FormOptionSets } from '@/domain/models/app/forms/form-option-source-service'
+import type { Component } from '@/domain/models/app/pages/components'
 
-/** Control ids in an embed's markup: its attributes, and an island's props (`"id":"…"`, escaped). */
-const ID_REFERENCE = /\b(id|for|aria-labelledby|aria-describedby)(="|&quot;:&quot;)([^"&]*)/g
+/** Control ids in an embed's markup: its attributes, and an island's props (`"id":"…"`, `"describedBy":"…"`, escaped). */
+const ID_REFERENCE =
+  /\b(id|for|aria-labelledby|aria-describedby|describedBy)(="|&quot;:&quot;)([^"&]*)/g
 
 /**
  * The embed's markup with every control id (`field-…`) — and every reference
@@ -163,4 +173,63 @@ export function optionSetsFor(
 ): { readonly optionSets?: FormOptionSets } {
   const optionSets = ctx.formOptions?.[form.name]
   return optionSets === undefined ? {} : { optionSets }
+}
+
+/**
+ * The notice an embed draws INSTEAD of the form while the form's availability
+ * window is not open — the same decision and the same words the standalone
+ * `/forms/:name` page makes and shows, in the host page's language, read at the
+ * render's instant. `undefined` while the window is open, so the form is drawn.
+ */
+export function closedNoticeFor(
+  app: App,
+  form: Readonly<Form>,
+  ctx: FormRefExpansionContext,
+  headingAs: 'h1' | 'h2' | 'h3'
+): string | undefined {
+  const windowState = evaluateAvailabilityWindow(form.availability, renderNow().getTime())
+  if (windowState.kind === 'open') return undefined
+  const request =
+    windowState.kind === 'not-yet-open'
+      ? { activeLang: ctx.activeLang, opensAt: windowState.opensAt }
+      : { activeLang: ctx.activeLang }
+  return renderClosedFormNotice(app, form, windowState.kind, { request, headingAs })
+}
+
+/**
+ * The embedded form's markup. Defaults + `$query` prefill are EDITABLE starting
+ * values; the inline prefill wins on the keys it names and, when locked, renders
+ * them as hidden inputs. A post made without JavaScript comes back with its
+ * success page in the form's place.
+ */
+export function drawEmbeddedForm(
+  component: Component,
+  app: App,
+  embed: {
+    readonly form: Readonly<Form>
+    readonly originalProps: Record<string, unknown> | undefined
+    readonly inlinePrefill: InlinePrefillShape | undefined
+    readonly titleAs: 'h1' | 'h2' | 'h3'
+  },
+  ctx: FormRefExpansionContext
+): string {
+  const { form, originalProps, inlinePrefill, titleAs } = embed
+  const formBodyHtml = scopeControlIds(
+    renderNativeSuccessPage(app, form, { ...ctx, titleAs }) ??
+      renderEmbeddedFormBody(
+        app,
+        formForEmbedHeader(applySubmitLabelOverride(form, originalProps), component),
+        resolveEmbedPrefill(app, form, inlinePrefill, ctx),
+        {
+          activeLang: ctx.activeLang,
+          titleAs,
+          ...embedHeaderOptions(component),
+          ...optionSetsFor(form, ctx),
+        }
+      ),
+    form.name,
+    ctx
+  )
+  const composed = composerWrapper(app, component, ctx.activeLang)
+  return composed(applyNodeFormParts(formBodyHtml, app.design, component))
 }

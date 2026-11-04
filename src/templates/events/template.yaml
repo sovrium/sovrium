@@ -6,6 +6,10 @@ intro: |
   when, where and how many seats are left, and register with no account; a full event offers its
   waitlist. The organizers read the month and the seats taken on one Overview, find everyone
   grouped by event, and check people in at the door.
+audience: >-
+  A community that runs workshops and meetups: attendees who register from the public page with no
+  account, the organizers who run registrations and the door, and the lead who also removes an
+  event.
 glance:
   - |-
     **Tables** (3): events (seats taken and waitlist are counted from the registrations by an

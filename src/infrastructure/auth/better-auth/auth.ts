@@ -49,6 +49,7 @@ import { buildTwoFactorPlugin } from './plugins/two-factor'
 import { SESSION_ADDITIONAL_FIELDS } from './session-database-hooks'
 import { buildSocialProviders } from './social-providers'
 import { buildSsoContext, type SsoPluginContext } from './sso-origins'
+import { refuseSocialIdentityOnSsoOwnedDomain } from './sso-owned-domain-guard'
 import { trustedOriginsOf } from './trusted-origins'
 import type { AppMetaForOrg, AuthHookContext } from './auth-database-hooks'
 import type { AuthHookPolicies } from '@/application/ports/contracts/auth-hook-policies'
@@ -269,6 +270,8 @@ export function createAuthInstance(authConfig: Auth | undefined, wiring: AuthIns
     emailVerification: emailVerificationConfig(emailAndPassword, addressChange),
     user: {
       changeEmail: { enabled: true, sendChangeEmailConfirmation: addressChange.confirmation },
+      // A social sign-in never joins an account on a domain an identity provider owns.
+      validateUserInfo: refuseSocialIdentityOnSsoOwnedDomain(authConfig),
       // The account's own interface language — engine-owned, so no app opts in.
       // `input: true` lets a person set their own through `/update-user`; the
       // VALUE is then checked against the app's declared languages by

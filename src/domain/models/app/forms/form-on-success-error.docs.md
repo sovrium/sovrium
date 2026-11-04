@@ -67,7 +67,7 @@ Omit `onSuccess` entirely and the form falls back to a success toast reading "Su
 
 ## Success-page actions
 
-A success page can offer the submitter a next move; each entry renders as a button.
+A success page can offer the submitter a next move; each entry renders as a button. A success page draws its `actions` as the app's `button` component: the first in the default variant, the others in `outline`; style them with `design.components.button`.
 
 <!-- sovrium:options SuccessPageActionSchema -->
 

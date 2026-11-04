@@ -683,6 +683,17 @@ export const AutomationActionSchema = Schema.Struct({
 
 /** @public */
 export type AuthAction = Schema.Schema.Type<typeof AuthActionSchema>
+
+/**
+ * A sign-in form's declared `credentialError` once the server has resolved it
+ * for this instance and page language: the mail fact already chose the second
+ * line, so `descriptionWithoutMail` is gone. The shape the SSR pass hands the
+ * auth-form island.
+ */
+export type CredentialRefusal = Omit<
+  NonNullable<AuthAction['credentialError']>,
+  'descriptionWithoutMail'
+>
 /** @public */
 export type CrudAction = Schema.Schema.Type<typeof CrudActionSchema>
 /** @public */

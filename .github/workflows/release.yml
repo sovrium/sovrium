@@ -38,7 +38,8 @@ concurrency:
 # founder's required reviewer, so a `v*` tag pushed on any commit by any write
 # credential no longer yields a signed release on its own: someone approves the
 # run first. Those jobs are `build-desktop`, `sign-release`, `publish-release`,
-# `update-homebrew` and `update-scoop`. `Workflow Pins` rule (c) fails on a job
+# `update-homebrew`, `update-scoop` and `publish-templates` (the template
+# mirrors' write token). `Workflow Pins` rule (c) fails on a job
 # that reads one of those secrets outside the environment. The GitHub settings
 # this assumes are listed in docs/infrastructure/release/release-script.md
 # ("GitHub settings this workflow assumes").
@@ -959,10 +960,15 @@ jobs:
           if [ "${{ runner.os }}" = "macOS" ] && [ -z "${APPLE_SIGNING_IDENTITY}" ]; then
             export APPLE_SIGNING_IDENTITY='-'
           fi
+          # `-- --locked` reaches cargo: a Cargo.lock out of step with
+          # Cargo.toml fails the build instead of being re-resolved here, where
+          # nothing reviewed the new resolution (0.43.0 shipped no Linux app
+          # because a re-resolved Linux-only crate no longer compiled).
           bun run --cwd desktop tauri build \
             --target ${{ matrix.rust-target }} \
             --bundles ${{ matrix.bundles }} \
-            --config "${{ steps.overlay.outputs.path }}"
+            --config "${{ steps.overlay.outputs.path }}" \
+            -- --locked
           rm -f "${RUNNER_TEMP}/AuthKey.p8" "${THROWAWAY_KEY}" "${THROWAWAY_KEY}.pub"
 
       # Signature, notarization ticket, Gatekeeper verdict — asserted rather
@@ -1827,6 +1833,11 @@ jobs:
     needs: [publish-release]
     # See update-homebrew for why this is not the implicit `success()`.
     if: ${{ !cancelled() && needs.publish-release.result == 'success' }}
+    # TEMPLATES_PUBLISH_TOKEN writes to every sovrium/<slug>-template
+    # repository, so it is a release secret like the tap token: an environment
+    # secret of `release`, read only here. It reaches the environment in the
+    # same wave as update-homebrew and update-scoop, so it shares their approval.
+    environment: release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sovrium repo
@@ -1867,8 +1878,10 @@ jobs:
   # The last job of the chain: asserts each sovrium/<slug>-template repo carries the
   # v<version> tag AND a .sovrium-version matching this release. Fails red on any
   # lagging mirror (no continue-on-error). It also compares the installer script
-  # sovrium.com serves with this release's (warning while the site still serves
-  # the previous release's, red for anything else).
+  # sovrium.com serves with this release's (a warning naming the release while
+  # the site serves an older published release's, red for anything else).
+  # It holds no release secret: the mirrors are public, so `github.token` reads
+  # their tags and stamps, and the job needs no environment approval.
   verify-mirrors:
     name: Verify template mirrors
     permissions:
@@ -1889,13 +1902,14 @@ jobs:
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
       # `sovrium.com/install` is built by the website repository from the
-      # release it pins (its fetch-install-script.ts copies this release's
+      # release it pins (its fetch-install-script.ts copies that release's
       # `install.sh` asset byte for byte), so nothing here publishes it. This
       # step is the tie between the two: the script that site serves must be
-      # this release's or, until the website bumps its pin, the previous
-      # one's. Anything else is a script no release of this repository
-      # shipped, and the run goes red. Runs before the mirror assertion so a
-      # lagging mirror does not hide it.
+      # the install.sh of SOME published release of this repository — this
+      # one, or an older one until the website bumps its pin (a warning naming
+      # it; the pin may lag several releases). A script no published release
+      # shipped is an error. Runs before the mirror assertion, which runs
+      # whatever this step concludes (`!cancelled()` there).
       - name: Compare sovrium.com/install with the released install.sh
         env:
           GH_TOKEN: ${{ github.token }}
@@ -1912,28 +1926,41 @@ jobs:
             echo "OK: sovrium.com/install serves ${TAG}'s install.sh"
             exit 0
           fi
-          PREVIOUS=$(gh release list --repo "${REPO}" --exclude-drafts --limit 30 \
-            --json tagName --jq '.[].tagName' | grep -vxF "${TAG}" | head -n 1 || true)
-          if [ -n "${PREVIOUS}" ]; then
-            # Releases before this check carry no install.sh asset; the website
-            # then reads the tagged file, and so does this comparison.
-            gh release download "${PREVIOUS}" --repo "${REPO}" --pattern install.sh \
-              --output previous-install.sh 2>/dev/null \
+          SERVED_SHA=$(sha256sum served-install.sh | cut -d' ' -f1)
+          # Newest first, so the warning names the NEWEST release whose script
+          # it equals (install.sh is often unchanged across several releases).
+          # 50 published releases is far beyond any pin lag worth a warning.
+          MATCH=""
+          for CANDIDATE in $(gh release list --repo "${REPO}" --exclude-drafts --exclude-pre-releases \
+              --limit 50 --json tagName --jq '.[].tagName' | grep -vxF "${TAG}" || true); do
+            rm -f candidate-install.sh
+            # Releases before the install.sh asset existed carry none; the
+            # website then read the tagged file, and so does this comparison.
+            gh release download "${CANDIDATE}" --repo "${REPO}" --pattern install.sh \
+              --output candidate-install.sh 2>/dev/null \
               || curl --proto '=https' --tlsv1.2 -fsSL \
-                "https://raw.githubusercontent.com/${REPO}/${PREVIOUS}/install.sh" -o previous-install.sh \
+                "https://raw.githubusercontent.com/${REPO}/${CANDIDATE}/install.sh" -o candidate-install.sh 2>/dev/null \
               || true
-            if [ -s previous-install.sh ] && cmp -s previous-install.sh served-install.sh; then
-              echo "::warning::sovrium.com/install still serves ${PREVIOUS}'s install.sh. Expected until the website repository bumps its pinned version to ${VERSION}."
-              exit 0
+            if [ -s candidate-install.sh ] && cmp -s candidate-install.sh served-install.sh; then
+              MATCH="${CANDIDATE}"
+              break
             fi
+          done
+          if [ -n "${MATCH}" ]; then
+            echo "::warning::sovrium.com/install serves ${MATCH}'s install.sh (sha256 ${SERVED_SHA}), not ${TAG}'s. Expected until the website repository bumps its pinned version to ${VERSION}."
+            exit 0
           fi
-          echo "::error::sovrium.com/install serves a script that is neither ${TAG}'s install.sh nor ${PREVIOUS:-the previous release}'s. Compare it with the release asset before anyone else runs it:"
+          echo "::error::sovrium.com/install serves a script (sha256 ${SERVED_SHA}) that matches the install.sh of no published release, ${TAG} included. Compare it with the release asset before anyone else runs it:"
           diff -u released-install.sh served-install.sh | head -n 60 || true
           exit 1
 
+      # Runs even when the install.sh comparison above failed: a suspect
+      # installer must not hide a lagging mirror, nor the reverse. Spelled
+      # `!cancelled()`, this file's always() that still stops on a cancel.
       - name: Assert each mirror is at this release
+        if: ${{ !cancelled() }}
         env:
-          GH_TOKEN: ${{ secrets.TEMPLATES_PUBLISH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           TAG="v${VERSION}"

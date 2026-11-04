@@ -75,18 +75,6 @@ function liftTimelineGanttProps(componentProps: Component['props']): Record<stri
 }
 
 /**
- * Per-type element-props builder. Each entry receives the base element props
- * (already carrying `data-component-type`) and returns the type-specific
- * element props forwarded to the island/component renderer.
- *
- * Keyed by `ComponentType` rather than by bare `string`, so each entry's
- * `component` is that ONE branch of the schema: the data-table entry may read
- * `columns` and `autoSave` and may NOT read `chartType`. That is the whole reason
- * this table is typed — every drift between a component's schema and the props
- * this file forwards to its island is now a compile error rather than a prop
- * that silently never arrives.
- */
-/**
  * The five keys that say how a grid is DRAWN rather than what it is bound to:
  * the density of a row, whether the component takes its natural height or its
  * parent's leftover one, and the three switches that decide what gets painted
@@ -135,6 +123,18 @@ const galleryBuilder = lift(
   'publishes'
 )
 
+/**
+ * Per-type element-props builder. Each entry receives the base element props
+ * (already carrying `data-component-type`) and returns the type-specific
+ * element props forwarded to the island/component renderer.
+ *
+ * Keyed by `ComponentType` rather than by bare `string`, so each entry's
+ * `component` is that ONE branch of the schema: the data-table entry may read
+ * `columns` and `autoSave` and may NOT read `chartType`. That is the whole reason
+ * this table is typed — every drift between a component's schema and the props
+ * this file forwards to its island is now a compile error rather than a prop
+ * that silently never arrives.
+ */
 const TYPE_BUILDERS: {
   readonly [K in ComponentType]?: (args: BuilderArgs<ComponentOfType<K>>) => Record<string, unknown>
 } = {

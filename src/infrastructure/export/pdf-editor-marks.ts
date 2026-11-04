@@ -12,6 +12,7 @@ import {
   type MarkGeometry,
 } from '@/domain/models/app/automations/actions/pdf/mark-placement-service'
 import { assertDrawable, EditRefusal, pdfLib } from './pdf-editor-library'
+import { assertRewritable } from './pdf-rewrite-guard'
 import type { PdfLib } from './pdf-editor-library'
 import type { BuiltPdf, PdfMarkRequest } from '@/application/ports/services/pdf-editor'
 import type { PDFDocument, PDFImage, PDFPage } from '@cantoo/pdf-lib'
@@ -110,6 +111,7 @@ export const drawPdfMark = async (
   request: PdfMarkRequest
 ): Promise<BuiltPdf> => {
   const lib = await pdfLib()
+  assertRewritable(lib, document)
   const draw =
     request.content.kind === 'text'
       ? await textDrawer(lib, document, request)

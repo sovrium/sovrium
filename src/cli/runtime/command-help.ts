@@ -247,6 +247,22 @@ const SECRET_HELP_TEXT = [
   '  sovrium secret generate auth >> .env          # Append just AUTH_SECRET',
 ].join('\n')
 
+const SIGNATURE_HELP_TEXT = [
+  'Usage: sovrium signature verify <export> [--json]',
+  '',
+  'Check a signing evidence export offline: every file, the event chain and the',
+  'document each signer signed. No server, database or network is involved.',
+  '',
+  'Arguments:',
+  '  export                        The JSON export of a signing request',
+  '',
+  'Options:',
+  '  --json                        Print the report as one JSON document',
+  '  --help, -h                    Show this help message',
+  '',
+  'Exit codes: 0 valid, 1 a check failed or the file is unreadable, 2 bad usage.',
+].join('\n')
+
 const STOP_HELP_TEXT = [
   'Usage: sovrium stop',
   '',
@@ -339,6 +355,7 @@ const COMMAND_HELP: Readonly<Record<string, string>> = {
   init: INIT_HELP_TEXT,
   admin: ADMIN_HELP_TEXT,
   secret: SECRET_HELP_TEXT,
+  signature: SIGNATURE_HELP_TEXT,
   update: UPDATE_HELP_TEXT,
   stop: STOP_HELP_TEXT,
   restart: RESTART_HELP_TEXT,

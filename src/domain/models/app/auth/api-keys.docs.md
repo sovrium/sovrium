@@ -13,7 +13,7 @@ auth:
   apiKeys: true
 ```
 
-`apiKeys` mounts the key endpoints and makes `x-api-key` a valid credential on every auth-gated route. When it is absent (the default), the surface does not acknowledge its own existence: the endpoints answer **404**, and an `x-api-key` header is simply ignored.
+`apiKeys` mounts the key endpoints and makes `x-api-key` a valid credential on every auth-gated route. When it is absent (the default), the surface does not acknowledge its own existence: the endpoints answer **404**, and an `x-api-key` header is ignored.
 
 ## Authenticating with a key
 

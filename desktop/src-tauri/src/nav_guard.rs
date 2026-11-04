@@ -140,7 +140,10 @@ pub fn init<R: Runtime>() -> TauriPlugin<R> {
                     .opener()
                     .open_url(url.to_string(), None::<&str>);
             }
-            log::info!("navigation refused, handed to the browser: {}", url.scheme());
+            log::info!(
+                "navigation refused, handed to the browser: {}",
+                url.scheme()
+            );
             false
         })
         .build()
@@ -157,13 +160,19 @@ mod tests {
     #[test]
     fn allows_the_shell_bundle() {
         assert!(may_navigate(&url("tauri://localhost/index.html"), None));
-        assert!(may_navigate(&url("http://tauri.localhost/index.html"), None));
+        assert!(may_navigate(
+            &url("http://tauri.localhost/index.html"),
+            None
+        ));
     }
 
     #[test]
     fn allows_the_running_instance_on_either_loopback_spelling() {
         assert!(may_navigate(&url("http://127.0.0.1:4321/"), Some(4321)));
-        assert!(may_navigate(&url("http://localhost:4321/records"), Some(4321)));
+        assert!(may_navigate(
+            &url("http://localhost:4321/records"),
+            Some(4321)
+        ));
     }
 
     #[test]

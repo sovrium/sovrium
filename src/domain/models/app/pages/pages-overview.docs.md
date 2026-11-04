@@ -41,7 +41,7 @@ pages:
       - { type: text, element: h1, content: 'About' }
 ```
 
-Every page opens with a skip link, the first stop of the keyboard: hidden until it takes focus, it moves the focus past the header and the navigation to the page's main content. It reads "Skip to main content" in the language the page declares ("Aller au contenu principal" in French, renamed under `sovrium.page.skipToContent`), and wears the app's `primary` colours. When a page opens with a container drawn as `element: header`, that header sits before the page's main landmark, so the skip link lands past it and its navigation. An app shell whose sidebar and header share one layout with the content can name the content itself as the main region: give a container `element: main` and the id `main-content` in its `props`. The page then has that one main landmark, the skip link moves the focus to it, and the sidebar and header beside it stay outside.
+Every page opens with a skip link, the first stop of the keyboard: hidden until it takes focus, it moves the focus past the header and the navigation to the page's main content. It reads "Skip to main content" in the language the page declares ("Aller au contenu principal" in French, renamed under `sovrium.page.skipToContent`), and wears the app's `primary` colours. When a page opens with a container drawn as `element: header`, that header sits before the page's main landmark, so the skip link lands past it and its navigation. When a page closes with a container drawn as `element: footer` (directly or through a component template), that footer sits after the main landmark, as the page's contentinfo, on an article's page as on any other; dialogs and drawers declared after it stay where they are, and a footer followed by more content stays in place. An app shell whose sidebar and header share one layout with the content can name the content itself as the main region: give a container `element: main` and the id `main-content` in its `props`. The page then has that one main landmark, the skip link moves the focus to it, and the sidebar and header beside it stay outside.
 
 ## App variables
 
@@ -96,7 +96,7 @@ pages:
       - { type: text, element: h1, content: 'API keys' }
 ```
 
-The vocabulary is a closed set, so a typo is a startup error naming the accepted values rather than a page that silently never appears: `auth`, `auth.apiKeys`, `auth.twoFactor`, `auth.groups`, `auth.passkeys`, `auth.magicLink`, `auth.oauth`, `auth.sso`, `auth.signUp`, `auth.passwordReset`, `auth.scopeTables`, `tables`, `forms`, `links`, `automations`, `agents`, `buckets`, `connections`, `analytics`, `analytics.full`, `decisions`, `pages`, `components`, `assets.templates`, `design.brand`, `design.voice`, `data`.
+The vocabulary is a closed set, so a typo is a startup error naming the accepted values rather than a page that silently never appears: `auth`, `auth.apiKeys`, `auth.twoFactor`, `auth.groups`, `auth.passkeys`, `auth.magicLink`, `auth.oauth`, `auth.sso`, `auth.signUp`, `auth.passwordReset`, `auth.scopeTables`, `tables`, `forms`, `links`, `automations`, `agents`, `buckets`, `connections`, `analytics`, `analytics.full`, `decisions`, `signatures`, `pages`, `components`, `assets.templates`, `design.brand`, `design.voice`, `data`.
 
 Five of them read more than one key:
 

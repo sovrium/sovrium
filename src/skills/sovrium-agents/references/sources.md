@@ -40,4 +40,4 @@ Each entry: title — organisation or author — URL — what was lifted. Every 
 
 ## Sovrium
 
-- **The Sovrium manual**, shipped in the binary: `sovrium docs ai/ai-overview`, `sovrium docs agents/ai-agents`, `sovrium docs agents/agent-approvals`, `sovrium docs agents/ai-rag`, `sovrium docs components/ai-chat-component`, `sovrium docs configuration/env-vars-ai`, `sovrium docs mcp/mcp-server`, `sovrium docs mcp/mcp-client-mode`.
+- **The Sovrium manual**, shipped in the binary: `sovrium docs ai/ai-overview`, `sovrium docs agents/ai-agents`, `sovrium docs agents/agent-approvals`, `sovrium docs agents/ai-rag`, `sovrium docs components-more/ai-chat-component`, `sovrium docs configuration/env-vars-ai`, `sovrium docs mcp/mcp-server`, `sovrium docs mcp/mcp-client-mode`.

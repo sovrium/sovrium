@@ -4,7 +4,7 @@
 
 > Generated from the Sovrium schema by scripts/build/generate-skill-references.ts — do not edit. It carries no version on purpose: when it and the binary you run disagree, the binary is right.
 
-Every trigger an automation can start from (9) and every action a step can run (142), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
+Every trigger an automation can start from (10) and every action a step can run (144), in the words of the schema. An action is chosen by its `type` and, within a family, its `operator`.
 
 ## Contents
 
@@ -26,6 +26,7 @@ Read: `sovrium docs automation-triggers`
 | `automation-call` | Trigger that fires when another automation invokes this one via the automation/call action. Enables sub-workflow composition. |
 | `automation-failure` | Trigger an automation when another automation fails. Enables composable failure handling without per-automation notification config. |
 | `comment` | Trigger automation when a comment is created on a record. Provides $trigger.comment.*, $trigger.record.*, $trigger.threadParticipants, $trigger.mentions, $trigger.mentionedEmails context variables. |
+| `signature` | Trigger automation when a signing request moves on. Provides $trigger.record.* and $trigger.signature.{requestId,event,status,signer,reason}. |
 
 ## Actions
 
@@ -124,6 +125,8 @@ Read: `sovrium docs automation-actions`
 | `pdf` | `fillForm` | Fill the form fields of a PDF from data, optionally flattening them |
 | `pdf` | `inspect` | Read the page count, page sizes, metadata, encryption and form fields of a PDF |
 | `pdf` | `fromImages` | Make a PDF of JPEG, PNG or WebP pictures, one page each |
+| `signature` | `send` | Send a signing request for one record through a declared signing flow; outputs the request id and status |
+| `signature` | `cancel` | Cancel the open signing request of a record: unused links stop working and the request ends cancelled |
 | `data` | `set` | Compute a value, or named fields, and expose them for downstream actions |
 | `data` | `aggregate` | Compute sum/avg/min/max/count over a numeric field of an array |
 | `data` | `sort` | Reorder an array of records by a specified field and direction |

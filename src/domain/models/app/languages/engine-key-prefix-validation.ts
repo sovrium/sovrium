@@ -88,9 +88,9 @@ export const collectUnprefixedEngineKeyNotices = (
  * engine key that is no longer drawn anywhere, in declaration order — or no
  * notice at all.
  *
- * The key stays in the catalogue for one release, so the override still
- * validates; it simply changes nothing. Only the prefixed spelling counts: a
- * bare `filePreview.cannotShow` never reached the engine.
+ * The key stays in the catalogue, so the override still validates; it simply
+ * changes nothing. Only the prefixed spelling counts: a bare
+ * `filePreview.cannotShow` never reached the engine.
  *
  * @param languages - The config's `languages` block
  * @returns Zero or one notice
@@ -106,7 +106,7 @@ export const collectRetiredEngineKeyNotices = (
   if (occurrences.length === 0) return []
   const one = occurrences.length === 1
   return [
-    `${ENGINE_KEY_RETIRED_TOKEN}: ${occurrences.join(', ')} ${one ? 'overrides' : 'override'} engine interface text that is no longer drawn anywhere, so ${one ? 'it changes' : 'they change'} nothing — delete ${one ? 'it' : 'them'}; the key is removed in the next release.`,
+    `${ENGINE_KEY_RETIRED_TOKEN}: ${occurrences.join(', ')} ${one ? 'overrides' : 'override'} engine interface text that is no longer drawn anywhere, so ${one ? 'it changes' : 'they change'} nothing. Delete ${one ? 'it' : 'them'}.`,
   ]
 }
 

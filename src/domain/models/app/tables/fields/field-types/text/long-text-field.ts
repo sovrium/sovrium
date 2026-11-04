@@ -43,6 +43,24 @@ import {
  * }
  * ```
  */
+/**
+ * `encrypted` stores a write-only value as an envelope encrypted under a key
+ * derived from the instance's root secret, so a dump or a snapshot of the
+ * database does not reveal it. `migrating` encrypts new writes while legacy
+ * plaintext still reads; `true` refuses legacy plaintext. Its pairing rules
+ * (`writeOnly`, explicit ids, and the options it excludes) need the field and
+ * the table together, so they are app-level rules, not this schema's.
+ */
+const EncryptedOptionSchema = Schema.optional(
+  Schema.Union([Schema.Literal('migrating'), Schema.Literal(true)]).pipe(
+    Schema.annotate({
+      description:
+        "Store this write-only value encrypted at rest (AES-256-GCM, under a key derived from SOVRIUM_ENCRYPTION_KEY), so a database dump, snapshot or leaked database credential does not reveal it. 'migrating' encrypts every new write while values stored earlier in plaintext still read, until the `sovrium migrate` command has encrypted them; true then refuses any plaintext value. Requires writeOnly: true and explicit ids on the table and the field, and cannot be combined with default, unique, indexed, or a filter, sort, aggregate, trigger condition or row rule on the field. It does not protect against someone holding the host or the running process, and a key kept in a file under the data directory is archived with the data by `sovrium backup`: set SOVRIUM_ENCRYPTION_KEY in the environment. A lost key cannot be recovered.",
+      defaultNote: 'absent: the write-only value is stored as plain text',
+    })
+  )
+)
+
 export const LongTextFieldSchema = BaseFieldSchema.pipe(
   Schema.fieldsAssign({
     type: Schema.Literal('long-text').pipe(
@@ -61,6 +79,7 @@ export const LongTextFieldSchema = BaseFieldSchema.pipe(
       )
     ),
     writeOnly: WriteOnlyOptionSchema,
+    encrypted: EncryptedOptionSchema,
     translatable: TranslatableOptionSchema,
   }),
   Schema.annotate({

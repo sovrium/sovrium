@@ -1,3 +1,179 @@
+## [0.47.0](https://github.com/sovrium/sovrium/compare/v0.46.1...v0.47.0) (2026-11-04)
+
+### BREAKING CHANGES
+
+- **tables**: sign a record through the server and refuse client-written signature values
+
+### Features
+
+- **admin**: the audit log exports every entry its filters select as CSV
+- **pages**: a download or navigation button can carry a filter channel's current filters
+- **pages**: a KPI tile over a system read can poll on an interval
+- **automations**: an email step can allow extra link schemes such as sovrium:
+- **auth**: carry a value of the page address through an auth form's destination
+- **automations**: email a failure only after several failures in a row when an automation asks for it
+- **pages**: let a component template place another template with its own vars
+- **design**: draw success-page actions as the app's buttons and style a form's error banner
+- **pages**: rename the docs phone menu per language and style its drawer by part
+- **pages**: let a container render as an HTML list
+- **pages**: draw the docs rail's group chevron as an icon with its own part
+- **design**: style a menu's open panel and its rows with the content and item parts
+- **admin**: read signing requests and evidence in the console
+- **templates**: sign an employment contract in the People template
+- **forms**: write a form's signature into its bound column
+- **server**: log requests cut by the idle guard and make the guard configurable
+- **signatures**: remind signers and verify them by text message
+- **signatures**: seal the signed document and timestamp it
+- **signatures**: sign from a declared page with a signing link
+- **signatures**: verify a signer by email code before signing
+- **signatures**: end expired requests at their deadline and link signers to accounts
+- **signatures**: draw signer marks and build the proof file
+- **signatures**: expire signing evidence and erase signers on request
+- **signatures**: run a signing request from send to completion
+- **cli**: verify a signing evidence export offline
+- **signatures**: keep a tamper-evident evidence chain for signing flows
+- **pages**: describe a list page's records as an ItemList in its structured data
+- **pages**: list configuration pages in llms.txt on request
+- **pages**: total a kanban column and label its card footer
+- **pages**: choose a tab per screen width
+- **cli**: write PRODUCT.md, DESIGN.md and its sidecar into every new project
+- **design-system**: export the design system as a DESIGN.md with token front matter, a sidecar and one surface brief per zone
+- **forms**: let a form signature field state its statement and bind a column or signer
+- **design-system**: import colours, radius, spacing and type from a DESIGN.md
+- **signatures**: add signature/send, signature/cancel and a signature trigger
+- **signatures**: declare signing flows under a signatures root key
+- **automations**: accept a year unit in durations
+
+### Bug Fixes
+
+- **design-system**: draw a navigation menu's links once in a played prototype board
+- **automations**: only the backup, release and bundle steps read stored files Sovrium keeps no record of
+- **templates**: let the People template start with no environment
+- **automations**: a hand-started run reads again the bundles and archives the operator put in storage
+- **cli**: keep looking for a watched config file that does not exist yet
+- **pages**: keep a paged list's way to its next page while it shows the page the server drew
+- **server**: publish one status update per watched save, carrying its verdict
+- **admin**: name every console control by its visible text first
+- **pages**: name a composed menu trigger by what it shows, then its label
+- **pages**: name the two-language toggle by its visible code first
+- **pages**: draw a list bound to a table's view on the server
+- **pages**: give a grid row or list item that navigates a real link
+- **automations**: keep recipient addresses out of a run's send failure text
+- **pages**: pin a flowing grid's header row below a sticky page header
+- **admin**: the Runs figure cards refresh with the run history
+- **automations**: a called run can read the files its caller wrote, and hand its own back in sync mode
+- **ai**: log why the AI provider call failed when a chat request answers 502, 503 or 504
+- **pages**: name an attachment after its file when its stored name is the upload key
+- **pages**: keep a truncated grid column's second line under its value
+- **design**: style a sign-in form's error summary with the form summary part
+- **pages**: keep a sheet closed until its opener is drawn
+- **pages**: name a docs zone once in the synthesised breadcrumb
+- **pages**: let the docs phone menu open on a press made before the page's scripts run
+- **pages**: keep the element of a text written as an empty string
+- **design**: apply design.components.form root classes to a form placed with formRef
+- **pages**: record-field and description-list name attachment links after the file
+- **pages**: keep a grid's column headers when its first read fails
+- **pages**: edit forms that list their fields show locked fields and allowed moves before saving
+- **i18n**: name every toast's close button in the page language
+- **pages**: draw toasts in their variant's colours and apply design.components.toast to them
+- **design**: let an author's keyboard outline draw on links and buttons
+- **admin**: authorizing a connection with no consent step answers a 4xx
+- **pages**: a refused oauth action shows its onError message
+- **admin**: connections that renew their own token read active
+- **design**: key the invalid state on the refusal a form reports
+- **pages**: draw a page's closing footer after its main landmark
+- **pages**: fill an article's front matter into the components of its page
+- **pages**: keep the docs sidebar search inside its own collection
+- **forms**: keep a required Select's placeholder out of its list
+- **pages**: close the sheet a record-writing form sits in when close is unset
+- **pages**: close the sheet a form sits in when the form asks to close
+- **tables**: answer a queued button press as accepted instead of letting it time out
+- **forms**: answer a rate-limited post without JavaScript with its page in its language
+- **pages**: let the keyboard drive the page search and say when nothing matched
+- **automations**: spread the hourly maintenance jobs over the hour per instance
+- **forms**: carry a redirect's toast to the page it lands on when that page is the form's own
+- **forms**: announce a field's hint and a Select's error on the control a reader focuses
+- **automations**: report recoveries and held-back failures exactly in the hourly summary
+- **docs**: keep an article's earlier section address answering after it moves
+- **i18n**: name the docs layout's search, outline, breadcrumb, pager and copy button in the page language
+- **automations**: read multipart form bodies in webhook triggers
+- **forms**: apply a link's prefill on every step of a multi-step form
+- **forms**: keep every multi-step answer and refuse an empty step in the page language
+- **library**: address installed Brevo operations under the v3 API root
+- **admin**: swap the authenticator field for the recovery one on the console code step
+- **admin**: mark automations that still need setup in the console catalogue
+- **admin**: show the code syntax colours on the design system's Foundations page
+- **pages**: name two-step forms and say a refused password or code on its field
+- **pages**: keep data components below the fold readable to find-in-page and print
+- **pages**: draw an empty filling grid compactly, without a bottom bar
+- **migrations**: rename tables and fields the same way on every platform
+- **pages**: warn at validate when a navigation menu nests a third level
+- **admin**: stop the console error page from moving when its report appears
+- **admin**: keep the Footprint page's explanations to a readable line length
+- **analytics**: store the page path as the event name of every page view
+- **forms**: stop repeating the label in a required field's message
+- **automations**: replay a failed run from the step that failed
+- **pages**: return focus after a consent choice and keep a scrolling column clear
+- **i18n**: show a local-zone datetime in each reader's own zone and add a time-only format
+- **tables**: apply a datetime field's date and time formats wherever it is displayed
+- **pages**: let design.components style the consent banner
+- **admin**: let an administrator with two-factor enabled sign in to the console
+- **ai**: name the environment variable when an AI setting is out of range
+- **pages**: admit admin-equivalent roles where a page or form requires admin
+- **pages**: fetch only the shown copy of an image with a dark variant
+- **auth**: keep recipient addresses out of mail-failure logs
+- **tables**: filter a view on a date or number column on PostgreSQL
+- **desktop**: tell the import screen which road a fetch or refusal came from
+- **docs**: describe which writes the operator console offers
+- **docs**: the analytics manual no longer claims multi-tenant row scoping
+- **docs**: tell init users to add auth before importing collaborators
+- **i18n**: render an empty translation value as empty text
+- **forms**: show the closed notice where a page embeds a closed form
+- **pages**: read one-to-many links on a page bound to one record
+- **pages**: crud buttons inside a container bound to one record act on that record
+- **pages**: draw a flex or a grid placed in a gallery card with its children
+- **pages**: make a navigation menu work before its script loads
+- **pages**: draw an empty grid inside a section as one compact line, without a header row
+- **design**: read a canvas back as unchanged right after a write that inserted nodes
+- **design**: write a new text's element and a new link's address from the canvas
+- **design**: read a drawn engine version as unchanged after an upgrade
+- **design**: read every copy a repeat draws as one page node
+- **design**: draw a page closed to custom roles as a reader it admits
+- **design**: carry a colour role's own light and dark values into the exported bundle
+- **pages**: refresh a region held back by a confirmation once it closes
+- **pages**: let responsive text alignment and wrapping override their base utilities
+- **automations**: build each scheduled job afresh at every tick
+- **pages**: let a list, a KPI, a chart or a message thread drive a button's read gate
+- **design-system**: stop reporting a live table key as retired
+- **automations**: keep a run cancelled while it waits on a browser confirmation
+- **pages**: fill a table row action's irreversible confirm button in solid destructive
+- **automations**: keep no request body on a minimal run's row while it runs
+- **pages**: ignore a press on a button its read disables before the data scripts load
+- **automations**: decode form-encoded and plain-text webhook bodies
+- **analytics**: judge excluded paths against the language-prefixed path a visitor is served
+- **analytics**: sweep stored events only on the first start after switching to audience-only
+- **analytics**: delete a person's form-submission events when the account is erased
+- **analytics**: send no page view from a prerendered page until it is opened
+- **analytics**: apply sessionTimeout to page views and outbound clicks
+- **analytics**: honour Global Privacy Control and Do Not Track on form-submission events
+- **automations**: a hand-started run reaches only the temporary files it wrote itself
+- **cli**: a hot config reload keeps the pages a missing capability hides
+- **cli**: the crash-report link no longer blanks a config key on the line after an auth block
+- **auth**: a social sign-in no longer joins an account on a domain an identity provider owns
+- **users**: the account directory lists only people the caller may pick
+- **records**: filter a relationship by a date, number or translated label on PostgreSQL
+- **tables**: create a view that lists a button field on both engines
+- **admin**: swap a link's Disable and Enable at once after either action
+- **automations**: an update whose data template reads an absent key no longer builds invalid SQL
+- **automations**: an update filtered on id alone completes with nothing updated when no row matches
+- **tables**: keep a stored signature on every write road and check its image key
+- **admin**: show an agent conversation in full when one message has an unexpected status
+- **admin**: keep an operator font stylesheet at its own address on console pages
+
+### Performance Improvements
+
+- **pages**: build the page search's article index once per content change
+
 ## [0.46.1](https://github.com/sovrium/sovrium/compare/v0.46.0...v0.46.1) (2026-11-01)
 
 ### Bug Fixes

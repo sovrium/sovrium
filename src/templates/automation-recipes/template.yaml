@@ -7,6 +7,10 @@ intro: |
   of configuration that declare it. Behind sign-in, Activity is every run with its outcome and
   one line of why — four figures above it, and a run opens in a drawer with its attempts and
   its error — and Leads is the leads the recipes wrote.
+audience: >-
+  A team learning how automations are declared and run inside an app. Visitors read the recipes on
+  the public page; behind sign-in, members read the runs and the leads, and an admin may also
+  delete them.
 glance:
   - '**Tables** (2): leads, activity_log'
   - '**Pages** (4): activity, leads, home (`/`, public), sign-in'

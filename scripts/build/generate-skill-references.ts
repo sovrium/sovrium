@@ -115,6 +115,34 @@ const docsAddressExists = (address: string): boolean => {
   return articleSlug === undefined || section.articles.some((a) => a.slug === articleSlug)
 }
 
+/**
+ * Where the manual documents something: a whole section, or one article named by its
+ * slug alone. Article slugs are unique across the manual, so the section is looked up
+ * in the registry at generation time — moving an article to another section (a rail
+ * group split, say) re-points every reference without touching this file.
+ */
+type ManualTarget = { readonly section: string } | { readonly article: string }
+
+/** The `section/article` address of an article, found by its slug in the registry. */
+const articleAddress = (articleSlug: string): string => {
+  const homes = SECTIONS.filter((section) =>
+    section.articles.some((article) => article.slug === articleSlug)
+  )
+  const [home] = homes
+  if (home === undefined || homes.length > 1) {
+    throw new SkillReferenceError(
+      homes.length === 0
+        ? `no section of the manual holds an article \`${articleSlug}\``
+        : `article \`${articleSlug}\` is held by ${homes.length} sections: ${homes.map((h) => h.slug).join(', ')}`
+    )
+  }
+  return `${home.slug}/${articleSlug}`
+}
+
+/** The printable address of a manual target, proven to resolve. */
+const targetAddress = (target: ManualTarget): string =>
+  docsAddress('section' in target ? target.section : articleAddress(target.article))
+
 /** An address the generator is about to print, proven to resolve first. */
 const docsAddress = (address: string): string => {
   if (!docsAddressExists(address)) {
@@ -217,16 +245,16 @@ const renderCliVerbs = (indexSource: string): string => {
 // =============================================================================
 
 /** The manual article documenting each field category. */
-const FIELD_CATEGORY_ARTICLES: Readonly<Record<string, string>> = {
-  text: 'fields/text-fields',
-  numeric: 'fields/number-fields',
-  'date-time': 'fields/datetime-fields',
-  selection: 'fields/selection-fields',
-  relational: 'fields/relational-fields',
-  media: 'fields/attachment-fields',
-  user: 'fields/user-audit-fields',
-  advanced: 'fields',
-  ai: 'fields/ai-fields',
+const FIELD_CATEGORY_ARTICLES: Readonly<Record<string, ManualTarget>> = {
+  text: { article: 'text-fields' },
+  numeric: { article: 'number-fields' },
+  'date-time': { article: 'datetime-fields' },
+  selection: { article: 'selection-fields' },
+  relational: { article: 'relational-fields' },
+  media: { article: 'attachment-fields' },
+  user: { article: 'user-audit-fields' },
+  advanced: { section: 'fields' },
+  ai: { article: 'ai-fields' },
 }
 
 /** A struct's `type` literal. */
@@ -272,7 +300,7 @@ const renderFieldTypes = async (): Promise<string> => {
       return [
         `## ${category.title}`,
         '',
-        `Read: \`sovrium docs ${docsAddress(address)}\``,
+        `Read: \`sovrium docs ${targetAddress(address)}\``,
         '',
         '| Type | What it stores |',
         '| --- | --- |',
@@ -299,20 +327,20 @@ const renderFieldTypes = async (): Promise<string> => {
 // 3. Component catalogue
 // =============================================================================
 
-/** The manual address documenting each component category. */
-const COMPONENT_CATEGORY_ADDRESSES: Readonly<Record<string, string>> = {
-  interactive: 'components/interactive-components',
-  'form-controls': 'form-controls',
-  data: 'data-components',
-  layout: 'components/layout-components',
-  content: 'components/content-components',
-  display: 'components/display-components',
-  navigation: 'components/navigation-components',
-  overlays: 'components/overlay-components',
-  feedback: 'components/feedback-components',
-  structural: 'components/structural-components',
-  specialty: 'form-controls/specialty-components',
-  ai: 'components/ai-chat-component',
+/** The manual target documenting each component category. */
+const COMPONENT_CATEGORY_ADDRESSES: Readonly<Record<string, ManualTarget>> = {
+  interactive: { article: 'interactive-components' },
+  'form-controls': { section: 'form-controls' },
+  data: { section: 'data-components' },
+  layout: { article: 'layout-components' },
+  content: { article: 'content-components' },
+  display: { article: 'display-components' },
+  navigation: { article: 'navigation-components' },
+  overlays: { article: 'overlay-components' },
+  feedback: { article: 'feedback-components' },
+  structural: { article: 'structural-components' },
+  specialty: { article: 'specialty-components' },
+  ai: { article: 'ai-chat-component' },
 }
 
 const renderComponentCatalogue = (): string => {
@@ -324,7 +352,7 @@ const renderComponentCatalogue = (): string => {
     return [
       `## ${CATALOG_CATEGORY_TITLES[category]}`,
       '',
-      `Read: \`sovrium docs ${docsAddress(address)}\``,
+      `Read: \`sovrium docs ${targetAddress(address)}\``,
       '',
       '| Type | What it is for |',
       '| --- | --- |',
@@ -596,7 +624,7 @@ const renderAgentOptions = (): string =>
     lead:
       "Every option of the app's own AI agents, and of the AI access a table or an automation " +
       'grants, with the command that prints its full entry from the binary you run. Providers, ' +
-      `models and speech-to-text are environment variables: \`sovrium docs ${docsAddress('configuration/env-vars-ai')}\`.`,
+      `models and speech-to-text are environment variables: \`sovrium docs ${targetAddress({ article: 'env-vars-ai' })}\`.`,
     body: renderOptionSections(AGENT_OPTION_ROOTS.map((path) => ({ path }))),
   })
 

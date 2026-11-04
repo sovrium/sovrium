@@ -50,6 +50,7 @@ import { routeParamsAreServed } from '@/presentation/render/resolve/route-param-
 import { stampChannelControls } from '@/presentation/render/resolve/shared-channel-controls'
 import { resolveSidebarCurrentEntries } from '@/presentation/render/resolve/sidebar-current-resolver'
 import { resolvePageSidebar } from '@/presentation/render/resolve/sidebar-resolver'
+import { signingPageAdmitted } from '@/presentation/render/resolve/signing-context-resolver'
 import { withAppConnectionScript } from '@/presentation/render/scripts/app-connection-script'
 import { withInstallTags } from '@/presentation/render/scripts/install-tags'
 import { resolveSidebarScopedEntries } from '../resolve/sidebar-scope-resolver'
@@ -81,10 +82,7 @@ import type { DataSourceDb } from '@/presentation/render/resolve/data-source-con
 import type { SystemRowsFetcher } from '@/presentation/render/resolve/first-object-redirect-resolver'
 import type { SystemRecordFetcher } from '@/presentation/render/resolve/page-system-record-binding'
 
-/**
- * Whether an article gated by its own front matter admits the reader
- * — answered as for a page they may not open, after the page access passed.
- */
+/** Whether an article gated by its front matter admits the reader (after the page access). */
 const articleAdmits = (
   markdownPayload: { readonly frontmatter: Readonly<Record<string, string>> } | undefined,
   app: App,
@@ -226,6 +224,7 @@ async function renderDeclaredPage(
   // cannot see is not vouched for at all; and `||` short-circuits, so a page
   // already refused above never spends the read.
   if (
+    !signingPageAdmitted(matchedPage, { app, db }) ||
     evaluateEmbeddedFormRefsAccess(app, matchedPage, session) === 'denied' ||
     !(
       sampleAddress === true ||

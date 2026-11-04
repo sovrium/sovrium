@@ -41,6 +41,9 @@
  *     counts instead. Runs a restart interrupted are not alerted here: the
  *     sweep that closes them sends one email for the whole restart
  *     (`reap-interrupted-runs.ts`).
+ *   - Threshold: an automation declaring `notify.afterConsecutiveFailures`
+ *     above 1 is alerted only from its n-th failure in a row
+ *     (`notify-failure-streak.ts`); without it, the rules above apply as they are.
  *
  * Failures inside this helper are swallowed and logged: a broken email path
  * MUST NOT re-fail the already-failed run (that would mask the real automation
@@ -51,9 +54,11 @@ import { Effect } from 'effect'
 import { AutomationRunOutcomeRepository } from '@/application/ports/repositories/automations/automation-run-outcome-repository'
 import { FailureAlertHoldBack } from '@/application/ports/services/failure-alert-hold-back'
 import { FAILURE_ALERT_WINDOW_MS } from '@/domain/models/app/automations/automation-run-outcome-service'
+import { failureEmailThreshold } from '@/domain/models/app/automations/failure-streak-service'
 import { summariseRunError } from '@/domain/models/app/automations/failure-summary-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { deliverAutomationNotice, type AutomationNoticeContent } from './automation-notice'
+import { notifyFailureStreak } from './notify-failure-streak'
 import type { AuthRepository } from '@/application/ports/repositories/auth/auth-repository'
 import type { EmailSender } from '@/application/ports/services/email-sender'
 import type { App } from '@/domain/models/app'
@@ -172,6 +177,23 @@ export const notifyPlatformFailure = (
   AuthRepository | AutomationRunOutcomeRepository | EmailSender | FailureAlertHoldBack
 > =>
   Effect.gen(function* () {
+    const threshold = failureEmailThreshold(input.app.automations, input.automationName)
+    if (threshold > 1 && (yield* notifyFailureStreak(input, threshold)) === 'handled') return
     if (!(yield* isImmediate(input))) return
     yield* deliverAutomationNotice({ app: input.app, content: failureNotice(input) })
   }).pipe(Effect.withSpan('automations.notify-platform-failure'))
+
+/**
+ * Tell the alert hold-back that a run succeeded, so the hourly roll-up can say
+ * when an automation recovered even when its trigger's `history` keeps no row
+ * of a success. A no-op for a run that did not succeed.
+ */
+export const noteRunSuccess = (
+  automationName: string,
+  finalState: { readonly runStatus: string },
+  finishedAt: Readonly<Date>
+): Effect.Effect<void, never, FailureAlertHoldBack> =>
+  Effect.gen(function* () {
+    if (finalState.runStatus !== 'success') return
+    yield* (yield* FailureAlertHoldBack).recordSuccess(automationName, finishedAt)
+  }).pipe(Effect.withSpan('automations.note-run-success'))

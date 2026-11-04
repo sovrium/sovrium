@@ -20,8 +20,9 @@ import {
 } from '../sql/sql-execution'
 import { recordLanguagesOf } from '../sql/sql-translatable-columns'
 import { languageValueDdlOn } from '../sql/translatable-value-sql'
-import { generateSqlCondition } from '../table-queries/filter-operators'
+import { generateSqlCondition } from '../table-queries/filter-ddl-text'
 import { compileFilterTree, isCompleteCondition } from '../table-queries/filter-tree'
+import { viewProjection } from './view-projection'
 import type { Table } from '@/domain/models/app/tables'
 import type { View } from '@/domain/models/app/tables/views'
 import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
@@ -166,8 +167,7 @@ export const generateViewSQL = (table: Table, view: View, dialect: DatabaseDiale
   // Otherwise, build query from filters, sorts, fields, groupBy
   // Column names are quoted the way the table's own columns were (a field may
   // be named `values` or `window`, key words a bare column cannot be).
-  const fields =
-    view.fields && view.fields.length > 0 ? view.fields.map(quoteSqlIdentifier).join(', ') : '*'
+  const fields = viewProjection(table, view)
   const scope = { dialect, fields: table.fields }
   const whereClause = generateWhereClause(view.filters, scope)
   const orderByClause = generateOrderByClause(view, scope)
@@ -381,11 +381,11 @@ export const dropAllObsoleteViews = async (
  * changes.
  *
  * A view names the relations it reads. SQLite re-checks every view in the
- * schema when a column is renamed or dropped, and, when `legacy_alter_table` is
- * off (the default of Bun's bundled SQLite on Linux), when a table is renamed,
- * which is how every table rebuild ends. A declared view over a view-backed
- * table reads the lookup view Step 5.5 drops, so it dangled until Steps 9-11,
- * and the first such ALTER on ANY table aborted the boot with
+ * schema when a column is renamed or dropped, and, with `legacy_alter_table`
+ * off (pinned ON by `applySqlitePragmas`), when a table is renamed, as every
+ * table rebuild ends. A declared view over a view-backed table reads the
+ * lookup view Step 5.5 drops, so it dangled until Steps 9-11, and the first
+ * such ALTER on ANY table aborted the boot with
  * `error in view <id>: no such table`. PostgreSQL refuses to change the type of
  * a column a view selects. With no view standing, neither can happen.
  */

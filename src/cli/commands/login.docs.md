@@ -74,7 +74,7 @@ Signed in to https://cloud.sovrium.com
   Key from /home/kofi/.sovrium/credentials.json
 ```
 
-`sovrium login --logout` revokes the key on the cloud, so it stops working everywhere, then deletes the file. A key the cloud had already revoked is simply forgotten; any other refusal keeps the file, so you can try again.
+`sovrium login --logout` revokes the key on the cloud, so it stops working everywhere, then deletes the file. A key the cloud had already revoked is forgotten; any other refusal keeps the file, so you can try again.
 
 ### A key from the environment
 

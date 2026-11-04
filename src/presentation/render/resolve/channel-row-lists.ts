@@ -29,15 +29,11 @@
 
 import { mapObjectNodes, objectNodes } from '@/domain/kernel/config-parsing/config-node-walk'
 import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
-import {
-  channelDataFilters,
-  fittedChannelCondition,
-} from '@/domain/models/app/pages/channel-row-filter-service'
+import { channelDataFilters } from '@/domain/models/app/pages/channel-row-filter-service'
 import {
   utcCalendarDay,
   utcMinuteInstant,
 } from '@/domain/models/app/pages/components/relative-date-filter'
-import { filterFieldTypeOf } from '@/domain/models/app/tables/filter-value-fit-service'
 import { buildFilterExpression } from '@/presentation/design/filter-expression'
 import { renderNow } from '@/presentation/render/page/render-clock'
 import { rewriteComponent, tableBindingOf } from './component-rewrite'
@@ -141,29 +137,29 @@ export function narrowChannelRowLists(
 }
 
 /** The view of a table the channel conditions are judged against. */
-type ChannelTable = Parameters<typeof filterFieldTypeOf>[0] & {
-  readonly fields: readonly { readonly name: string; readonly type?: string }[]
+interface ChannelTable {
+  readonly fields: readonly { readonly name: string }[]
 }
 
 /**
  * `component` with its channel conditions spent into its own filter: those on
- * a field `table` declares and outside `restricted`, the reader's hidden set,
- * each judged against its field's type.
+ * a field `table` declares and outside `restricted`, the reader's hidden set.
+ * A value its column cannot hold is not judged here: the channel's conditions
+ * join the list's own `filter`, and the read refuses such a value in every one
+ * of them alike (`pageReadFilterOf`), an `in` list keeping the values it can.
  */
 export function withChannelFilter(
   component: Component,
   table: ChannelTable,
-  restricted: ReadonlySet<string>,
-  scopeTables?: readonly string[]
+  restricted: ReadonlySet<string>
 ): Component {
   const props = component.props as Readonly<Record<string, unknown>> | undefined
   if (props === undefined || !(CHANNEL_FILTER in props)) return component
   const { [CHANNEL_FILTER]: published, ...rest } = props
   const declared = new Set(['id', ...table.fields.map((field) => field.name)])
-  const typeOf = filterFieldTypeOf(table, scopeTables)
-  const kept = (published as readonly DataFilter[])
-    .filter((condition) => declared.has(condition.field) && !restricted.has(condition.field))
-    .map((condition) => fittedChannelCondition(condition, typeOf))
+  const kept = (published as readonly DataFilter[]).filter(
+    (condition) => declared.has(condition.field) && !restricted.has(condition.field)
+  )
   const dataSource = tableBindingOf(component)
   if (dataSource === undefined) return rewriteComponent(component, { props: rest })
   const filter = [...(dataSource.filter ?? []), ...kept]

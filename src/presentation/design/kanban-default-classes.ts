@@ -82,6 +82,9 @@ export const computeKanbanColumnDotClasses = (): string =>
 export const computeKanbanColumnCountClasses = (): string =>
   `${computeBadgeClasses({ variant: 'secondary' })} ml-auto shrink-0`
 
+/** The column's `kanbanGroupBy.aggregate` figure, after its count. */
+export const KANBAN_COLUMN_AGGREGATE_CLASSES = 'shrink-0 text-xs tabular-nums text-muted-foreground'
+
 /** The column's card well under its header. */
 export const KANBAN_COLUMN_BODY_CLASSES = 'flex min-h-10 flex-col gap-2'
 

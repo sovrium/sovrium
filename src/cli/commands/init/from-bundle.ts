@@ -43,6 +43,7 @@ import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { writeStdout } from '@/cli/commands/document-output'
 import { scaffoldSupportFiles } from '@/cli/commands/init'
+import { RECEIVED_PROJECT } from '@/cli/commands/init/design-records'
 import { getCurrentVersion } from '@/cli/commands/update'
 import { stopCommand } from '@/cli/runtime/run-command'
 import { codeStepsOf } from '@/domain/models/app/automations/code-steps-service'
@@ -158,7 +159,7 @@ const importInto = async (options: InitFromBundleOptions, targetDir: string): Pr
     bundle,
     files: planned.value,
     host: source.host,
-    finish: (root) => scaffoldSupportFiles(root, true),
+    finish: (root) => scaffoldSupportFiles(root, true, RECEIVED_PROJECT),
   })
   if (!written.ok) return fail(written.reason)
   printDocument([

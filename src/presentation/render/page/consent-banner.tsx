@@ -13,10 +13,12 @@ import {
   computeFormCheckboxFieldClasses,
   computeFormCheckboxTextClasses,
 } from '@/presentation/design/forms-default-classes'
+import { resolveComponentClasses } from '@/presentation/design/resolve-component-classes'
 import { buildConsentBannerScript } from '@/presentation/render/scripts/consent-banner-script'
 import { resolveChildTranslation } from '../i18n/translation-handler'
 import type { PageConsent } from './analytics-beacon-script'
 import type { ConsentPurposeDeclaration } from '@/domain/models/app/consent'
+import type { Design } from '@/domain/models/app/design'
 import type { ReactElement } from 'react'
 
 const TITLE_ID = 'consent-banner-title'
@@ -99,12 +101,30 @@ function PurposeCheckbox({
 
 type EngineText = (part: string) => string
 
+/** A part of the banner `design.components.consent-banner` can restyle. */
+type BannerPart = 'root' | 'title' | 'description' | 'action'
+
+/** One part's classes: the recipe, under the app's `design.components` block. */
+type BannerClasses = (part: BannerPart, defaults: string) => string
+
+/**
+ * The banner's class lists. With no `consent-banner` block every part keeps its
+ * recipe untouched, so an app that never restyles it draws the same markup.
+ */
+const bannerClassesFor = (design: Design | undefined): BannerClasses =>
+  design?.components?.['consent-banner'] === undefined
+    ? (_part, defaults) => defaults
+    : (part, defaults) =>
+        resolveComponentClasses({ design, type: 'consent-banner', part, defaults })
+
 function BannerHeader({
   engine,
   policyHref,
+  classes,
 }: {
   readonly engine: EngineText
   readonly policyHref: string
+  readonly classes: BannerClasses
 }): ReactElement {
   return (
     <div
@@ -114,13 +134,13 @@ function BannerHeader({
       <h2
         id={TITLE_ID}
         data-slot="card-title"
-        className={CARD_PART_CLASSES.title}
+        className={classes('title', CARD_PART_CLASSES.title)}
       >
         {engine('title')}
       </h2>
       <p
         data-slot="card-description"
-        className={CARD_PART_CLASSES.description}
+        className={classes('description', CARD_PART_CLASSES.description)}
       >
         {engine('description')}{' '}
         <a
@@ -138,16 +158,18 @@ function BannerHeader({
 function BannerAction({
   action,
   children,
+  classes,
 }: {
   readonly action: 'refuse' | 'accept' | 'save'
   readonly children: string
+  readonly classes: BannerClasses
 }): ReactElement {
   return (
     <button
       type="button"
       data-slot="button"
       data-consent-action={action}
-      className={ACTION_CLASSES}
+      className={classes('action', ACTION_CLASSES)}
     >
       {children}
     </button>
@@ -160,25 +182,70 @@ type BannerPurpose = {
   readonly description: string
 }
 
+/** Refuse all, Accept all, and Save my choices when there is more than one purpose. */
+function BannerFooter({
+  engine,
+  withSave,
+  classes,
+}: {
+  readonly engine: EngineText
+  readonly withSave: boolean
+  readonly classes: BannerClasses
+}): ReactElement {
+  return (
+    <div
+      data-slot="card-footer"
+      className={`${CARD_PART_CLASSES.footer} ${FOOTER_LAYOUT_CLASSES}`}
+    >
+      <BannerAction
+        action="refuse"
+        classes={classes}
+      >
+        {engine('refuseAll')}
+      </BannerAction>
+      <BannerAction
+        action="accept"
+        classes={classes}
+      >
+        {engine('acceptAll')}
+      </BannerAction>
+      {withSave && (
+        <BannerAction
+          action="save"
+          classes={classes}
+        >
+          {engine('saveChoices')}
+        </BannerAction>
+      )}
+    </div>
+  )
+}
+
 function BannerCard({
   engine,
   policyHref,
   purposes,
+  classes,
 }: {
   readonly engine: EngineText
   readonly policyHref: string
   readonly purposes: readonly BannerPurpose[]
+  readonly classes: BannerClasses
 }): ReactElement {
   const [only] = purposes
   return (
     <div
       data-slot="card"
       data-size="default"
-      className={`${computeCardClasses({ sliced: true })} ${CARD_FLOATING_CLASSES}`}
+      className={classes(
+        'root',
+        `${computeCardClasses({ sliced: true })} ${CARD_FLOATING_CLASSES}`
+      )}
     >
       <BannerHeader
         engine={engine}
         policyHref={policyHref}
+        classes={classes}
       />
       <div
         data-slot="card-content"
@@ -197,14 +264,11 @@ function BannerCard({
           </div>
         )}
       </div>
-      <div
-        data-slot="card-footer"
-        className={`${CARD_PART_CLASSES.footer} ${FOOTER_LAYOUT_CLASSES}`}
-      >
-        <BannerAction action="refuse">{engine('refuseAll')}</BannerAction>
-        <BannerAction action="accept">{engine('acceptAll')}</BannerAction>
-        {purposes.length > 1 && <BannerAction action="save">{engine('saveChoices')}</BannerAction>}
-      </div>
+      <BannerFooter
+        engine={engine}
+        withSave={purposes.length > 1}
+        classes={classes}
+      />
     </div>
   )
 }
@@ -224,9 +288,12 @@ function BannerCard({
 export function ConsentBanner({
   consent,
   lang,
+  design,
 }: {
   readonly consent: PageConsent
   readonly lang: string | undefined
+  /** The app's `design`, whose `components.consent-banner` restyles the card. */
+  readonly design?: Design
 }): ReactElement {
   const { declaration, languages } = consent
   const engine: EngineText = (part) =>
@@ -251,6 +318,7 @@ export function ConsentBanner({
           engine={engine}
           policyHref={declaration.policyHref}
           purposes={purposes}
+          classes={bannerClassesFor(design)}
         />
       </section>
       <div

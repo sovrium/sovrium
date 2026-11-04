@@ -205,6 +205,7 @@ export default function KanbanIsland(props: KanbanIslandProps): ReactElement {
     laneFields,
     recordText,
     select: useRecordSelectionToggle(props.publishes),
+    aggregate: kanbanGroupBy?.aggregate,
   }
 
   const state = resolveBoardState({

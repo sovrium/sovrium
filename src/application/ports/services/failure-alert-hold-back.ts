@@ -11,8 +11,8 @@
  * The hourly hold-back of failure alerts is read from the run history, and a
  * database that refuses writes leaves no history to read. This port is the
  * server's own memory of it: when each automation last had an immediate alert,
- * and how many failures it has held back since that the history did not
- * record. The rules are pure (`decideHoldBack`, `takeHeldBack` in the
+ * how many failures it has held back since that the history did not record,
+ * which runs were emailed at once, and when each automation last recovered. The rules are pure (`decideHoldBack`, `takeHeldBack` in the
  * automation run-outcome service); the port holds the state between calls.
  *
  * Process-local by design, and bounded: a restart forgets it, exactly as it
@@ -39,10 +39,17 @@ export class FailureAlertHoldBack extends Context.Service<
       failure: FinalFailure,
       history: readonly FinalFailure[] | undefined
     ) => Effect.Effect<HoldBackDecision>
-    /** Take, and forget, every failure held back in memory since the last roll-up. */
+    /** Remember that a run of `automationName` succeeded at `at`, whatever its history keeps. */
+    readonly recordSuccess: (automationName: string, at: Readonly<Date>) => Effect.Effect<void>
+    /**
+     * Take, and forget, every failure held back in memory since the last
+     * roll-up; read the runs emailed at once and the recoveries the server saw.
+     */
     readonly take: Effect.Effect<{
       readonly groups: readonly RollupGroup[]
       readonly overflow: HeldBackTally | undefined
+      readonly alerted: ReadonlySet<string>
+      readonly recoveries: ReadonlyMap<string, Date>
     }>
   }
 >()('FailureAlertHoldBack') {}

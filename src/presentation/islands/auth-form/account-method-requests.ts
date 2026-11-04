@@ -13,6 +13,7 @@
  */
 
 import { authClient } from '../runtime/auth-client'
+import { pageQueryParam } from './page-query-param'
 import { afterSignIn } from './sign-in-in-flight'
 
 /** What a request answered: a refusal's message, or the body it returned. */
@@ -52,8 +53,7 @@ export async function postAccount(
 }
 
 /** The invitation token in the page address, under the key `page.invitation.param` names. */
-const invitationToken = (param = 'token'): string =>
-  new URLSearchParams(globalThis.location?.search ?? '').get(param) ?? ''
+const invitationToken = (param = 'token'): string => pageQueryParam(param)
 
 interface AccountRequestInput {
   readonly values: Readonly<Record<string, string>>

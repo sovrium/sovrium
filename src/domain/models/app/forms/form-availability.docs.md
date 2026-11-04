@@ -28,7 +28,7 @@ When both timestamps are set, `opensAt` must be strictly before `closesAt`. A wi
 
 ## What a closed form answers
 
-Opening a closed form is not an error: the visitor gets a page explaining the situation. Posting to one is refused with a structured body, so a programmatic client can tell the three cases apart.
+Opening a closed form is not an error: the visitor gets a page explaining the situation. Posting to one is refused with a structured body, so a programmatic client can tell the three cases apart. The window applies wherever the form is drawn: at `/forms/<name>`, at its custom `path`, and where a page places it with `formRef`, which draws the same notice in place of the form.
 
 | State           | Opening the form   | Posting | `error` slug               | Extra keys                       |
 | --------------- | ------------------ | ------- | -------------------------- | -------------------------------- |

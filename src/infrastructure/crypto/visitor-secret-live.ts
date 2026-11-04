@@ -5,59 +5,61 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { Effect, Layer, Ref } from 'effect'
+import { Effect, Layer, SynchronizedRef } from 'effect'
 import { VisitorSecret } from '@/application/ports/services/visitor-secret'
 
-/** The day a secret belongs to, and the secret. */
-interface HeldSecret {
+/** The day a key belongs to, and the key. */
+interface HeldKey {
   readonly day: string
-  readonly secret: Uint8Array<ArrayBuffer>
+  readonly key: CryptoKey
 }
 
-/** 32 random bytes from the platform's cryptographic generator. */
-const freshSecret = (): Uint8Array<ArrayBuffer> => crypto.getRandomValues(new Uint8Array(32))
+/**
+ * A fresh 256-bit HMAC SHA-256 key, generated inside Web Crypto and
+ * non-extractable: its bytes never reach JavaScript memory, so there is
+ * nothing to overwrite when it is dropped.
+ */
+const freshKey = (): Effect.Effect<CryptoKey> =>
+  // effect-promise: total -- HMAC with SHA-256 and a 256-bit length is a mandatory Web Crypto algorithm and every parameter is a constant, so generation has no rejection path.
+  Effect.promise(() =>
+    crypto.subtle.generateKey({ name: 'HMAC', hash: 'SHA-256', length: 256 }, false, ['sign'])
+  )
 
 /**
- * The secret to hand out for `day`, and the secret to hold afterwards.
+ * The key to hand out for `day`, and the key to hold afterwards.
  *
- * Only the newest day is ever held. A later day replaces it with a fresh secret
- * and overwrites the one it replaces with zeros; an earlier day (a request that
- * read its day just before midnight and asks after a newer one has moved on)
- * gets a one-off secret that is never held, so the current day keeps its own.
- * Days are `YYYY-MM-DD`, so their string order is their calendar order.
+ * Only the newest day is ever held. A later day replaces it with a fresh key;
+ * an earlier day (a request that read its day just before midnight and asks
+ * after a newer one has moved on) gets a one-off key that is never held, so
+ * the current day keeps its own. Days are `YYYY-MM-DD`, so their string order
+ * is their calendar order.
  */
 const nextHeld = (
-  current: HeldSecret | undefined,
+  current: HeldKey | undefined,
   day: string
-): readonly [Uint8Array<ArrayBuffer>, HeldSecret | undefined] => {
-  if (current === undefined) {
-    const first = { day, secret: freshSecret() }
-    return [first.secret, first]
-  }
-  if (current.day === day) return [current.secret, current]
-  if (day < current.day) return [freshSecret(), current]
-  current.secret.fill(0)
-  const next = { day, secret: freshSecret() }
-  return [next.secret, next]
+): Effect.Effect<readonly [CryptoKey, HeldKey | undefined]> => {
+  if (current !== undefined && current.day === day) return Effect.succeed([current.key, current])
+  if (current !== undefined && day < current.day)
+    return freshKey().pipe(Effect.map((oneOff) => [oneOff, current] as const))
+  return freshKey().pipe(Effect.map((key) => [key, { day, key }] as const))
 }
 
 /**
  * {@link VisitorSecret} held in memory by the server runtime that builds it.
  *
  * Scoped to that runtime (standing rule E3): every server, including a second
- * boot inside the same process, builds its own and starts without a secret, and
- * the secret in hand is overwritten with zeros when the runtime is disposed.
+ * boot inside the same process, builds its own and starts without a key.
  * Never module-level, which is what makes a restart start a new day of
- * identifiers.
+ * identifiers. Rotation runs under the ref's lock, so two requests crossing
+ * midnight together agree on one key for the new day.
  */
 export const VisitorSecretLive = Layer.effect(
   VisitorSecret,
   Effect.gen(function* () {
-    const held = yield* Effect.acquireRelease(Ref.make<HeldSecret | undefined>(undefined), (ref) =>
-      Ref.get(ref).pipe(Effect.map((current) => current?.secret.fill(0)))
-    )
+    const held = yield* SynchronizedRef.make<HeldKey | undefined>(undefined)
     return {
-      secretFor: (day: string) => Ref.modify(held, (current) => nextHeld(current, day)),
+      keyFor: (day: string) =>
+        SynchronizedRef.modifyEffect(held, (current) => nextHeld(current, day)),
     }
   })
 )

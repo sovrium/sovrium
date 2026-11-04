@@ -64,6 +64,8 @@ import { refineAiComputeField } from '@/application/use-cases/ai/refine-field'
 import { makeMcpClientLayer } from '@/infrastructure/ai/mcp-client/mcp-client-live'
 import { makeDesignKitAssetsLive } from '@/infrastructure/assets/design-kit-assets-live'
 import { AutomationRuntimeLayer } from '@/infrastructure/automations/runtime-layer'
+import { SmsSenderLive } from '@/infrastructure/connections/sms-sender-live'
+import { TimestampAuthorityLive } from '@/infrastructure/crypto/timestamp-authority-live'
 import { VisitorSecretLive } from '@/infrastructure/crypto/visitor-secret-live'
 import { makeAiComputeListenerLayer } from '@/infrastructure/database/ai-compute-listener'
 import { makeAiKnowledgeListenerLayer } from '@/infrastructure/database/ai-knowledge-listener'
@@ -76,9 +78,15 @@ import { ApprovalRepositoryLive } from '@/infrastructure/database/repositories/a
 import { ChatAttachmentRepositoryLive } from '@/infrastructure/database/repositories/ai/chat-attachment-repository-live'
 import { UserPresenceRepositoryLive } from '@/infrastructure/database/repositories/auth/user-presence-repository-live'
 import { FormSubmissionRepositoryLive } from '@/infrastructure/database/repositories/forms/form-submission-repository-live'
+import { SignatureChallengeRepositoryLive } from '@/infrastructure/database/repositories/signatures/signature-challenge-repository-live'
+import { SignatureEvidenceRepositoryLive } from '@/infrastructure/database/repositories/signatures/signature-evidence-repository-live'
+import { SignatureReminderRepositoryLive } from '@/infrastructure/database/repositories/signatures/signature-reminder-repository-live'
 import { DynamicRecordRepositoryLive } from '@/infrastructure/database/repositories/tables/dynamic-record-repository-live'
 import { ReadStateRepositoryLive } from '@/infrastructure/database/repositories/tables/read-state-repository-live'
 import { UpsertMatchRepositoryLive } from '@/infrastructure/database/repositories/tables/upsert-match-repository-live'
+import { SignatureEvidenceRecorderLive } from '@/infrastructure/database/signature-evidence-recorder-live'
+import { PdfSealerLive } from '@/infrastructure/export/pdf-sealer-live'
+import { SignaturePdfLive } from '@/infrastructure/export/signature-pdf-live'
 import { createAppServicesLayer } from '@/infrastructure/layers/app-services-layer'
 import { EnvironmentLayer } from '@/infrastructure/layers/server-env-layer'
 import { logError } from '@/infrastructure/logging/logger'
@@ -166,6 +174,20 @@ const domainLayerFor = (
     ApprovalRepositoryLive,
     // The operator console's global search index (`GET /api/admin/search`).
     AdminSearchRepositoryLive,
+    // The evidence a captured signature writes in its record update's transaction.
+    SignatureEvidenceRecorderLive,
+    // The evidence chains of signing requests: read, appended, erased.
+    SignatureEvidenceRepositoryLive,
+    // The one-time codes of signers, and the per-address signing budgets.
+    SignatureChallengeRepositoryLive,
+    // The reminders of signers who have not signed, and the text messages their codes travel in.
+    SignatureReminderRepositoryLive,
+    SmsSenderLive,
+    // The signed document's marks and the proof file of a completed request.
+    SignaturePdfLive,
+    // The organisation seal and the timestamp authority a completion seals with (`SIGNATURE_*`).
+    PdfSealerLive,
+    TimestampAuthorityLive,
     makeAiComputeListenerLayer(app, refineAiComputeField),
     makeAiKnowledgeListenerLayer(app),
     // The external MCP servers the operator declared (`MCP_CLIENT_SERVERS`):

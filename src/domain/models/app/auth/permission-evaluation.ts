@@ -389,15 +389,25 @@ export const classifyPermissionRung = (permission: PermissionValue | undefined):
 // The evaluator
 // ---------------------------------------------------------------------------
 
-/** Does any entry of a declared role array admit this caller? */
+/**
+ * Does any entry of a declared role array admit this caller?
+ *
+ * An `admin` entry is satisfied by any admin-equivalent caller (the app's top
+ * role, as the call site marks it), never only by the literal role name: a
+ * list naming `admin` names the app's administrator, whatever it is called.
+ */
 export const matchesRoleList = (roles: readonly string[], caller: PermissionCaller): boolean => {
   const groups = caller.groups ?? []
   return roles.some((entry) =>
     isGroupReference(entry)
       ? groups.includes(stripGroupPrefix(entry))
-      : caller.role !== undefined && entry === caller.role
+      : caller.role !== undefined && (entry === caller.role || matchesAdminEntry(entry, caller))
   )
 }
+
+/** An `admin` entry admits an admin-equivalent caller. */
+const matchesAdminEntry = (entry: string, caller: PermissionCaller): boolean =>
+  isAdminRole(entry) && callerOutranksGrants(caller)
 
 /**
  * The three policies that decide without looking at the caller at all.

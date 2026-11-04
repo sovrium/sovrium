@@ -214,7 +214,7 @@ const readFigures = (
         [
           bounded(storageBytesBlock, 0),
           bounded(databaseBytesBlock, 0),
-          bounded(connectionsBlock, { healthy: 0, total: 0 }),
+          bounded(connectionsBlock(app), { healthy: 0, total: 0 }),
           bounded(versionChangesBlock(app, window), []),
           bounded(auditErrorsBlock(window), []),
           bounded(attentionBlock(app, window.from), ATTENTION_ZERO),

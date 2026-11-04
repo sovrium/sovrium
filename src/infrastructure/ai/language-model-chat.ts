@@ -179,10 +179,10 @@ export const toPortError = (error: AiError.AiError, timeoutMs: number): PortAiEr
       cause: error,
     })
   }
-  // A provider answer that does not decode. `@effect/ai-openai-compat` reports it
-  // as `InvalidResponseError` since 4.0.6 (it was `InvalidOutputError`, which
-  // now means only model-generated output that failed validation); the Ollama
-  // adapter still raises `InvalidOutputError`. Both are the same malformed reply.
+  // A provider answer that does not decode. Both adapters report it as
+  // `InvalidResponseError` (`@effect/ai-openai-compat` since 4.0.6, the native
+  // Ollama adapter since it followed). `InvalidOutputError` now means
+  // model-generated output that failed validation, read the same way here.
   if (reason._tag === 'InvalidResponseError' || reason._tag === 'InvalidOutputError') {
     return new AiProviderError({
       statusCode: 502,

@@ -98,7 +98,7 @@ Because each agent is a distinct virtual user with its own role and allowlist, s
 The agent's role is a ceiling, not a grant to whoever talks to it. When a signed-in person chats with a declared agent, the agent's record tools, which look records up and count them, read the **intersection** of the agent's reach and hers:
 
 - **Rows** must pass both the agent's and her row-level read rules, and a row in the trash is never read.
-- **Fields** are the ones both may read. The tools advertise only those columns; asking to see another one simply leaves it out of the answer.
+- **Fields** are the ones both may read. The tools advertise only those columns; asking to see another one leaves it out of the answer.
 - **Filtering or sorting** on a field outside that set is refused, and the refusal reads the same whatever value was asked for, so a filter cannot reveal what a field she may not read contains.
 
 The agent's prompt is narrowed the same way. It describes to the model one line per table, with that table's fields: when a person is chatting, those are only the tables its tools read for her and only the fields both may read, so a table she may not read, a table whose records list admits her no row, and a field she may not read are named nowhere in what the model is sent. A run with no caller, such as a schedule or an automation, has no one to narrow it to, and keeps the agent's own description. The actions it is offered are described the same way: each names only the allowlisted tables she may use it on herself.

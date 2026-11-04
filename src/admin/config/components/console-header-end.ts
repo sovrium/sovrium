@@ -29,7 +29,7 @@ export const consoleHeaderEnd: TemplateEncoded = {
       variant: 'outline',
       props: {
         type: 'button',
-        'aria-label': '$t:admin.shell.search',
+        'aria-keyshortcuts': 'Meta+K',
         'data-command-palette-trigger': 'true',
         className:
           'relative size-8 shrink-0 justify-center gap-2 rounded-md px-0 text-sm font-normal text-muted-foreground shadow-none @2xl:w-56 @2xl:justify-start @2xl:px-2',
@@ -42,6 +42,17 @@ export const consoleHeaderEnd: TemplateEncoded = {
             size: 16,
           },
         },
+        // The name is the text the button shows, so a voice-control user can say it
+        // (WCAG 2.5.3): the word alone while only the icon is drawn, the placeholder
+        // once the header is wide enough to draw it.
+        {
+          type: 'text',
+          element: 'span',
+          props: {
+            className: 'sr-only @2xl:hidden',
+          },
+          content: '$t:admin.shell.search',
+        },
         {
           type: 'text',
           element: 'span',
@@ -53,8 +64,10 @@ export const consoleHeaderEnd: TemplateEncoded = {
         {
           type: 'kbd',
           keys: ['⌘', 'K'],
+          // The chord is a hint for the eye; the button's name stays the word it shows.
           props: {
             className: 'hidden @2xl:inline-flex',
+            'aria-hidden': 'true',
           },
         },
       ],

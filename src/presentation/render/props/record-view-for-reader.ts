@@ -16,7 +16,8 @@
  * colours, its day-valued date fields. All of it is written into the page. So
  * a field the reader may not read (`readableFieldsOf`, the records API's own
  * answer) is a DIMENSION the component drops for her: the board is drawn
- * ungrouped, the events and bars uncoloured, the footer without that item —
+ * ungrouped, the events and bars uncoloured, the footer without that item, the
+ * column headers without a figure computed over it —
  * and neither the field's name nor any of its options reaches the page.
  *
  * A dimension the component cannot be drawn without leaves it with nothing
@@ -91,11 +92,30 @@ const ungroupedWhenHidden = (component: Bag, isHidden: IsHidden): Bag =>
     ? { ...component, kanbanGroupBy: {}, drag: { enabled: false } }
     : component
 
-/** A board: ungrouped, un-laned and uncoloured by a hidden field; its footer without it. */
+/**
+ * A board's column figure (`kanbanGroupBy.aggregate`) is dropped when the field
+ * it aggregates is hidden — a `count` too, since how many cards hold a value is
+ * itself read from the field. The header then prints its count alone: a total
+ * computed over a field she may not read never reaches her page.
+ */
+const withoutHiddenAggregate = (component: Bag, isHidden: IsHidden): Bag => {
+  const groupBy = bagOf(component['kanbanGroupBy'])
+  if (groupBy === undefined) return component
+  const narrowed = withoutHiddenAxis(groupBy, 'aggregate', isHidden)
+  return narrowed === groupBy ? component : { ...component, kanbanGroupBy: narrowed }
+}
+
+/**
+ * A board: ungrouped, un-laned and uncoloured by a hidden field; its column
+ * figure and its footer without it.
+ */
 function kanbanForReader(component: Bag, isHidden: IsHidden): Bag {
   const card = bagOf(component['card'])
   const laidOut = withoutHiddenAxis(
-    ungroupedWhenHidden(withoutHidden(component, 'colorField', isHidden), isHidden),
+    ungroupedWhenHidden(
+      withoutHiddenAggregate(withoutHidden(component, 'colorField', isHidden), isHidden),
+      isHidden
+    ),
     'swimlanes',
     isHidden
   )

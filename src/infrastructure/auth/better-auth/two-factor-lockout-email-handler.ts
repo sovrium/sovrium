@@ -6,7 +6,7 @@
  */
 
 import { twoFactorLockoutEmail } from '../../email/two-factor-lockout-email'
-import { logError } from '../../logging'
+import { logMailFailure } from './mail-failure-log'
 import type { sendEmail } from '../../email/email-service'
 import type { EmailWords } from '../../email/email-words'
 
@@ -43,6 +43,6 @@ export const createTwoFactorLockoutHandler =
         }),
       })
     } catch (error) {
-      logError(`[EMAIL] Failed to send two-step lockout notice to ${account.email}`, error)
+      logMailFailure('two-step lockout notice', account.email, error)
     }
   }

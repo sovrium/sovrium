@@ -26,6 +26,8 @@ import { Schema } from 'effect'
  *   proxy can start the app again on the next connection.
  * - `SOVRIUM_LOG_FORMAT` — `text` (the default) or `json`, one object per line
  *   for a log collector.
+ * - `SOVRIUM_REQUEST_IDLE_TIMEOUT_S` — how long a request may go without an
+ *   answer before the listener closes its connection (10 s, Bun's default).
  *
  * Plain functions over a `process.env`-shaped record, like their siblings in
  * this directory: a parser throws an `Error` naming the variable and the value,
@@ -50,6 +52,15 @@ export const SOVRIUM_IDLE_EXIT_SECONDS_VAR = 'SOVRIUM_IDLE_EXIT_SECONDS'
 
 /** The shortest idle window accepted: anything shorter restarts the app between visits. */
 export const MIN_IDLE_EXIT_SECONDS = 30
+
+/** How long a request may wait for its answer before the listener cuts it. */
+export const SOVRIUM_REQUEST_IDLE_TIMEOUT_S_VAR = 'SOVRIUM_REQUEST_IDLE_TIMEOUT_S'
+
+/** The listener's idle guard when nothing widens it: Bun's own default. */
+export const DEFAULT_REQUEST_IDLE_TIMEOUT_SECONDS = 10
+
+/** The widest idle guard Bun can hold: its listener refuses anything above. */
+export const MAX_REQUEST_IDLE_TIMEOUT_SECONDS = 255
 
 /** The shape of every line the server writes. */
 export const SOVRIUM_LOG_FORMAT_VAR = 'SOVRIUM_LOG_FORMAT'
@@ -86,6 +97,15 @@ export const ServerLifecycleEnvSchema = Schema.Struct({
         description:
           'Exit cleanly after this many idle seconds, at least 30 (SOVRIUM_IDLE_EXIT_SECONDS)',
         examples: ['900'],
+      })
+    )
+  ),
+  requestIdleTimeoutSeconds: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'Seconds a request may wait for its answer before the connection is cut, 1 to 255, default 10 (SOVRIUM_REQUEST_IDLE_TIMEOUT_S)',
+        examples: ['60'],
       })
     )
   ),
@@ -263,6 +283,36 @@ export const resolveIdleExitSeconds = (env: EnvRecord): number | undefined => {
     return parseSovriumIdleExitSeconds(env)
   } catch {
     return undefined
+  }
+}
+
+/**
+ * Resolve `SOVRIUM_REQUEST_IDLE_TIMEOUT_S` for the boot gate: unset or empty is
+ * {@link DEFAULT_REQUEST_IDLE_TIMEOUT_SECONDS}, otherwise a whole number of
+ * seconds from 1 to {@link MAX_REQUEST_IDLE_TIMEOUT_SECONDS}.
+ *
+ * @throws Error naming the variable, the ceiling and the value for anything
+ *   else: Bun refuses a listener whose guard is above 255 s, and a guard of
+ *   `0` would let a stalled request hold its connection forever.
+ */
+export const parseSovriumRequestIdleTimeoutSeconds = (env: EnvRecord): number => {
+  const raw = clean(env[SOVRIUM_REQUEST_IDLE_TIMEOUT_S_VAR])
+  if (raw === undefined) return DEFAULT_REQUEST_IDLE_TIMEOUT_SECONDS
+  const seconds = /^\d+$/.test(raw) ? Number(raw) : Number.NaN
+  if (Number.isSafeInteger(seconds) && seconds >= 1 && seconds <= MAX_REQUEST_IDLE_TIMEOUT_SECONDS)
+    return seconds
+  // eslint-disable-next-line functional/no-throw-statements -- a boot-time refusal: the caller turns it into a startup failure before the port binds.
+  throw new Error(
+    `${SOVRIUM_REQUEST_IDLE_TIMEOUT_S_VAR} must be a whole number of seconds from 1 to ${String(MAX_REQUEST_IDLE_TIMEOUT_SECONDS)}, the most the server can hold; "${raw}" is not one.`
+  )
+}
+
+/** The listener's idle guard in seconds, the default for a refused value. Never throws. */
+export const resolveRequestIdleTimeoutSeconds = (env: EnvRecord): number => {
+  try {
+    return parseSovriumRequestIdleTimeoutSeconds(env)
+  } catch {
+    return DEFAULT_REQUEST_IDLE_TIMEOUT_SECONDS
   }
 }
 

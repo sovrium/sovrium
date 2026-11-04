@@ -349,13 +349,6 @@ export default {
   'admin.connections.search': 'Search connections',
   'admin.connections.noMatch': 'No connection matches “{query}”',
   'admin.connections.empty': 'No connections',
-
-  // ── Users (`/users`) ────────────────────────────────────────────────────
-  //
-  // The blurb says what the page HOLDS, never what the reader may do to it:
-  // the same sentence reaches a read-only operator, who may change nothing
-  // here. The writes are offered where they are allowed — Invite, the row
-  // menu — and drawn only for a reader who may make them.
   'admin.users.heading': 'Users',
   'admin.users.blurb':
     'Your app’s accounts and invitations: each account’s role, groups and status.',
@@ -438,7 +431,7 @@ export default {
   // D4 cuts ornament, not the sentence that says what happens next.
   'admin.automations.heading': 'Runs',
   'admin.automations.blurb':
-    'Every run this app has made, and the automations they came from. Pause one to stop it running without changing your config; an automation disabled in your app config can only be re-enabled there.',
+    'Every run this app has made, and the automations they came from. Pause one to stop it running without changing your config; an automation disabled in your app config can only be re-enabled there. Runs and counts refresh every 15 seconds.',
   'admin.automations.tabs.region': 'Runs sub-views',
   'admin.automations.metrics.region': 'Run metrics',
   'admin.automations.tabs.history': 'History',
@@ -516,6 +509,28 @@ export default {
   'admin.automations.catalog.col.trigger': 'Triggers',
   'admin.automations.catalog.col.state': 'State',
   'admin.automations.catalog.col.paused': 'Paused',
+  'admin.automations.catalog.col.setup': 'Setup',
+  'admin.automations.catalog.col.placeholders': 'Left to set up',
+  'admin.automations.catalog.needsSetup.1': 'Needs setup · 1',
+  'admin.automations.catalog.needsSetup.2': 'Needs setup · 2',
+  'admin.automations.catalog.needsSetup.3': 'Needs setup · 3',
+  'admin.automations.catalog.needsSetup.4': 'Needs setup · 4',
+  'admin.automations.catalog.needsSetup.5': 'Needs setup · 5',
+  'admin.automations.catalog.needsSetup.6': 'Needs setup · 6',
+  'admin.automations.catalog.needsSetup.7': 'Needs setup · 7',
+  'admin.automations.catalog.needsSetup.8': 'Needs setup · 8',
+  'admin.automations.catalog.needsSetup.9': 'Needs setup · 9',
+  'admin.automations.catalog.needsSetup.10': 'Needs setup · 10',
+  'admin.automations.catalog.needsSetup.11': 'Needs setup · 11',
+  'admin.automations.catalog.needsSetup.12': 'Needs setup · 12',
+  'admin.automations.catalog.needsSetup.13': 'Needs setup · 13',
+  'admin.automations.catalog.needsSetup.14': 'Needs setup · 14',
+  'admin.automations.catalog.needsSetup.15': 'Needs setup · 15',
+  'admin.automations.catalog.needsSetup.16': 'Needs setup · 16',
+  'admin.automations.catalog.needsSetup.17': 'Needs setup · 17',
+  'admin.automations.catalog.needsSetup.18': 'Needs setup · 18',
+  'admin.automations.catalog.needsSetup.19': 'Needs setup · 19',
+  'admin.automations.catalog.needsSetup.20': 'Needs setup · 20',
   'admin.automations.catalog.state.active': 'Active',
   'admin.automations.catalog.state.paused': 'Paused',
   'admin.automations.catalog.state.disabled': 'Disabled in config',
@@ -738,4 +753,11 @@ export default {
     'The three largest consumers, measured on request. Each row names the instrument behind its number, because a size with no stated origin cannot be told apart from one nobody took. A blank size means the probe was unavailable — a zero means the resource was measured and is empty.',
   'admin.locked.audit.footprint.configurationProvenance':
     'Read from the environment on every request, so a change takes effect on the next refresh. Configuration is declared, not measured: it describes how this instance is set up, not what it emitted.',
+
+  // ── Connections: renewal and refused row actions ─────────────────────────
+  'admin.connections.col.renewal': 'Renewal',
+  'admin.connections.renewal.automatic': 'Renews automatically',
+  'admin.connections.renewal.manual': 'Reconnect to renew',
+  'admin.connections.action.authorizeFailed': 'Could not start the connection: $response.message',
+  'admin.connections.action.disconnectFailed': 'Could not disconnect: $response.message',
 } as const

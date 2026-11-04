@@ -5,6 +5,7 @@ The design system is declared in the config and handed over by one generator, so
 ## Contents
 
 - [Export](#export)
+- [DESIGN.md for design agents](#designmd-for-design-agents)
 - [The bundle](#the-bundle)
 - [Import tokens from a design tool](#import-tokens-from-a-design-tool)
 - [Import pages](#import-pages)
@@ -15,7 +16,7 @@ The design system is declared in the config and handed over by one generator, so
 
 ```bash
 sovrium design-system app.yaml                                    # the agent brief, markdown, on stdout
-sovrium design-system app.yaml --output DESIGN.md                 # committed beside the config
+sovrium design-system app.yaml --format design-md --output DESIGN.md  # for design agents, with its records
 sovrium design-system app.yaml --format json --output tokens.json # a W3C DTCG document, light
 sovrium design-system app.yaml --format json --mode dark          # the dark palette, same shape
 sovrium design-system app.yaml --format bundle --output design-system
@@ -25,6 +26,16 @@ sovrium design-system app.yaml --format bundle --output design-system
 - Refuses a config that fails validation, an unknown `--format`, and `--mode` with anything but `--format json`.
 - **Read the brief before any design change.** It lists principles, voice, colour roles and, per colour, the light and the dark value the app paints — the Dark column is what is drawn under `.dark`, inherited values included.
 - The DTCG document carries standard token types; principles, voice, roles, imagery and component guidance ride in its extensions, and values with no faithful DTCG form (an elevation's raw shadow) are recorded there with a reason. [S6]
+
+## DESIGN.md for design agents
+
+`--format design-md` writes the `DESIGN.md` a design agent reads: YAML front matter with the tokens (`colors`, role-named `typography`, `rounded`, `spacing`, the shadcn/ui `components`), then eight fixed sections, the last saying how this design changes. With `--output` it also writes `.impeccable/design.json` beside it, one surface brief per zone with its Mode, and a `PRODUCT.md`, each of the last two only when absent. Manual: `sovrium docs theming/design-md`.
+
+- **Regenerate it after every change to `design`**, never edit its front matter by hand: the next export rewrites everything outside the narrative blocks. Make it automatic: the command runs offline and gives the same bytes for the same config, so put it in a pre-commit hook or a CI step.
+- **Never hand-edit `.impeccable/design.json`**: the same command rewrites it on every run.
+- **Leave the surface briefs (`.impeccable/surfaces/*.md`) and `PRODUCT.md` as they are**: they are yours to complete, and an export writes each only when absent, so it never replaces your edits. Say so when you regenerate.
+- **Hand-written notes go inside a narrative block** (`<!-- sovrium:narrative:begin section="…" -->`); they survive the next export.
+- **A design agent's proposal is input**: bring its colours and type back through `design`, never as a CSS or HTML file.
 
 ## The bundle
 
@@ -42,7 +53,7 @@ sovrium design-system import tokens.json --config app.yaml --write  # write it, 
 sovrium design-system import figma-modes/ --config app.yaml --from figma
 ```
 
-- Reads a Claude Design system, Figma Variables, Tokens Studio, Penpot, Style Dictionary, DTCG, or CSS custom properties with a Tailwind `@theme`. The format is detected from the file's shape; `--from` settles a file matching two.
+- Reads a Claude Design system, Figma Variables, Tokens Studio, Penpot, Style Dictionary, DTCG, a DESIGN.md front matter, or CSS custom properties with a Tailwind `@theme`. The format is detected from the file's shape; `--from` settles a file matching two.
 - **Only tokens map**: colours to `colors` (and `darkColors` where the source's dark value differs from what the app paints), lengths to `radius`, `spacing` or `breakpoints` when their group says which, a font family under a font group to `typeScale.families`, a text style named for a rung to that rung. Everything else is listed as unmapped with its reason, never guessed.
 - **Components are never imported**: the report counts them and reads their tokens only.
 - A value equal to what the app already paints is not a change. The import adds and changes keys; it never removes one, and a second `--write` with the same file changes nothing.

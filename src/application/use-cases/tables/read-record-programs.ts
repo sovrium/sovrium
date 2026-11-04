@@ -317,11 +317,10 @@ export const shapeRecordsForReader = (
     const labelled = yield* enrichRecordsWithRelatedLabels(
       app,
       tableName,
-      ids.map((id, index) => ({
+      shaped.map(({ id, transformed }, index) => ({
+        ...transformed,
         id: String(id),
         fields: enriched[index] ?? {},
-        createdAt: '',
-        updatedAt: '',
       })),
       { reader: relatedReaderOf(reader), linkReader: reader, language: config.language }
     )

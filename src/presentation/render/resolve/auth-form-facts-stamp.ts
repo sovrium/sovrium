@@ -8,7 +8,6 @@
 import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import { mountHref } from '@/domain/models/app/admin/mount-hrefs'
 import { passwordResetLandingPath } from '@/domain/models/app/pages/page-requires'
-import { isOutgoingEmailConfigured } from '@/domain/models/process-env/email-transport'
 import { getMountBasePath } from '@/infrastructure/css/mount-identity'
 import { passwordMinLengthStamp } from './password-policy-stamp'
 import type { App } from '@/domain/models/app'
@@ -121,12 +120,18 @@ export function credentialErrorStamp(canSendMail: boolean): (node: Node) => Node
  * instance, which may or may not send mail.
  *
  * Applied to the page AND to the app's templates, so a form placed through a
- * template (`component:` / `$ref`) is stamped as well.
+ * template (`component:` / `$ref`) is stamped as well. `canSendMail` is read
+ * from the environment ONCE per page by the caller, not once per tree.
  */
-export function stampAuthFormFacts<T>(components: T, policyApp: App, app: App): T {
+export function stampAuthFormFacts<T>(
+  components: T,
+  policyApp: App,
+  app: App,
+  canSendMail: boolean
+): T {
   const withMinLength = passwordMinLengthStamp(policyApp)
   const withResetLanding = resetLandingStamp(app)
-  const withCredentialError = credentialErrorStamp(isOutgoingEmailConfigured(process.env))
+  const withCredentialError = credentialErrorStamp(canSendMail)
   return stampTree(components, (node) =>
     withCredentialError(withResetLanding(withMinLength(node)))
   ) as T

@@ -98,6 +98,6 @@ Running `all` for a fortnight after deploying a new agent is a cheap way to lear
 
 ## Approval and scheduling together
 
-A scheduled run starts at once, and approval holds only the calls it covers. An agent with `mode: all` on a nightly cron still runs in the small hours, but every action it decides on becomes a request that waits until somebody arrives, and expires if the timeout passes first. A run that decides on no action simply completes.
+A scheduled run starts at once, and approval holds only the calls it covers. An agent with `mode: all` on a nightly cron still runs in the small hours, but every action it decides on becomes a request that waits until somebody arrives, and expires if the timeout passes first. A run that decides on no action completes without waiting.
 
 An unattended trigger paired with `mode: all` therefore produces a queue of decisions for the morning rather than work done overnight. If that is not what you want, narrow to `selective` so the routine actions proceed and only the consequential ones wait.

@@ -1,23 +1,35 @@
 title: 'Meridian People'
 tagline: |
-  A small company's HR workspace: the team, who is away, and who decides.
+  A small company's HR workspace: the team, who is away, who decides, and contracts signed online.
 intro: |
   Meridian People — a small company's HR workspace. The directory lists the team and withholds each
   salary from everyone but an admin, on the server; time off shows who is away by name and what waits
   on a decision; a request is filed by the person it concerns and waits on an admin, who decides in the
-  app; and the HR overview counts the team and its time off.
+  app; the HR overview counts the team and its time off; and an employment contract goes out for
+  signature, to the employee then the manager, and comes back signed with its evidence file.
+audience: >-
+  A small company that keeps its people records in one place: everyone on the team, who reads the
+  directory and asks for time off, and HR, who also reads salaries, decides on the requests and sends
+  contracts for signature.
 glance:
-  - '**Tables** (2): employees, time_off_requests'
-  - '**Pages** (5): directory (`/`), time-off, requests (admin), overview (admin), sign-in'
+  - '**Tables** (3): employees, time_off_requests, contracts'
   - |-
-    **Automations** (3): approve-time-off; join-new-account-to-directory (an auth trigger on
-    `signUp`, with an `auth` assignRole step for the People team); and record-to-google-doc — a
-    library recipe (`library/recipe/`, with its `library/connection/google.yaml`) copying a
-    welcome document for each new hire once the Google variables are set
-  - '**Singletons**: auth, design, env'
+    **Pages** (7): directory (`/`), time-off, requests (admin), overview (admin), contracts
+    (admin), sign-in, and contract-signing (`/sign/:token`, opened from a signer's email)
   - |-
-    **Seed data**: `seed/` — twelve sign-in accounts, twelve people with their managers, and eleven
-    time-off requests, dated relative to the day you seed
+    **Automations** (4): approve-time-off; join-new-account-to-directory (an auth trigger on
+    `signUp`, with an `auth` assignRole step for the People team); send-contract-for-signature (a
+    `signature/send` step); and record-to-google-doc — a library recipe (`library/recipe/`, with
+    its `library/connection/google.yaml`) copying a welcome document for each new hire once the
+    Google variables are set
+  - |-
+    **Signing flows** (1): employment_contract (`config/signatures/`), the employee then the
+    manager, each from a link sent to their email
+  - '**Singletons**: auth, design, env, buckets (contracts)'
+  - |-
+    **Seed data**: `seed/` — twelve sign-in accounts, twelve people with their managers, eleven
+    time-off requests dated relative to the day you seed, and one drafted contract with a sample
+    PDF in `seed/assets/`
   - '**Static assets**: `public/` (served at the site root)'
 glanceClose: |
   Config is pre-split: `app.yaml` is the entry point and `$ref`s the files under `config/`.
@@ -26,7 +38,9 @@ assistant: |
   run into `.claude/skills/`; start from `sovrium-app` for any change to the config. The
   design system is in `config/design.yaml`: read its comments before changing a colour, keep
   one accent, and keep colour for the three decisions (approved, pending, rejected). A field a
-  member may not read belongs in the table's `permissions.fields`, never only in a page.
+  member may not read belongs in the table's `permissions.fields`, never only in a page. The
+  signature fields, the signed file, the proof file and `signing_status` of a contract are
+  written by the engine alone: never bind a form or an update step to them.
 whatsInside: |
   - **Directory** (`/`) — everyone at the company by name, role and team. Opening a person
     shows who they report to, their time off this year and their requests. Their salary is
@@ -41,6 +55,13 @@ whatsInside: |
     and marks the request Approved.
   - **HR overview** (admins) — headcount, the requests waiting on a decision, and headcount by
     team and approved days by type.
+  - **Contracts** (admins) — draft an employment contract with its PDF, then **Send for
+    signature**. The employee gets a link by email and signs; the manager's link follows. Once
+    both have signed, the contract holds the signed PDF and a proof file listing each signer,
+    the document fingerprint and every step. This is a simple electronic signature with an
+    evidence file; `sovrium signature verify` checks an exported request. To also ask each
+    signer for a code mailed to their address, set `SIGNATURE_OTP_SECRET` and add
+    `verify: { email: true }` to `config/signatures/employment-contract.yaml`.
 
   - **A new account finds its row** — add the person to the directory, then create their
     account: an automation on the account's creation writes it on the row with the same email,
@@ -74,6 +95,10 @@ whatToTry: |
   4. Open Tomás in the **Directory** as Noor: his salary is there. Open the same card as Tomás:
      it is not, because the server never sent it.
   5. As Tomás, try to open **Requests** or the **HR overview**: you are sent away.
+  6. Set the SMTP variables, restart, and as Noor open **Contracts**: send Dmitri's drafted
+     contract for signature. Open the link mailed to dmitri.sokolov@meridian.example and sign;
+     then the one mailed to Hannah.
+     The contract turns completed, with its signed PDF and proof file.
 env:
   - name: 'SOVRIUM_SEED_PASSWORD'
     section: 'Demo data'
@@ -84,7 +109,7 @@ env:
       do not seed an app other people can reach.
   - name: 'SMTP_HOST'
     section: 'Email (the approval emails and the operator emails)'
-    description: 'Without SMTP_HOST, an admin decides from the Requests page alone.'
+    description: 'Without SMTP_HOST, an admin decides from the Requests page alone, and no signing link or code can be sent.'
   - name: 'SMTP_PORT'
     section: 'Email (the approval emails and the operator emails)'
     description: 'Without SMTP_HOST, an admin decides from the Requests page alone.'
@@ -119,3 +144,27 @@ env:
       and shared with them. Connect the account once from the admin console's
       Connections page. Without them the app runs and only that automation is
       idle.
+  - name: 'SIGNATURE_OTP_SECRET'
+    section: 'Contract signing'
+    description: |-
+      Optional. Needed only once you add `verify: { email: true }` to the
+      signing flow: the one-time codes that confirm each signer's email
+      address are derived from it, and the app will not start without it then.
+      Use at least 32 random characters, for example the output of
+      `openssl rand -base64 48`, and keep it out of version control.
+  - name: 'SIGNATURE_SEAL_KEY'
+    section: 'Contract signing'
+    description: |-
+      Optional. A PEM private key, with SIGNATURE_SEAL_CERT_CHAIN, seals the
+      signed PDF and the proof file so a reader can tell they left this server
+      unchanged. Without them, contracts are signed and completed unsealed.
+  - name: 'SIGNATURE_SEAL_CERT_CHAIN'
+    section: 'Contract signing'
+    description: |-
+      Optional. The PEM certificate chain of SIGNATURE_SEAL_KEY, the seal's
+      certificate first, then its issuers.
+  - name: 'SIGNATURE_TSA_URL'
+    section: 'Contract signing'
+    description: |-
+      Optional. An RFC 3161 timestamp authority: the end of each request's
+      event log, and each seal, are timestamped by a party outside this server.

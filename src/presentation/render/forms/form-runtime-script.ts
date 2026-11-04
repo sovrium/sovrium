@@ -119,7 +119,7 @@ ${FORM_RUNTIME_FIELD_ERRORS_SCRIPT}${FORM_RUNTIME_EDIT_LINK_SCRIPT}${FORM_RUNTIM
         selector: '[data-form-error-message]',
         attr: 'data-form-error-message',
         role: 'alert',
-        className: 'form-error-banner',
+        className: 'form-error-banner ' + (form.getAttribute('data-summary-class') || ''),
         message: msg,
       })
     } else {

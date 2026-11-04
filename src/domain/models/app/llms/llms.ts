@@ -71,6 +71,27 @@ export const LlmsSchema = Schema.Struct({
       })
     )
   ),
+
+  /**
+   * Whether `/llms.txt` also lists the app's own config pages, not only its
+   * content-directory articles. Off unless set, so no existing index changes.
+   *
+   * A config page is listed only when a signed-out visitor can open it, its
+   * path has no dynamic segment (a `:lang` segment excepted), and it declares a
+   * `meta.description`: the description is the author's statement that the page
+   * deserves a line. Each is a `- [meta.title](path): meta.description` bullet
+   * in a section of its own, scoped to its language like every other entry.
+   * `/llms-full.txt` is unchanged: a config page has no markdown body to add.
+   */
+  includeConfigPages: Schema.optional(
+    Schema.Boolean.pipe(
+      Schema.annotate({
+        defaultNote: 'false',
+        description:
+          'Also list in /llms.txt each public config page with no dynamic segment that declares a meta.description',
+      })
+    )
+  ),
 }).pipe(
   Schema.annotate({
     identifier: 'Llms',
@@ -80,6 +101,7 @@ export const LlmsSchema = Schema.Struct({
     examples: [
       { enabled: false },
       { title: 'Sovrium Docs', description: 'The official Sovrium documentation' },
+      { includeConfigPages: true },
     ],
   })
 )

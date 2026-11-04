@@ -7,6 +7,7 @@
 
 import { APIError } from 'better-auth/api'
 import { findDeclaredLanguage } from '@/domain/models/app/languages/language-detection'
+import { PROFILE_WRITING_ROUTES } from './account-opening-routes'
 import type { Languages } from '@/domain/models/app/languages/language'
 import type { createAuthMiddleware } from 'better-auth/api'
 
@@ -41,12 +42,7 @@ type AuthMiddlewareCtx = Parameters<typeof createAuthMiddleware>[0] extends (
  * reading the wrong key silently skips validation. The location is therefore
  * data, not a conditional.
  */
-const LANGUAGE_WRITING_PATHS: ReadonlyMap<string, 'body' | 'data'> = new Map([
-  ['/sign-up/email', 'body'],
-  ['/update-user', 'body'],
-  ['/admin/create-user', 'data'],
-  ['/admin/update-user', 'data'],
-])
+const LANGUAGE_WRITING_PATHS = PROFILE_WRITING_ROUTES
 
 /**
  * Read the `language` field, distinguishing "absent" from "present and null".

@@ -26,6 +26,7 @@ import {
   triggerOfTypeOrFirst,
 } from '@/domain/models/app/automations/trigger-entries-service'
 import { logError } from '@/infrastructure/logging/logger'
+import { calledRunLedgers, handBackWrittenFiles, type CalledRunLedgers } from './called-run-files'
 import { toApiStatus } from './run-status'
 import { cryptoRandomId, isTerminalFailureStatus } from './types'
 import {
@@ -33,6 +34,7 @@ import {
   writeOnlyValuesOfRun,
   type WriteOnlyInheritance,
 } from './write-only-values'
+import type { RunLedgers } from './run-ledger-persistence'
 import type { AutomationInvoker, RunAutomationResult, RunRequirements, StepContext } from './types'
 import type { App } from '@/domain/models/app'
 import type { Trigger } from '@/domain/models/app/automations/trigger'
@@ -70,6 +72,7 @@ export interface AutomationCallRunners {
     readonly relay?: RunRelay
     readonly onPersisted?: (runId: string) => void
     readonly writeOnly?: WriteOnlyInheritance
+    readonly ledgers?: RunLedgers
   }) => Effect.Effect<RunAutomationResult, never, RunRequirements>
 }
 
@@ -162,6 +165,8 @@ const buildSubAutomationRun = (
     /** How many of the caller's steps had run when it called: the relay's reach. */
     readonly stepIndex: number
     readonly onRun: ((runId: string) => void) | undefined
+    /** The files the called run starts with: those its caller wrote. */
+    readonly files: CalledRunLedgers
   },
   runners: AutomationCallRunners
 ): Effect.Effect<RunAutomationResult, never, RunRequirements> =>
@@ -196,6 +201,8 @@ const buildSubAutomationRun = (
       ...(callerRunId === undefined ? {} : { relay: relayFrom(callerRunId, input.stepIndex) }),
       ...(input.onRun === undefined ? {} : { onPersisted: input.onRun }),
       writeOnly: inheritedWriteOnly(ctx),
+      // The temporary files its caller wrote are the called run's own too.
+      ledgers: input.files.ledgers,
     })
   })
 
@@ -226,6 +233,7 @@ export const buildAutomationInvoker =
     return ({ name, inputData, mode, maxDepth, onRun }) => {
       const resolved = resolveCallTarget(ctx, name, inputData, maxDepth)
       if (!resolved.ok) return Promise.reject(resolved.error)
+      const files = calledRunLedgers(ctx.automation.writtenFiles)
       const subRun = buildSubAutomationRun(
         {
           ctx,
@@ -234,6 +242,7 @@ export const buildAutomationInvoker =
           newDepth: resolved.newDepth,
           stepIndex,
           onRun,
+          files,
         },
         runners
       )
@@ -250,6 +259,8 @@ export const buildAutomationInvoker =
         return Promise.resolve({ result: {} })
       }
       return ctx.runProgram(subRun).then((result) => {
+        // The caller waited: the files the called run wrote are its own from now on.
+        handBackWrittenFiles(ctx.automation.writtenFiles, files)
         // What the callee read travels back in whatever it returns, under any
         // name: the caller's history masks it like a value it read itself.
         // eslint-disable-next-line functional/no-expression-statements -- the chain's ledger (`write-only-values.ts`)

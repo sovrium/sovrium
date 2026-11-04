@@ -113,6 +113,8 @@ export interface AuthFormRenderContext {
    * (render-page.tsx → resolveLandingPath) then routes each role onward.
    */
   readonly landingPath?: string
+  /** The `summary` part's classes (`design.components.form` under the node's `classes`). */
+  readonly summaryClassName?: string
 }
 
 /**

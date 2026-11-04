@@ -151,8 +151,23 @@ function LanguageSwitcherButton({
 }
 
 /**
+ * The toggle's accessible name: the visible code first, then the label
+ * ("FR Français"), so a voice-control user who says what they see reaches it
+ * (WCAG 2.5.3 Label in Name). A label already opening with the code as a word
+ * ("FR - Français", not "Français") stands alone.
+ */
+function toggleName(language: Languages['supported'][number]): string {
+  const code = language.code.toUpperCase()
+  const { label } = language
+  const opensWithCode =
+    label.slice(0, code.length).toUpperCase() === code &&
+    !/[\p{L}\p{N}]/u.test(label.charAt(code.length))
+  return opensWithCode ? label : `${code} ${label}`
+}
+
+/**
  * The `toggle` variant, for an app with exactly two languages: one link to the
- * same page in the other language, reading its code and named by its label.
+ * same page in the other language, reading its code and named by that code then its label.
  *
  * Its `href` is the page's own address in that language when the server knows
  * it, else the other language's root, which is where it leads without
@@ -178,7 +193,7 @@ function LanguageToggle({
         href={addresses[other.code] ?? `/${other.code}/`}
         hrefLang={other.code}
         lang={other.locale ?? other.code}
-        aria-label={other.label}
+        aria-label={toggleName(other)}
         data-language-toggle
         data-slot="button"
         className={resolveClasses(

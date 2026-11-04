@@ -11,7 +11,7 @@ import { purgeExpiredAuthRows } from '@/infrastructure/database/auth-expired-row
 import { Database, type DatabaseService } from '@/infrastructure/database/drizzle/layer'
 import { describeSweepFailure } from '@/infrastructure/database/read-write-sweep'
 import { logError } from '@/infrastructure/logging/logger'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { armSweepSchedule } from './arm-sweep-schedule'
 
 /**
  * Arms the daily sweep of expired sign-in rows (`auth-expired-rows-sweep.ts`):
@@ -63,17 +63,10 @@ export const registerAuthExpiredRowsSweepScheduler: Effect.Effect<
 > = Effect.gen(function* () {
   const database = yield* Database
   const scheduler = yield* CronScheduler
-  return yield* scheduler
-    .schedule(SWEEP_CRON_EXPRESSION, () => sweepOnce(database), {
-      jobId: SWEEP_JOB_ID,
-      timezone: resolveOperatorTimezone(process.env),
-    })
-    .pipe(
-      Effect.catch((err) =>
-        Effect.sync(() => {
-          logError('[auth-expired-rows] failed to arm the expired sign-in rows sweep', err)
-          return undefined
-        })
-      )
-    )
+  return yield* armSweepSchedule(scheduler, {
+    cronExpression: SWEEP_CRON_EXPRESSION,
+    jobId: SWEEP_JOB_ID,
+    armFailure: '[auth-expired-rows] failed to arm the expired sign-in rows sweep',
+    sweep: sweepOnce(database),
+  })
 })

@@ -11,6 +11,7 @@ import {
   allowOriginsNavigateConflict,
   successNavigateCheck,
 } from './action-allow-origins'
+import { fetchChannelFields } from './action-fetch-channel'
 
 /**
  * Fetch Toast Response Schema
@@ -27,9 +28,11 @@ export const FetchToastResponseSchema = Schema.Struct({
     description:
       'What the component does once the action returns: navigate away, reset the form, show a message or a success page, send the reader to their role landing, or raise a toast.',
   }),
-  /** Message to display. Supports $variable references. */
+  /** Message to display. Supports $variable references, and `$response.<field>` on a failure. */
   message: Schema.String.annotate({
-    description: 'Toast notification message. Supports $variable references.',
+    description:
+      "Toast notification message. Supports $variable references. In a fetch action's onError, $response.<field> is a dot path into the JSON body of the refused answer, so the toast can quote the server's own reason ($response.message); it resolves to the empty string when the field is absent or the server was not reached.",
+    examples: ['Saved', 'Could not connect: $response.message'],
   }),
   /** Visual variant */
   variant: Schema.optional(
@@ -387,10 +390,10 @@ const FetchErrorStatusSchema = Schema.Struct({
       'props.id of the sibling element the failure message is written into (made a role=alert region). It may be the same element onSuccess.status writes into: the later answer replaces the earlier one.',
     examples: ['export-status', 'export-error'],
   }),
-  /** The failure message. Supports `$variable` references and a `$t:` key. */
+  /** The failure message. Supports `$variable` / `$response.<field>` references and a `$t:` key. */
   message: Schema.String.annotate({
     description:
-      'Failure message written into the target as a role=alert region, kept on screen until the action is run again. Supports $variable references and a $t: key.',
+      'Failure message written into the target as a role=alert region, kept on screen until the action is run again. Supports $variable references, a $t: key, and $response.<field>, a dot path into the JSON body of the refused answer (the empty string when absent or when the server was not reached).',
     examples: ['Couldn’t prepare your export. Nothing was sent.', '$t:export.failed'],
   }),
   /** Label of the Retry button drawn inside the alert. */
@@ -698,6 +701,8 @@ export const FetchActionSchema = Schema.Struct({
    * `/api/auth/admin/*` always-200 enumeration-safe envelope.
    */
   responseEnvelope: Schema.optional(FetchResponseEnvelopeSchema),
+  /** `bindTo` and `sharedFilter`: read a filter channel (see `action-fetch-channel.ts`). */
+  ...fetchChannelFields,
   /**
    * Text the button shows, beside a spinner, while the request is in flight.
    * The button is disabled for that time, so a second press sends nothing.

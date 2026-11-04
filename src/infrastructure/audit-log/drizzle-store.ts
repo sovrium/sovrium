@@ -261,13 +261,6 @@ function readsLeftOut(withoutReads: boolean | undefined) {
 }
 
 /**
- * Return entries matching the optional filter, newest first.
- *
- * Conjunctive filter semantics (every supplied field must match) match the
- * in-memory implementation that the audit-log route already consumes, so the
- * swap is transparent.
- */
-/**
  * Build the conjunctive WHERE predicate for an audit-log filter, or `undefined`
  * when no filter field is set (the caller then selects without a `.where`). Each
  * supplied field (`actorId` / `action` / `transport` / `resourceType`) must match
@@ -295,6 +288,13 @@ export function buildAuditWhere(filter: AuditListFilter = {}) {
   return conditions.length === 1 ? conditions[0] : and(...conditions)
 }
 
+/**
+ * Return entries matching the optional filter, newest first.
+ *
+ * Conjunctive filter semantics (every supplied field must match) match the
+ * in-memory implementation that the audit-log route already consumes, so the
+ * swap is transparent.
+ */
 export async function listAuditEntriesFromDb(
   db: PortableDb,
   filter?: AuditListFilter

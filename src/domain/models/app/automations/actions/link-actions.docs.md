@@ -42,7 +42,7 @@ A campaign link for a product that did not exist at deploy time cannot be declar
 | `shortUrl`    | The absolute address                  |
 | `qrUrl`       | The absolute QR code for that address |
 
-Both URLs are **absolute**, deliberately. They are minted to be pasted into an email, an SMS or a PDF, where a root-relative path has no page to resolve against and is simply a dead string. The origin comes from `BASE_URL` where it is set, otherwise from the address the server actually bound to, and only then from localhost and the port. So set `BASE_URL` in production, because it is what the link a customer clicks will carry.
+Both URLs are **absolute**, deliberately. They are minted to be pasted into an email, an SMS or a PDF, where a root-relative path has no page to resolve against and is a dead string. The origin comes from `BASE_URL` where it is set, otherwise from the address the server actually bound to, and only then from localhost and the port. So set `BASE_URL` in production, because it is what the link a customer clicks will carry.
 
 ## Templates resolve first, then are checked
 

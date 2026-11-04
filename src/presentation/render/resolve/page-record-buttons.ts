@@ -40,6 +40,21 @@ export function bindPageRecordToButtons(
   tableName: string
 ): Component {
   if (componentField(component, 'dataSource') !== undefined) return component
+  return bindRecordToButtonsWithin(component, record, tableName)
+}
+
+/**
+ * A component bound to one record by its own `dataSource` (`mode: 'single'`)
+ * hands that record's id to the `crud` buttons on its table placed inside it,
+ * as a page bound to one record does: the button writes the component's record,
+ * not the page's and not the table's first row. The bound node itself is
+ * entered; a node nested in it with its own `dataSource` is not.
+ */
+export function bindRecordToButtonsWithin(
+  component: Component,
+  record: Node,
+  tableName: string
+): Component {
   if (actsOnTable(component, tableName)) {
     const props: RenderProps = component.props ?? {}
     return props['_record'] !== undefined

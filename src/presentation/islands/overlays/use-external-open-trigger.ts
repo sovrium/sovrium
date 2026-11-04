@@ -50,6 +50,10 @@ function consumePendingOpen(id: string): boolean {
  *    — this closes the drawer so the user
  *    returns to the underlying data-table view with the updated row.
  *
+ *    A form inside THIS drawer's panel that writes a record bubbles the same
+ *    event from itself, which closes the drawer whatever its lifecycle,
+ *    unless the form set `onSuccess.close: false` (`detail.close`).
+ *
  * 4. The `sovrium:close-dialog` CustomEvent an endpoint form declaring
  *    `onSuccess.close` bubbles once its request succeeds — honoured only when
  *    it comes from inside THIS drawer's panel.
@@ -83,14 +87,23 @@ export function useExternalOpenTrigger(
       if (!closeOnCrudSuccess || detail.close === false) return
       setOpen(false)
     })
+    const inPanel = (event: Event): boolean =>
+      (event.target as Element | null)?.closest?.('[role="dialog"]')?.id === id
     const closeHandler = (event: Event): void => {
-      if ((event.target as Element | null)?.closest?.('[role="dialog"]')?.id === id) setOpen(false)
+      if (inPanel(event)) setOpen(false)
+    }
+    // A form inside THIS panel that wrote its record closes it, as a dialog does.
+    const hostedWriteHandler = (event: Event): void => {
+      if (inPanel(event) && (event as CustomEvent<{ close?: boolean }>).detail?.close !== false)
+        setOpen(false)
     }
     document.addEventListener('sovrium:close-dialog', closeHandler)
+    document.addEventListener('sovrium:crud-success', hostedWriteHandler)
     return () => {
       cancelAnimationFrame(raf)
       document.removeEventListener('click', clickHandler)
       document.removeEventListener('sovrium:close-dialog', closeHandler)
+      document.removeEventListener('sovrium:crud-success', hostedWriteHandler)
       unsubscribeOpenDrawer()
       unsubscribeCrudSuccess()
     }

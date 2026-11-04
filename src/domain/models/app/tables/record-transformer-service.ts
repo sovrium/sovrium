@@ -11,6 +11,7 @@ import {
 } from '@/domain/models/app/languages/localized-value-service'
 import { serializeDriverValue } from '@/domain/models/app/tables/driver-value-service'
 import { isSingleAttachmentFieldType } from '@/domain/models/app/tables/field-type-classifier-service'
+import { signatureForRead } from '@/domain/models/app/tables/fields/field-types/media/signature-value-validation'
 import { toStringRelationshipValue } from '@/domain/models/app/tables/record-id-service'
 import { TEXT_STORED_JSON_FIELD_TYPES } from '@/domain/models/app/tables/stored-json-service'
 import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
@@ -366,6 +367,8 @@ function processRawField(
   const jsonParsed = deserializeJsonField(key, decimalString, app, tableName)
   const coerced = coerceBooleanField(key, jsonParsed, app, tableName)
   const fieldType = getFieldType(app, tableName, key)
+  // A signature stored before version 2 reads as client-asserted; the cell is never rewritten.
+  if (fieldType === 'signature') return signatureForRead(coerced) as RecordFieldValue
   return fieldType && isSingleAttachmentFieldType(fieldType)
     ? applyAttachmentDisplayName(coerced)
     : coerced

@@ -45,6 +45,17 @@ A date and time together, stored timezone-aware so a value means the same instan
 
 `default: now` stamps each row with the moment it is written.
 
+Wherever a page shows the value without a format of its own (a list item, a text writing `$record.starts_at`, a record field, a grid cell), it follows the field's options: `dateFormat` writes the date as numbers (`20/11/2026` under `European`), `timeFormat` picks the clock (`13:00` under `24-hour`), and a `format` pattern such as `d MMMM yyyy, HH:mm` replaces both. A component that names its own `format` keeps it. `timeZone: local` shows each reader the time in their own zone in a record field, a description list and a grid cell: the page carries the instant and the browser writes it out. A text writing `$record.starts_at` reads a `local` value in the operator timezone.
+
+```yaml
+- id: 2
+  name: starts_at
+  type: datetime
+  timeZone: Europe/Paris
+  timeFormat: 24-hour
+  dateFormat: European
+```
+
 A datetime is stored as an instant and reads back in UTC, as ISO 8601 ending in `Z`; a value with no zone is taken as UTC. `CAST(<datetime> AS DATE)` in a formula reads the UTC day.
 
 ## `time`

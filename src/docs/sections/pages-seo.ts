@@ -9,6 +9,7 @@ import {
   CustomElementSchema,
   FaviconItemSchema,
   FaviconsConfigSchema,
+  ItemListSourceSchema,
   MetaSchema,
   OpenGraphSchema,
   PreloadItemSchema,
@@ -87,6 +88,7 @@ export const section = defineSection({
       body: seoStructuredDataBody,
       documents: [
         StructuredDataSchema,
+        ItemListSourceSchema,
         FaviconsConfigSchema,
         FaviconItemSchema,
         PreloadItemSchema,
@@ -99,6 +101,7 @@ export const section = defineSection({
         'US-PAGES-META-STRUCTURED-DATA-004',
         'US-PAGES-META-STRUCTURED-DATA-005',
         'US-PAGES-META-STRUCTURED-DATA-006',
+        'US-PAGES-META-STRUCTURED-DATA-007',
         'US-PAGES-META-FAVICONS',
         'US-PAGES-META-PERFORMANCE-HINTS-RESOURCE-HINTS',
       ],

@@ -22,11 +22,11 @@ Two neighbours are documented elsewhere because they belong to another category:
 
 ## `navigation-menu`
 
-A top-level navigation bar supporting nested items and mega-menu layouts. Reference: shadcn/ui Navigation Menu. A top-level entry takes a `muted` ground on hover and while its panel is open. An entry with `children` is a button that discloses a panel of links (`aria-expanded` tells a screen reader whether it is open); it is not a menu, so its rows are links a reader follows like any other, and Escape closes the panel. Without `openOnHover` a panel opens on a click; with it, also when the pointer rests on the entry.
+A top-level navigation bar supporting a sub-menu per item and mega-menu layouts. Reference: shadcn/ui Navigation Menu. A top-level entry takes a `muted` ground on hover and while its panel is open. An entry with `children` is a button that discloses a panel of links (`aria-expanded` tells a screen reader whether it is open); it is not a menu, so its rows are links a reader follows like any other, and Escape closes the panel. Without `openOnHover` a panel opens on a click; with it, also when the pointer rests on the entry. A trigger works before the page's scripts load: the links of its panel are in the served page, so a reader without JavaScript and a search engine reach every destination.
 
 <!-- sovrium:options type:navigation-menu depth=3 -->
 
-Each nav item takes `label`, `href` (omitted on a parent carrying `children`), `description` for the second line in a mega-menu, `icon`, `target` and `rel`, and `children` for a sub-menu.
+Each nav item takes `label`, `href` (omitted on a parent carrying `children`), `description` for the second line in a mega-menu, `icon`, `target` and `rel`, and `children` for a sub-menu. A menu holds two levels: a top item and its `children`. A child's own `children` are not drawn; `sovrium validate` and the server's startup each print a warning naming where they sit.
 
 `layout: bottom-bar` draws the menu as a phone's tab bar instead: fixed to the bottom of the screen above the safe area, each item its `icon` over its `label`, the current page marked, and the page's bottom padding reserved so nothing hides under it. It holds at most five items and no `children`; more, or a sub-menu, is refused at startup. When it shows is the `responsive` key's job: `responsive: { md: { visible: false } }` keeps it to phones, and `props: { aria-label: Sections }` names its navigation landmark.
 
@@ -37,6 +37,8 @@ A menu that opens from a trigger button, with optional nested sub-menus. Referen
 <!-- sovrium:options type:dropdown-menu depth=3 -->
 
 `triggerLabel` defaults to `Menu` and stays the button's accessible name even when `children` supply what is visible. `children` are drawn INSIDE the trigger, for a richer affordance than a word, such as an avatar over a name and an email; the menu itself is `menuItems`, so children can only be the trigger.
+
+A `navigation-menu` and a `dropdown-menu` take two parts beyond `root`, through `classes` or `design.components.<type>`: `content`, the open panel, which is drawn outside the menu at the end of the page, so a class on `root` never reaches it; and `item`, each row in the panel (a navigation menu's links, a dropdown's entries). `classes: { parts: { content: 'rounded-none', item: 'border-l-4' } }` squares one menu's panel and marks each of its rows. A navigation menu's panel takes the same classes in the served page as once its scripts have loaded.
 
 ### Item actions
 
@@ -116,7 +118,7 @@ A page's hierarchy is already stated in its `path`, so enumerating it a second t
     tables: Tables
 ```
 
-At `/data/tables/customers` that renders **Data › Tables › customers**, with `Data` linking to `/data` and `Tables` to `/data/tables`. A segment with no `labels` entry falls back to itself, so the map stays optional rather than exhaustive.
+At `/data/tables/customers` that renders **Data › Tables › customers**, with `Data` linking to `/data` and `Tables` to `/data/tables`. A segment with no `labels` entry falls back to itself, so the map need not list every segment.
 
 Declaring `breadcrumbItems` and `derive` together is refused at startup: there is no defensible precedence between an authored trail and a derived one. So is `labels` without `derive`, which would silently do nothing.
 

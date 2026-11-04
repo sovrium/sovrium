@@ -96,7 +96,7 @@ export function DesignedRadioQuestion({
           defaultValue={defaultValue}
         />
       </div>
-      <HelpText html={field.helpTextHtml} />
+      <HelpText field={field} />
     </div>
   )
 }

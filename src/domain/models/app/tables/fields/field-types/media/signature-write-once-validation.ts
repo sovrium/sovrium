@@ -41,10 +41,34 @@ const canonical = (value: unknown): string =>
   )
 
 /** Whether a stored cell holds a signature. */
-const isSigned = (value: unknown): boolean => {
+export const isSigned = (value: unknown): boolean => {
   const stored = parsed(value)
   return stored !== null && stored !== undefined && stored !== ''
 }
+
+/**
+ * Whether `value` is the signature `held` stores. A value read back from a cell
+ * stored before version 2 carries the read's `provenance` label, which the cell
+ * does not: a client resending what it read keeps the cell, label or not.
+ */
+const sameSignature = (held: unknown, value: unknown): boolean => {
+  const stored = parsed(held)
+  const sent = parsed(value)
+  if (canonical(stored) === canonical(sent)) return true
+  if (typeof sent !== 'object' || sent === null || Array.isArray(sent)) return false
+  const { provenance, ...rest } = sent as Readonly<Record<string, unknown>>
+  return provenance === 'client-asserted' && canonical(stored) === canonical(rest)
+}
+
+/**
+ * Whether a write of `value` leaves the cell as `held` holds it: the very value
+ * stored, or nothing over an empty cell. What a resubmitted form sends for a
+ * field it may not change.
+ */
+export const keepsStoredValue = (held: unknown, value: unknown): boolean =>
+  isSigned(held)
+    ? sameSignature(held, value)
+    : value === null || value === undefined || value === ''
 
 /**
  * The first signature field the update would change on a row that already
@@ -60,8 +84,6 @@ export const signatureOverwriteOf = (input: {
   return input.fields
     .filter((field) => field.type === 'signature' && Object.hasOwn(update, field.name))
     .find(
-      (field) =>
-        isSigned(held[field.name]) &&
-        canonical(parsed(held[field.name])) !== canonical(parsed(update[field.name]))
+      (field) => isSigned(held[field.name]) && !sameSignature(held[field.name], update[field.name])
     )?.name
 }

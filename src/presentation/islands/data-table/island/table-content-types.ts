@@ -50,6 +50,8 @@ export interface TableContentProps {
    * sideways only.
    */
   readonly layout?: DataTableLayout
+  /** Drawn inside another component: with no row at all, no header and a compact empty state. */
+  readonly embedded?: boolean
   readonly cellClass: string
   readonly borderClass: string
   readonly emptyMessage: string
@@ -64,6 +66,8 @@ export interface TableContentProps {
   readonly globalFilter?: string
   /** Whether a control on the page narrowed the read — see `TableBodyRowsProps`. */
   readonly narrowed?: boolean
+  /** The read failed before any row arrived: the grid cannot say it is empty. */
+  readonly unanswered?: boolean
   readonly selectionMode?: 'none' | 'single' | 'multiple'
   readonly groupByConfig?: ViewGroupBy
   /**

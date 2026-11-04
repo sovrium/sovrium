@@ -44,9 +44,10 @@ export const designSystemImportFormatSchema = Schema.Literals([
   'style-dictionary',
   'dtcg',
   'css',
+  'design-md',
 ]).annotate({
   description:
-    'The source format: a Claude Design `tokens.json`, a Figma Variables DTCG export, Tokens Studio sets, a Style Dictionary token tree, DTCG with a resolver or a dark file, or CSS variables and a Tailwind `@theme` block',
+    'The source format: a Claude Design `tokens.json`, a Figma Variables DTCG export, Tokens Studio sets, a Style Dictionary token tree, DTCG with a resolver or a dark file, CSS variables and a Tailwind `@theme` block, or a `DESIGN.md` whose front matter carries tokens',
 })
 
 /** Why a token was not placed in `design`. */

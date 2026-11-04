@@ -19,7 +19,8 @@
  * hundred items does not allocate a hundred closures per render.
  */
 
-import { useCallback, type SyntheticEvent } from 'react'
+import { createElement, useCallback, type ReactNode, type SyntheticEvent } from 'react'
+import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { useRecordSelectionToggle } from '../hooks/use-lazy-shared-filter-publisher'
 import { cardPathClick, openCardDrawer, seekFromCard } from '../runtime/card-click'
@@ -63,6 +64,28 @@ function runRowClick(click: RowClick, record: Row, table: string | undefined): v
   }
 }
 
+/**
+ * The title of an item whose click navigates, as a link to the address that
+ * click follows, through the same same-site check (a refused address leaves
+ * the title as text); `undefined` for any other action. Followed in this tab,
+ * as the item's click is.
+ *
+ * The caller passes no click while one is withheld: the rows the server drew
+ * hold no control until the list's read answers, and an item with no title
+ * keeps its own tab stop rather than losing it to a link it does not have.
+ */
+export function listItemTitleLink(
+  onRowClick: unknown
+): ((title: string | undefined, record: Row) => ReactNode) | undefined {
+  const click = onRowClick as RowClick | null | undefined
+  if (click?.type !== 'navigate') return undefined
+  return (title, record) => {
+    // The schema holds a `navigate` action's `path` to a string.
+    const href = toSafeRedirectPath(substituteRecordVars(click.path as string, record))
+    return title && href && createElement('a', { href }, title)
+  }
+}
+
 /** The item an event landed on, as its index among the list's items. */
 function itemIndexOf(event: SyntheticEvent<HTMLUListElement>): number {
   const item = (event.target as Element).closest('[data-list-item]')
@@ -85,6 +108,8 @@ export function useListRowClick(
   const handler = useCallback(
     (event: SyntheticEvent<HTMLUListElement>) => {
       if ('key' in event && event.key !== 'Enter') return
+      // An item's own link follows itself: running the row click too would navigate twice.
+      if ((event.target as Element).closest('a')) return
       const record = records[itemIndexOf(event)]
       if (record === undefined) return
       select?.(record['id'])

@@ -8,7 +8,7 @@
 import { credentialAddedEmail, type AddedCredentialKind } from '../../email/credential-added-email'
 import { sendEmail } from '../../email/email-service'
 import { recipientEmailWords, type EmailWords } from '../../email/email-words'
-import { logError } from '../../logging'
+import { logMailFailure } from './mail-failure-log'
 import type { Languages } from '@/domain/models/app/languages'
 
 /** The account a credential was added to. */
@@ -49,7 +49,7 @@ const createCredentialAddedHandler =
         }),
       })
     } catch (error) {
-      logError(`[EMAIL] Failed to send credential notice to ${owner.email}`, error)
+      logMailFailure('credential notice', owner.email, error)
     }
   }
 

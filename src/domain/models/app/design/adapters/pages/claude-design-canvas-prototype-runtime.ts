@@ -369,6 +369,12 @@ export const PROTOTYPE_RUNTIME = String.raw`function (config, doc, props, makeSt
       if (!group || !unplayed(trigger)) return
       trigger.removeAttribute('disabled')
       trigger.setAttribute('aria-expanded', 'false')
+      // The served page draws each panel as a native popover beside its trigger,
+      // for a reader without scripts; the menu replaces it, so its links are
+      // drawn once, by the panel below.
+      var served = trigger.nextElementSibling
+      if (served && served.matches('[data-slot="navigation-menu-content"][popover]')) served.remove()
+      trigger.removeAttribute('popovertarget')
       var panel = null
       var close = function () {
         if (!panel) return

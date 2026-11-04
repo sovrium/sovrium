@@ -6,10 +6,8 @@
  */
 
 import { APIError, getSessionFromCtx } from 'better-auth/api'
+import { CHANGE_EMAIL_PATH } from './account-opening-routes'
 import type { AuthMiddlewareCtx } from './hook-context'
-
-/** The self-service door that moves an account to another address. */
-const CHANGE_EMAIL_PATH = '/change-email'
 
 /**
  * Refuse to start an email change from a session that is not fresh.

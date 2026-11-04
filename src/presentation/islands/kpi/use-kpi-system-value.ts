@@ -5,8 +5,9 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useQuery } from '@tanstack/react-query'
-import { useLiveRefresh } from '../hooks/use-realtime-subscription'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useEffect, useRef } from 'react'
+import { resolveRefetchInterval, useLiveRefresh } from '../hooks/use-realtime-subscription'
 import {
   fetchSystemEnvelope,
   systemEnvelopeQueryKey,
@@ -39,6 +40,12 @@ import type { KpiSystemSource } from '@/domain/models/app/pages/components/compo
  * scalar/template value from the shared cached envelope via the query `select`,
  * with NO extra fetch.
  */
+
+/**
+ * The tile whose interval polls each shared entry, page-wide: one read per
+ * interval for the group, whichever tile mounted first, handed on when it unmounts.
+ */
+const pollLeaders = new Map<string, object>()
 
 /** Neutral em-dash placeholder rendered when a system value can't be resolved. */
 export const KPI_NEUTRAL_VALUE = '—'
@@ -113,11 +120,18 @@ function resolveSystemValue(system: KpiSystemSource, envelope: unknown): KpiSyst
  * surfacing a raw error region.
  *
  * A sibling's `onSuccess.refetch` naming this tile's host re-reads the
- * envelope; a system binding has no table, so it never polls or subscribes.
+ * envelope. With `refreshMode: poll` the tile re-reads it every
+ * `pollIntervalMs` while the tab is visible (an endpoint has no change feed, so
+ * it never subscribes). Every tile on the endpoint runs its own interval, but
+ * only the first tile's ticks read, and none while a read is out: the group
+ * costs one request per interval, not one per tile. A failed poll leaves the
+ * cached envelope in place, so the tile keeps its last figure.
  */
 export function useKpiSystemValue(system: KpiSystemSource | undefined) {
+  const client = useQueryClient()
+  const queryKey = systemEnvelopeQueryKey(system)
   const query = useQuery({
-    queryKey: systemEnvelopeQueryKey(system),
+    queryKey,
     enabled: Boolean(system?.endpoint),
     queryFn: () => fetchSystemEnvelope(system),
     // Per-tile derivation off the SHARED cached envelope — no extra fetch. The
@@ -128,6 +142,21 @@ export function useKpiSystemValue(system: KpiSystemSource | undefined) {
         ? { kind: 'neutral' }
         : resolveSystemValue(system, result.envelope),
   })
-  useLiveRefresh(system === undefined ? undefined : {}, query.refetch)
+  const every = resolveRefetchInterval(system?.refreshMode, system?.pollIntervalMs)
+  const token = useRef({}).current
+  const entry = JSON.stringify([...queryKey, every])
+  useEffect(
+    () => () => {
+      if (pollLeaders.get(entry) === token) pollLeaders.delete(entry)
+    },
+    [entry, token]
+  )
+  const pollShared = (): void => {
+    const leader = pollLeaders.get(entry)
+    if (leader !== undefined && leader !== token) return
+    pollLeaders.set(entry, token)
+    if (client.getQueryState(queryKey)?.fetchStatus !== 'fetching') void query.refetch()
+  }
+  useLiveRefresh(system === undefined ? undefined : { system }, query.refetch, pollShared)
   return query
 }

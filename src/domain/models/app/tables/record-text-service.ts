@@ -24,6 +24,7 @@
  * Effect-free and DOM-free by construction: islands import it.
  */
 
+import { formatDateRecipe, type DateRecipe } from '../../../kernel/format/date-recipe'
 import {
   formatDurationValue,
   type DurationDisplayFormat,
@@ -46,6 +47,12 @@ interface CellTextField {
   readonly glue?: string
   /** The unit a `duration` column format reads a number in (seconds on a duration field). */
   readonly durationUnit?: DurationInputUnit
+  /**
+   * How a date-time reads when its field says so: a `datetime` field's own
+   * `format`, `dateFormat` and `timeFormat`, or the clock a `time` reading takes
+   * from its `timeFormat` — a recipe the browser can follow as the server does.
+   */
+  readonly recipe?: DateRecipe
 }
 
 /** A `percentage` field: the stored 0–100 value with `%`, at the field's precision. */
@@ -150,8 +157,9 @@ const formatCell = (
   field: CellTextField,
   tag: string,
   now: Readonly<Date>
-): string =>
-  field.format === 'datetime' && field.glue !== undefined
+): string => {
+  if (field.recipe !== undefined) return formatDateRecipe(value, field.recipe, tag, field.timeZone)
+  return field.format === 'datetime' && field.glue !== undefined
     ? formatDateTimeJoined(value, tag, field.glue, field.timeZone)
     : formatCellValue(field.format === 'yes-no' ? isChecked(value) : value, field.format, tag, {
         ...(field.currency === undefined ? {} : { currency: field.currency }),
@@ -159,6 +167,7 @@ const formatCell = (
         now,
         ...(field.durationUnit === undefined ? {} : { durationUnit: field.durationUnit }),
       })
+}
 
 /**
  * One value as it reads in a sentence, in `locale`. `now` is the instant a short

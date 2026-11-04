@@ -99,6 +99,8 @@ export class BatchRepository extends Context.Service<
       written?: {
         readonly accounts?: readonly AccountReference[] | undefined
         readonly judge?: InTransactionRuleJudge | undefined
+        /** Columns written only while empty (signatures): a filled one refuses the batch. */
+        readonly writeOnce?: readonly string[] | undefined
       }
     ) => Effect.Effect<
       readonly Record<string, unknown>[],
@@ -157,6 +159,8 @@ export class BatchRepository extends Context.Service<
          * included.
          */
         readonly judge?: InTransactionRuleJudge | undefined
+        /** Columns a matched row has written only while empty (signatures), as on `batchUpdate`. */
+        readonly writeOnce?: readonly string[] | undefined
       }
     ) => Effect.Effect<
       UpsertResult,

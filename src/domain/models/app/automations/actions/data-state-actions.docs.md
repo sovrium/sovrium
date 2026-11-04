@@ -90,10 +90,10 @@ Six operators persisting values **between** runs: counters, cursors, deduplicati
 
 Both optional scoping properties are format-constrained, and a value outside the format fails when the configuration is decoded rather than at runtime:
 
-| Property    | Format                                          | Accepted                | Refused            |
-| ----------- | ----------------------------------------------- | ----------------------- | ------------------ |
-| `namespace` | Lowercase kebab-case, starting with a letter    | `metrics`, `sync-state` | `Metrics`, `my_ns` |
-| `ttl`       | A number followed by `ms`, `s`, `m`, `h` or `d` | `30s`, `24h`            | `1 hour`, `3600`   |
+| Property    | Format                                                          | Accepted                | Refused            |
+| ----------- | --------------------------------------------------------------- | ----------------------- | ------------------ |
+| `namespace` | Lowercase kebab-case, starting with a letter                    | `metrics`, `sync-state` | `Metrics`, `my_ns` |
+| `ttl`       | A number followed by `ms`, `s`, `m`, `h`, `d` or `y` (365 days) | `30s`, `24h`, `1y`      | `1 hour`, `3600`   |
 
 ### `filterNew`: act only on what appeared since the last run
 

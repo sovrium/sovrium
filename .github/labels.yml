@@ -52,6 +52,7 @@ axes:
       pages: Pages, components, layout and rendering
       records-api: Reading and writing table records over HTTP
       security: Public hardening features (never a vulnerability report)
+      signatures: Signature requests, signing and the evidence file
       tables: Tables, fields, views and permissions
       templates: The starter apps that sovrium init scaffolds
       theming: Themes, light and dark mode

@@ -6,6 +6,7 @@
  */
 
 import { Context, Data } from 'effect'
+import type { AnalyticsProfile } from '@/domain/models/app/analytics/analytics-profile-service'
 import type { Effect } from 'effect'
 
 // ============================================================================
@@ -100,9 +101,11 @@ export interface UnminimisedEventsPage {
   readonly limit: number
 }
 
-/** The identifiers and properties one row is rewritten with. */
+/** The identifiers, event name and properties one row is rewritten with. */
 export interface MinimisedEventWrite {
   readonly id: string
+  /** The row's minimised `event_name`; omitted, the stored one is kept. */
+  readonly eventName?: string | null
   readonly visitorHash: string
   readonly sessionHash: string
   readonly properties: Readonly<Record<string, unknown>>
@@ -276,6 +279,12 @@ export class AnalyticsRepository extends Context.Service<
     /** Overwrite one row's identifiers and properties; its other columns are kept. */
     readonly rewriteEvent: (
       write: MinimisedEventWrite
+    ) => Effect.Effect<void, AnalyticsDatabaseError>
+    /** The analytics profile the last start ran under, as recorded in the database. */
+    readonly readSweptProfile: Effect.Effect<string | undefined, AnalyticsDatabaseError>
+    /** Record the analytics profile this start ran under. */
+    readonly recordSweptProfile: (
+      profile: AnalyticsProfile
     ) => Effect.Effect<void, AnalyticsDatabaseError>
     /**
      * ONE grouped count for many names at once — a page of links reads its

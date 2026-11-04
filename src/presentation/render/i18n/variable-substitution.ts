@@ -152,11 +152,54 @@ export function substituteChildrenVariables<T extends ComponentEntry>(
     return {
       ...child,
       ...substituteActiveMarker(child, vars),
+      ...substitutePlacementValues(child, vars),
       props: substitutedProps,
       children: substitutedChildren,
       content: substitutedContent,
     }
   })
+}
+
+/** The two keys a placement passes its values under. */
+const PLACEMENT_VALUE_KEYS = ['vars', 'variables'] as const
+
+/** Every string under `value` with `vars` substituted; keys are left as written. */
+function substituteValuesDeep(value: unknown, vars: Record<string, unknown>): unknown {
+  if (typeof value === 'string') return substituteVariableValues(value, vars)
+  if (Array.isArray(value)) return value.map((item: unknown) => substituteValuesDeep(item, vars))
+  if (value === null || typeof value !== 'object') return value
+  return Object.fromEntries(
+    Object.entries(value).map(([key, entry]) => [key, substituteValuesDeep(entry, vars)])
+  )
+}
+
+/**
+ * Substitutes the enclosing template's variables into the values a placement
+ * written inside it passes on, returning only the keys the node carries.
+ *
+ * A template placing another one (`{ component: cta, vars: { text: 'Choose
+ * $plan' } }` inside `plan-card`) feeds the inner template from its own
+ * variables, so each placement of the outer template passes its own values
+ * down. Only the values WRITTEN in the template are read: what a page passed
+ * the outer template arrives here already substituted into them, in one pass,
+ * and is never read a second time. Names are left as written: they are the
+ * inner template's variables, not attributes.
+ */
+export function substitutePlacementValues(
+  node: object,
+  vars?: Record<string, unknown>
+): Record<string, unknown> {
+  const record = node as Record<string, unknown>
+  const placed = record['component'] ?? record['$ref']
+  if (!vars || typeof placed !== 'string') return {}
+  return Object.fromEntries(
+    PLACEMENT_VALUE_KEYS.flatMap((key) => {
+      const value = record[key]
+      return value !== null && typeof value === 'object' && !Array.isArray(value)
+        ? [[key, substituteValuesDeep(value, vars)]]
+        : []
+    })
+  )
 }
 
 /** The two keys of the current-item marker, which compare and merge placement vars. */

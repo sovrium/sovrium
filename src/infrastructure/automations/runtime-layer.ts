@@ -15,6 +15,7 @@ import { OAuthClientRegistrarLive } from '@/infrastructure/auth/better-auth/oaut
 import { BrowserDriverLive } from '@/infrastructure/browser/browser-driver-live'
 import { OAuthTokenClientLive } from '@/infrastructure/connections/oauth-token-client-live'
 import { SentinelTokensLive } from '@/infrastructure/connections/sentinel-tokens-live'
+import { TimestampAuthorityLive } from '@/infrastructure/crypto/timestamp-authority-live'
 import { AuditLogRepositoryLive } from '@/infrastructure/database/repositories/admin/audit-log-repository-live'
 import { AiEmbeddingRepositoryActive } from '@/infrastructure/database/repositories/ai/ai-embedding-repository-live'
 import { AnalyticsRepositoryLive } from '@/infrastructure/database/repositories/analytics/analytics-repository-live'
@@ -34,6 +35,8 @@ import { NotificationRepositoryLive } from '@/infrastructure/database/repositori
 import { ConnectionRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-repository-live'
 import { ConnectionTokenRepositoryLive } from '@/infrastructure/database/repositories/connections/connection-token-repository-live'
 import { LinkRepositoryLive } from '@/infrastructure/database/repositories/links/link-repository-live'
+import { SignatureEvidenceRepositoryLive } from '@/infrastructure/database/repositories/signatures/signature-evidence-repository-live'
+import { SignatureRequestRepositoryLive } from '@/infrastructure/database/repositories/signatures/signature-request-repository-live'
 import { DataSourceRepositoryLive } from '@/infrastructure/database/repositories/tables/data-source-repository-live'
 import { TableLive } from '@/infrastructure/database/table-live-layers'
 import { OutboundHttpLive } from '@/infrastructure/egress/outbound-http-live'
@@ -43,7 +46,10 @@ import { EmailSenderLive } from '@/infrastructure/email/email-sender-live'
 import { DocumentRendererLive } from '@/infrastructure/export/document-renderer-live'
 import { OfficeConverterLive } from '@/infrastructure/export/office-converter-live'
 import { PdfEditorLive } from '@/infrastructure/export/pdf-editor-live'
+import { PdfSealerLive } from '@/infrastructure/export/pdf-sealer-live'
 import { PdfToolkitLive } from '@/infrastructure/export/pdf-toolkit-live'
+import { SignatureDocumentIntakeLive } from '@/infrastructure/export/signature-document-intake-live'
+import { SignaturePdfLive } from '@/infrastructure/export/signature-pdf-live'
 import { AppSelfSeederLive } from '@/infrastructure/process/app-self-seeder-live'
 import { ProcessRunnerLive } from '@/infrastructure/process/process-runner-live'
 import { SystemdSupervisorLive } from '@/infrastructure/process/systemd-supervisor-live'
@@ -236,12 +242,23 @@ export const AutomationRuntimeLayer = Layer.mergeAll(
   SvgRasterizerLive,
   // `PdfToolkit` — PDF structure for `pdf/*` (pure JS, loaded on first use).
   PdfToolkitLive,
+  // `SignaturePdf` — where a `signature/send` places each mark, checked on the frozen copy.
+  SignaturePdfLive,
+  // The organisation seal and the timestamp authority a completion seals with (`SIGNATURE_*`).
+  PdfSealerLive,
+  TimestampAuthorityLive,
   // `PdfEditor` — split, pages, marks, forms, inspect, pictures for `pdf/*`.
   PdfEditorLive,
+  // `SignatureDocumentIntake` — the document a `signature/send` freezes, checked and rewritten.
+  SignatureDocumentIntakeLive,
+  // `SignatureRequestRepository` — the signing requests `signature/send` and `signature/cancel` move.
+  SignatureRequestRepositoryLive,
   // `OfficeConverter` — Office files → PDF for `document/convert` (`OFFICE_*`).
   OfficeConverterLive,
   AnalyticsRepositoryLive,
   DataSourceRepositoryLive,
+  // `SignatureEvidenceRepository` — a record a step deletes for good takes its record captures' evidence.
+  SignatureEvidenceRepositoryLive,
   ServerOriginLive,
   // `InstanceSupervisor` — the `instance/*` steps: systemd units and release
   // directories of the other apps on this host, run through its private

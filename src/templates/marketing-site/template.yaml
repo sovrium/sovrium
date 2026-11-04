@@ -6,6 +6,9 @@ intro: |
   features page, a product tour, pricing, an about page, a blog and a single article, a
   long-form guide, a contact page and two pages for lost visitors. Every piece of copy in square brackets is a placeholder to replace
   with your own.
+audience: >-
+  A company that needs a marketing website and replaces the placeholder copy with its own.
+  Visitors never sign in; the owner reads the contact messages in the admin.
 glance:
   - |-
     **Tables** (4): posts (the blog sections read it), orders (the live figures read it, through a

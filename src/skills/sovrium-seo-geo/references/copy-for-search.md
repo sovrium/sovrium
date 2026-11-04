@@ -60,7 +60,7 @@ specificity and evidence help.
 - Decorative images have empty alternative text, so they are skipped.
 - Do not start with "Image of" or "Picture of"; assistive technology already announces an image.
 - Name files descriptively as well (`overdue-invoices.webp`, not `IMG_0042.webp`).
-- Image options: `sovrium docs components/media-components`.
+- Image options: `sovrium docs components-presentation/media-components`.
 
 ## Headings that answer the question
 

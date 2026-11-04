@@ -30,8 +30,9 @@ import {
   InlineEditor,
 } from './inline-cell-editing'
 import { useGridString } from './island/grid-strings'
-import { performRowAction } from './row-action'
+import { performRowAction, rowEnterHandler, rowLinkPlacement, type RowLink } from './row-action'
 import { useRowPaint } from './row-color'
+import { RowLinkAnchor } from './row-link'
 import type { CellMeta, DataRowContext } from './data-row-types'
 import type { GridCursor } from './island/grid-cursor-model'
 import type { DataTableCell, DataTableRow } from './island/table-features'
@@ -216,10 +217,12 @@ function DataCell({
   cell,
   ctx,
   suppressRowClick,
+  link,
 }: {
   readonly cell: DataTableCell
   readonly ctx: DataRowContext
   readonly suppressRowClick: boolean
+  readonly link?: RowLink
 }): ReactElement {
   const { meta } = cell.column.columnDef
   const presentation = cellPresentation(meta, cell.getValue())
@@ -255,7 +258,7 @@ function DataCell({
         onKeyDown: cellKeyDownHandler(onDoubleClick),
       })}
     >
-      {content}
+      {link === undefined ? content : <RowLinkAnchor link={link}>{content}</RowLinkAnchor>}
       <AiRefinementMarker
         status={refinement}
         placement="tooltip"
@@ -314,16 +317,9 @@ export function DataRow({
 }): ReactElement {
   const hasRowAction = ctx.onRowClickAction !== undefined
   const rowIsClickable = hasRowAction || ctx.selectionMode === 'single'
+  const cells = row.getVisibleCells()
+  const { link, linkCellId } = rowLinkPlacement(row, cells, ctx)
   const activate = (target?: Element) => performRowAction(row, ctx, target)
-
-  // R3: a row carrying a row action is focusable and answers Enter (a bare
-  // `<tr onClick>` has no keyboard route). The `target !== currentTarget` guard
-  // keeps an Enter inside a cell (or its open editor) from firing it too.
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTableRowElement>) => {
-    if (e.target !== e.currentTarget || e.key !== 'Enter') return
-    e.preventDefault()
-    activate(e.currentTarget)
-  }
 
   const selected = row.getIsSelected()
   const markers = useRowMarkers(row)
@@ -348,15 +344,17 @@ export function DataRow({
         onMouseEnter: paint.onMouseEnter,
         onMouseLeave: paint.onMouseLeave,
       })}
-      {...(hasRowAction && { tabIndex: 0, onKeyDown: handleKeyDown })}
+      {...(hasRowAction &&
+        linkCellId === undefined && { tabIndex: 0, onKeyDown: rowEnterHandler(activate) })}
     >
       {/* By column: `cell.id` holds the row INDEX, so a moved record remounted its cells. */}
-      {row.getVisibleCells().map((cell) => (
+      {cells.map((cell) => (
         <DataCell
           key={cell.column.id}
           cell={cell}
           ctx={ctx}
           suppressRowClick={rowIsClickable}
+          {...(cell.column.id === linkCellId && { link })}
         />
       ))}
     </tr>

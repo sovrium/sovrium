@@ -6,6 +6,7 @@
  */
 
 import { Data, Effect } from 'effect'
+import { runAsServerWrite } from '@/infrastructure/auth/better-auth/server-write-context'
 import type { ScimGroupRow, ScimUserRow } from './scim-resources'
 import type { App } from '@/domain/models/app'
 import type { createAuthInstance } from '@/infrastructure/auth/better-auth/auth'
@@ -98,15 +99,18 @@ export const UNVERIFIED_ACCOUNT_DETAIL =
  * Create a provisioned user; Better Auth's create hooks give it the default
  * role. Its address is the directory's, which vouches for it, so it is stored
  * verified: that keeps it the directory's to manage once its person signs in
- * (see {@link isUnverifiedSelfRegistered}).
+ * (see {@link isUnverifiedSelfRegistered}). The SCIM routes are not Better
+ * Auth endpoints, so the creation runs as the server's own write.
  */
 export const createUser = async (
   ctx: ScimAuthContext,
   data: { readonly email: string; readonly name: string }
 ): Promise<ScimUserRow> =>
-  (await ctx.internalAdapter.createUser(
-    { email: data.email, name: data.name, emailVerified: true },
-    { method: 'scim' }
+  (await runAsServerWrite(ctx, () =>
+    ctx.internalAdapter.createUser(
+      { email: data.email, name: data.name, emailVerified: true },
+      { method: 'scim' }
+    )
   )) as ScimUserRow
 
 /** Rename a user. */

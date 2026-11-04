@@ -51,7 +51,6 @@ export interface MenuIslandProps {
    */
   readonly footerContent?: ReactNode
   readonly triggerClassName?: string
-  readonly triggerAriaLabel?: string
   /**
    * Popup surface tone (`popupVariant` schema field). `inverted` paints a
    * near-black primary popup with light items so the menu matches a near-black
@@ -71,6 +70,10 @@ export interface MenuIslandProps {
    * server renderer, never authored; `dropdown-menu` when absent.
    */
   readonly menuKind?: MenuKind
+  /** The `content` part: the open panel, drawn outside the menu at the end of the page. */
+  readonly contentClassName?: string
+  /** The `item` part: each entry in the panel. */
+  readonly itemClassName?: string
   readonly className?: string
   readonly id?: string
   readonly 'data-testid'?: string

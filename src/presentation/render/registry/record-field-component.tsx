@@ -29,8 +29,13 @@ import {
 } from '@/domain/models/app/languages/translation-resolver'
 import { computeRecordFieldValueClasses } from '@/presentation/design/display-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { readerZoneText } from '@/presentation/render/elements/reader-zone-time'
 import { applyProsePartClasses } from '@/presentation/render/markdown/prose-part-classes'
-import { formatRecordValue, storedValueText } from '@/presentation/render/props/record-value-format'
+import {
+  formatRecordValue,
+  readerZoneReadingOf,
+  storedValueText,
+} from '@/presentation/render/props/record-value-format'
 import { islandLoadingLabel, islandUiStrings } from './island-loading-label'
 import { ATTACHMENT_FIELD_TYPES, renderAttachmentLinks } from './record-attachment-links'
 import { islandFallback, renderSpecimenDash } from './specimen-island-states'
@@ -225,7 +230,11 @@ function renderPlainText(
       data-component="record-field"
       data-component-type="record-field"
     >
-      {text === '' ? <span data-slot="record-field-empty">—</span> : text}
+      {text === '' ? (
+        <span data-slot="record-field-empty">—</span>
+      ) : (
+        readerZoneText(text, readerZoneReadingOf(value, binding), binding.locale)
+      )}
     </div>
   )
 }

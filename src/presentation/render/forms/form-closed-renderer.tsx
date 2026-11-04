@@ -6,8 +6,9 @@
  */
 
 /* eslint-disable react-refresh/only-export-components -- SSR-only closed-form
-   page component co-located with its `renderClosedFormPage` serialisation
-   helper; never participates in client-side HMR. Mirrors form-renderer.tsx. */
+   page and notice components co-located with their `renderClosedFormPage` /
+   `renderClosedFormNotice` serialisation helpers; never participates in
+   client-side HMR. Mirrors form-renderer.tsx. */
 
 import { renderToString } from 'react-dom/server'
 import { findDeclaredDirection } from '@/domain/models/app/languages/language-detection'
@@ -100,28 +101,77 @@ const resolveClosedCopy = (
   }
 }
 
-function ClosedFormPage(props: {
-  readonly form: Readonly<Form>
+/** The form's authored `availability.closedPage`, when it has one. */
+const closedPageOf = (form: Readonly<Form>): ClosedPageConfig | undefined =>
+  (form.availability as { readonly closedPage?: ClosedPageConfig } | undefined)?.closedPage
+
+/**
+ * What a closed form says, wherever it is shown: its copy in the document
+ * language, the language itself, and the link target an authored
+ * `closedPage.cta` names.
+ */
+interface ClosedNotice extends ClosedCopy {
+  readonly documentLang: string
+  readonly ctaHref: string | undefined
+}
+
+/**
+ * Resolve a closed form's notice for a request. The language is the one the
+ * visitor asked for (`?lang=`, or the host page's language for an embed) when
+ * the app supports it, else the app's default — the same choice the open form
+ * makes.
+ */
+const resolveClosedNotice = (
+  form: Readonly<Form>,
+  reason: ClosedReason,
+  languages: Languages | undefined,
+  request: ClosedFormRequest
+): ClosedNotice => {
+  const closedPage = closedPageOf(form)
+  const documentLang = resolveDocumentLang(languages, request.activeLang)
+  return {
+    ...resolveClosedCopy(form, reason, closedPage, { languages, request, documentLang }),
+    documentLang,
+    ctaHref: closedPage?.cta?.href,
+  }
+}
+
+/**
+ * The notice itself — heading, sentence, optional link — the ONE markup both
+ * the form's own page and a page embedding it with `formRef` draw, so the two
+ * read alike. The page wraps it in its `<main>`; an embed, standing inside its
+ * host page's `<main>`, in a `<div>`, headed at the embed's heading level.
+ */
+function ClosedFormNotice(props: {
+  readonly notice: ClosedNotice
   readonly reason: ClosedReason
-  readonly request: ClosedFormRequest
-  readonly closedPage: ClosedPageConfig | undefined
+  readonly element: 'main' | 'div'
+  readonly headingAs: 'h1' | 'h2' | 'h3'
+}): React.JSX.Element {
+  const { notice, reason, element: Element, headingAs: Heading } = props
+  return (
+    <Element
+      className="form-closed"
+      data-form-closed={reason}
+    >
+      <Heading>{notice.title}</Heading>
+      <p>{notice.message}</p>
+      {notice.ctaLabel && notice.ctaHref && <a href={notice.ctaHref}>{notice.ctaLabel}</a>}
+    </Element>
+  )
+}
+
+function ClosedFormPage(props: {
+  readonly notice: ClosedNotice
+  readonly reason: ClosedReason
   /** Where the badge sits; undefined when `badge: false` removes it. */
   readonly badgePlacement: BadgePlacement | undefined
   readonly languages: Languages | undefined
   /** The density step the document runs at — see `resolveFormDensityStep`. */
   readonly densityStep: DensityStepName
 }): React.JSX.Element {
-  const { form, reason, request, closedPage, badgePlacement, languages } = props
-  // The language the visitor asked for (`?lang=`) when the app supports it,
-  // else the app's default — the same choice the open form makes — and the
-  // direction that language declares.
-  const documentLang = resolveDocumentLang(languages, request.activeLang)
-  const { title, message, ctaLabel } = resolveClosedCopy(form, reason, closedPage, {
-    languages,
-    request,
-    documentLang,
-  })
-  const ctaHref = closedPage?.cta?.href
+  const { notice, reason, badgePlacement, languages } = props
+  const { documentLang } = notice
   return (
     <html
       lang={documentLang}
@@ -130,17 +180,15 @@ function ClosedFormPage(props: {
     >
       <head>
         <meta charSet="UTF-8" />
-        <title>{title}</title>
+        <title>{notice.title}</title>
       </head>
       <body>
-        <main
-          className="form-closed"
-          data-form-closed={reason}
-        >
-          <h1>{title}</h1>
-          <p>{message}</p>
-          {ctaLabel && ctaHref && <a href={ctaHref}>{ctaLabel}</a>}
-        </main>
+        <ClosedFormNotice
+          notice={notice}
+          reason={reason}
+          element="main"
+          headingAs="h1"
+        />
         {/* The badge and the notice follow the document's language; one with
             no copy of its own for it falls back to English. */}
         {badgePlacement !== undefined && (
@@ -168,18 +216,36 @@ export function renderClosedFormPage(
   reason: ClosedReason,
   request: ClosedFormRequest = NO_REQUEST
 ): string {
-  const closedPage = (form.availability as { readonly closedPage?: ClosedPageConfig } | undefined)
-    ?.closedPage
   const html = renderToString(
     <ClosedFormPage
-      form={form}
+      notice={resolveClosedNotice(form, reason, app.languages, request)}
       reason={reason}
-      request={request}
-      closedPage={closedPage}
       badgePlacement={resolveBadge(app.badge)}
       languages={app.languages}
       densityStep={resolveFormDensityStep(app, form)}
     />
   )
   return `<!DOCTYPE html>\n${html}`
+}
+
+/**
+ * Render the closed-form notice as a FRAGMENT, for a page that embeds the form
+ * with `formRef` while its availability window is not open: the same heading,
+ * sentence and link the form's own page shows, in the host page's language,
+ * standing in place of the form — no `<form>`, no field, nothing to submit.
+ */
+export function renderClosedFormNotice(
+  app: Readonly<App>,
+  form: Readonly<Form>,
+  reason: ClosedReason,
+  options: { readonly request: ClosedFormRequest; readonly headingAs: 'h1' | 'h2' | 'h3' }
+): string {
+  return renderToString(
+    <ClosedFormNotice
+      notice={resolveClosedNotice(form, reason, app.languages, options.request)}
+      reason={reason}
+      element="div"
+      headingAs={options.headingAs}
+    />
+  )
 }

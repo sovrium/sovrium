@@ -33,19 +33,30 @@
  * collapse to 404 here for the same reason. Past it, the press is judged on
  * the record: a `visibleWhen` that does not hold answers 404, as an absent
  * button does, and a `disabledWhen` that holds answers 409 with the reason.
+ *
+ * A run still waiting for a concurrency slot, or still running, when the
+ * request's time budget runs out (`runAnswerBudgetMs`) is answered `202` with
+ * its run id and whether it is queued or running; it goes on in the
+ * background and completes. Holding the request longer would let the
+ * listener's idle guard cut it, and the press would read as a failure.
  */
 
-import { Effect } from 'effect'
+import { Effect, Fiber, Option } from 'effect'
+import { AutomationFiberBridge } from '@/application/ports/services/automation-fiber-bridge'
 import { emitAuditEvent } from '@/application/use-cases/admin/audit-log-emit'
 import { resolveActor } from '@/application/use-cases/admin/resolve-actor'
 import { runErrorAsSeenBy } from '@/application/use-cases/automations/run-admin-only-output'
 import { runManualAutomation } from '@/application/use-cases/automations/run-manual-automation'
 import { AUDIT_ACTIONS } from '@/domain/models/api/admin/audit-log/action-catalog'
-import { triggerResponseSchema } from '@/domain/models/api/automations/automations'
+import {
+  triggerAcceptedResponseSchema,
+  triggerResponseSchema,
+} from '@/domain/models/api/automations/automations'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles/role'
 import { notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getTableContext } from '@/presentation/api/runtime/context-helpers'
 import { pressDisabledResponse } from '@/presentation/api/runtime/press-disabled-response'
+import { runAnswerBudgetMs } from '@/presentation/api/runtime/run-answer-budget'
 import {
   answerFailures,
   respondWith,
@@ -209,6 +220,107 @@ export async function handleInvokeRecordButton(c: Context, app: App) {
   )
 }
 
+/** What a press needs past its gates: who pressed what, on which record. */
+interface PressInput {
+  readonly c: Context
+  readonly app: App
+  readonly fieldName: string
+  readonly automationName: string
+  readonly recordId: string
+}
+
+/**
+ * Run the pressed automation and record the press once the run ends, as one
+ * program that may outlive the request. `progress` is told the run's id when
+ * its row lands and again once it holds a slot.
+ */
+const runAndRecordPress = (
+  input: PressInput,
+  progress: { readonly persisted: (id: string) => void; readonly admitted: () => void }
+) =>
+  Effect.gen(function* () {
+    const { c, app, fieldName, automationName, recordId } = input
+    const { session, tableName, userRole } = getTableContext(c)
+    const result = yield* Effect.result(
+      runManualAutomation({
+        name: automationName,
+        app,
+        userRole,
+        // The record the button was pressed on rides in as the manual trigger's
+        // input payload, reachable from action templates as
+        // `{{trigger.data.input.recordId}}`.
+        triggerData: { input: { table: tableName, recordId, field: fieldName } },
+        userId: session.userId,
+        // Past the dispatch, write and role gates: the button's `visibleWhen`
+        // (hidden answers 404) and `disabledWhen` (409), judged on this record.
+        press: { table: tableName, recordId, control: `field:${fieldName}` },
+        onPersisted: progress.persisted,
+        onAdmitted: progress.admitted,
+      })
+    )
+    if (result._tag === 'Failure') return result
+
+    const error = runErrorAsSeenBy(app, {
+      automationName,
+      readsWhole: isAdminEquivalent(userRole, app),
+      result: result.success,
+    })
+    const body = buttonResultBody(result.success, error)
+    yield* recordButtonInvocation({
+      userId: session.userId,
+      recordId,
+      metadata: {
+        table: tableName,
+        field: fieldName,
+        automation: automationName,
+        runId: result.success.runId,
+        runStatus: result.success.status,
+      },
+      succeeded: body.status !== 'failed',
+    })
+    return { _tag: 'Answered' as const, body }
+  })
+
+/**
+ * Start the press's run in the background and wait for it up to the time
+ * budget: its outcome when it ends in time, else `202` with the run's id and
+ * whether it still waits for a slot or already runs.
+ */
+const runPressWithinBudget = (input: PressInput) =>
+  Effect.gen(function* () {
+    const { c } = input
+    const progress: { runId?: string; admitted: boolean } = { admitted: false }
+    const bridge = yield* AutomationFiberBridge
+    const fiber = yield* Effect.forkDetach(
+      bridge.trackBackground(
+        runAndRecordPress(input, {
+          persisted: (id) => {
+            progress.runId = id
+          },
+          admitted: () => {
+            progress.admitted = true
+          },
+        })
+      )
+    )
+    const inTime = yield* Fiber.join(fiber).pipe(Effect.timeoutOption(runAnswerBudgetMs()))
+    // A run with no row yet has no id to follow: wait for its outcome instead.
+    const outcome = Option.isSome(inTime)
+      ? inTime.value
+      : progress.runId === undefined
+        ? yield* Fiber.join(fiber)
+        : undefined
+    if (outcome === undefined) {
+      const accepted = {
+        runId: progress.runId!,
+        status: progress.admitted ? 'running' : 'queued',
+      }
+      return yield* respondWith(c, Effect.succeed(accepted), triggerAcceptedResponseSchema, 202)
+    }
+    if (outcome._tag === 'Failure') return buttonRunErrorResponse(c, outcome.failure)
+    return yield* respondWith(c, Effect.succeed(outcome.body), triggerResponseSchema)
+  })
+
 /** Gate a press, run its automation, and record and answer it, as one program. */
 const buttonPressResponse = (input: {
   readonly c: Context
@@ -231,42 +343,5 @@ const buttonPressResponse = (input: {
     })
     if (gateError) return gateError
 
-    const result = yield* Effect.result(
-      runManualAutomation({
-        name: automationName,
-        app,
-        userRole,
-        // The record the button was pressed on rides in as the manual trigger's
-        // input payload, reachable from action templates as
-        // `{{trigger.data.input.recordId}}`.
-        triggerData: { input: { table: tableName, recordId, field: fieldName } },
-        userId: session.userId,
-        // Past the dispatch, write and role gates: the button's `visibleWhen`
-        // (hidden answers 404) and `disabledWhen` (409), judged on this record.
-        press: { table: tableName, recordId, control: `field:${fieldName}` },
-      })
-    )
-
-    if (result._tag === 'Failure') return buttonRunErrorResponse(c, result.failure)
-
-    const error = runErrorAsSeenBy(app, {
-      automationName,
-      readsWhole: isAdminEquivalent(userRole, app),
-      result: result.success,
-    })
-    const body = buttonResultBody(result.success, error)
-    yield* recordButtonInvocation({
-      userId: session.userId,
-      recordId,
-      metadata: {
-        table: tableName,
-        field: fieldName,
-        automation: automationName,
-        runId: result.success.runId,
-        runStatus: result.success.status,
-      },
-      succeeded: body.status !== 'failed',
-    })
-
-    return yield* respondWith(c, Effect.succeed(body), triggerResponseSchema)
+    return yield* runPressWithinBudget({ c, app, fieldName, automationName, recordId })
   })

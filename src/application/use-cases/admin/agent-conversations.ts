@@ -94,14 +94,24 @@ function buildConversationHeader(row: AdminAgentConversationRow): AgentConversat
   }
 }
 
-/**
- * Build a canonical transcript message from a raw row. The role + status come
- * from the store verbatim (validated by the response schema's closed enums);
- * `model` / `tokenCount` / `toolCalls` are nullable. Omits `conversationId` by
- * construction (it is the request path segment — never a response field).
- */
 /** What the console calls a stored tool, in the operator's language; `undefined` keeps its name. */
 export type ToolLabelOf = (name: string) => string | undefined
+
+/**
+ * The published status of a stored message: any word but `complete` and
+ * `incomplete` (a `queued` row left behind) reads as the neutral `unknown`.
+ * Verbatim, it would fail the response gate's closed enum and take the WHOLE
+ * transcript down for one row.
+ */
+const publishedStatus = (stored: string): AgentConversationMessage['status'] =>
+  stored === 'complete' || stored === 'incomplete' ? stored : 'unknown'
+
+/**
+ * Build a canonical transcript message from a raw row. The role comes from the
+ * store verbatim (validated by the response schema's closed enum), the status
+ * through {@link publishedStatus}; `model` / `tokenCount` / `toolCalls` are
+ * nullable. Omits `conversationId` (the request path segment, never a field).
+ */
 
 function buildMessage(
   row: AdminAgentMessageRow,
@@ -112,7 +122,7 @@ function buildMessage(
     id: row.id,
     role: row.role as AgentConversationMessage['role'],
     content: row.content,
-    status: row.status as AgentConversationMessage['status'],
+    status: publishedStatus(row.status),
     model: row.model,
     tokenCount: row.tokenCount,
     // A stored call naming a table reads by that table's label as declared NOW.

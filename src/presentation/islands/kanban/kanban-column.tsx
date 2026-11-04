@@ -6,6 +6,7 @@
  */
 
 import {
+  KANBAN_COLUMN_AGGREGATE_CLASSES,
   KANBAN_COLUMN_TITLE_CLASSES,
   computeKanbanSwimlaneToggleClasses,
   computeKanbanColumnCountClasses,
@@ -13,8 +14,10 @@ import {
   computeKanbanColumnHeaderClasses,
 } from '@/presentation/design/kanban-default-classes'
 import { columnDropId } from './collision-detection'
+import { aggregateColumn, formatColumnFigure } from './column-aggregate'
 import { KanbanCell } from './kanban-cell'
 import { LaneChevron } from './kanban-swimlane'
+import { useKanbanFormat } from './use-kanban-format'
 import type { KanbanColumnPlacement } from './column-sizing'
 import type { KanbanColumnData } from './group-records'
 import type { KanbanCard } from '@/domain/models/app/pages/components/component-types/data/kanban/schema'
@@ -68,8 +71,28 @@ function ColumnTitle({
 }
 
 /**
- * Column header: the optional colored status accent dot, the column label, and
- * the record-count badge.
+ * The column's `kanbanGroupBy.aggregate` figure, over the cards it holds now —
+ * so a dropped card moves its amount from one header to the other. Nothing on a
+ * board without one, or when the figure has no value (`aggregateColumn`).
+ */
+function ColumnFigure({ column }: { readonly column: KanbanColumnData }): ReactElement | undefined {
+  const format = useKanbanFormat()
+  const { aggregate } = format
+  const value = aggregate && aggregateColumn(column.records, aggregate)
+  if (!aggregate || value === undefined) return undefined
+  return (
+    <span
+      data-column-aggregate={aggregate.function}
+      className={KANBAN_COLUMN_AGGREGATE_CLASSES}
+    >
+      {formatColumnFigure(value, aggregate, format)}
+    </span>
+  )
+}
+
+/**
+ * Column header: the optional colored status accent dot, the column label, the
+ * record-count badge and the `kanbanGroupBy.aggregate` figure.
  *
  * ONE flex line, where this was a `justify-between` row wrapping a nested flex
  * pair. The wrapper is gone (nothing selects it) and the count is pushed right
@@ -131,6 +154,7 @@ export function KanbanColumnHeader({
       >
         {column.records.length}
       </span>
+      <ColumnFigure column={column} />
     </div>
   )
 }

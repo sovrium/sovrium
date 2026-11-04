@@ -44,7 +44,7 @@
           "props": {
             "aria-labelledby": "admin-not-found-heading",
             "data-slot": "empty",
-            "className": "flex min-h-[60svh] w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl p-6 text-center text-balance"
+            "className": "flex min-h-[60svh] w-full min-w-0 flex-1 flex-col items-center justify-start gap-4 rounded-xl p-6 pt-[12svh] text-center text-balance"
           },
           "children": [
             {

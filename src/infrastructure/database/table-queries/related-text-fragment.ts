@@ -50,9 +50,9 @@ export const relatedTextFragment = (
   const display = sql.identifier(value.displayField)
   const match =
     value.operator === 'equals'
-      ? sql`lower(${display}) = lower(${value.text})`
+      ? sql`lower(CAST(${display} AS TEXT)) = lower(${value.text})`
       : // sql-literal: keyword -- the escape character is a module constant
-        sql`lower(${display}) LIKE lower(${likePatternOf(value.operator, value.text)}) ESCAPE ${sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)}`
+        sql`lower(CAST(${display} AS TEXT)) LIKE lower(${likePatternOf(value.operator, value.text)}) ESCAPE ${sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)}`
   const live = sql`${sql.identifier('deleted_at')} IS NULL`
   const where = sql.join([match, live, ...(admitted === undefined ? [] : [admitted])], sql` AND `)
   const related = sql`${outer} IN (SELECT ${sql.identifier('id')} FROM ${tableIdentifier(value.table)} WHERE ${where})`

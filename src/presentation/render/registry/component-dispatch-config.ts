@@ -128,6 +128,11 @@ export interface ComponentDispatchConfig<
    */
   readonly designStyles?: ComponentDesignResolution
   /**
+   * Whether the component is drawn inside another one (a section of a longer
+   * page) rather than being one of the page's own top-level components.
+   */
+  readonly nested?: boolean
+  /**
    * The app-level `design` key, unresolved.
    *
    * `designStyles` above is `design.components[<THIS type>]` already resolved,

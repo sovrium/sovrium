@@ -34,6 +34,7 @@ import {
   MAX_RECORD_EVENT_DEPTH,
   type RecordEventChannel,
 } from './record-event-channel'
+import { buildSignatureEventChannel } from './signature-event-channel'
 import type { StepContext } from './types'
 import type { App } from '@/domain/models/app'
 
@@ -86,4 +87,5 @@ export const buildRunEventChannel = (
 ): RecordEventChannel => ({
   ...buildRecordEventChannel(ctx),
   comments: buildCommentEventChannel(ctx),
+  signatures: buildSignatureEventChannel(ctx),
 })

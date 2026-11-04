@@ -44,7 +44,7 @@ decisions:
 
 `context`, `decision` and `consequences` are the three prose parts of a classic Nygard ADR. The shape is deliberately the one every ADR tool already uses, so a team arriving with a `docs/adr/` folder is transcribing rather than translating.
 
-The whole array is optional. An app that declares no `decisions` is not an error case anywhere. It simply has an empty register.
+The whole array is optional. An app that declares no `decisions` is not an error case anywhere; it has an empty register.
 
 ## Status
 
@@ -54,7 +54,7 @@ The whole array is optional. An app that declares no `decisions` is not an error
 | ------------ | ----------------------------------------------------------------------------- |
 | `accepted`   | The decision stands, and the configuration reflects it.                       |
 | `proposed`   | Still being made. A record an operator can read and disagree with beforehand. |
-| `superseded` | Replaced by a later decision, or simply abandoned.                            |
+| `superseded` | Replaced by a later decision, or abandoned.                                   |
 
 A superseded decision is still a decision. Deleting it deletes the reason the current one exists, which is why the register keeps it rather than pruning it.
 

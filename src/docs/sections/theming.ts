@@ -12,6 +12,7 @@ import { DensitySchema, DensityStepSchema } from '@/domain/models/app/design/den
 import { DesignSchema } from '@/domain/models/app/design/design'
 import designComponentsBody from '@/domain/models/app/design/design-components.docs.md' with { type: 'file' }
 import designDensityBody from '@/domain/models/app/design/design-density.docs.md' with { type: 'file' }
+import designMdBody from '@/domain/models/app/design/design-md.docs.md' with { type: 'file' }
 import designPagesImportBody from '@/domain/models/app/design/design-pages-import.docs.md' with { type: 'file' }
 import designTypeScaleBody from '@/domain/models/app/design/design-type-scale.docs.md' with { type: 'file' }
 import designBody from '@/domain/models/app/design/design.docs.md' with { type: 'file' }
@@ -218,6 +219,27 @@ export const section = defineSection({
       body: themeTypographyBody,
       documents: [FontConfigItemSchema],
       stories: ['US-THEMING-ISLANDS-DISPLAY-WIDGETS'],
+    }),
+    defineArticle({
+      slug: 'design-md',
+      title: 'DESIGN.md for Design Agents',
+      description:
+        'Export the design system as the DESIGN.md design agents read: token front matter, eight fixed sections, a sidecar, surface briefs and a PRODUCT.md.',
+      keywords: [
+        'sovrium',
+        'DESIGN.md',
+        'PRODUCT.md',
+        'design agent',
+        'design tokens',
+        'design-system',
+        'surface brief',
+        'front matter',
+      ],
+      order: 3605,
+      sidebarLabel: 'DESIGN.md for Design Agents',
+      body: designMdBody,
+      documents: [],
+      stories: [],
     }),
     defineArticle({
       slug: 'theme-spacing',

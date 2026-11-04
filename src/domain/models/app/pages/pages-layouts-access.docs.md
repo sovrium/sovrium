@@ -46,7 +46,7 @@ A section lists what the records API would list the visitor, whatever its filter
 
 <!-- sovrium:options PageAccessExtendedSchema depth=2 -->
 
-`access` gates the page and takes one of four forms: `all` for everyone including anonymous visitors, which is the default; `authenticated` for any signed-in user; an array of role names, with at least one entry; or an object carrying any of those as `require` plus a `redirectTo` target.
+`access` gates the page and takes one of four forms: `all` for everyone including anonymous visitors, which is the default; `authenticated` for any signed-in user; an array of role names, with at least one entry; or an object carrying any of those as `require` plus a `redirectTo` target. An administrator, meaning the built-in `admin` or the app's highest role when its level reaches 80, passes any role array; a form the page embeds is still checked against its own `access`, where a list naming `admin` admits that role too.
 
 A role-array entry may also be a group reference, `group:<name>`, validated against the app's declared groups.
 

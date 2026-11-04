@@ -506,6 +506,26 @@ export const triggerResponseSchema = Schema.Struct({
 
 export type TriggerResponse = typeof triggerResponseSchema.Type
 
+/**
+ * What a press or a manual trigger answers when its run has not ended within
+ * the request's time budget: it was accepted, and is waiting for a
+ * concurrency slot or still running. The run's outcome is read later from
+ * the runs API under `runId`. Answered with `202 Accepted`, so a run that
+ * waits its turn is never reported as a failure because its connection was
+ * held open for too long.
+ */
+export const triggerAcceptedResponseSchema = Schema.Struct({
+  runId: Schema.String.annotate({
+    description: 'ID of the accepted run (matches runs API); read its outcome there',
+  }),
+  status: Schema.Literals(['queued', 'running']).annotate({
+    description:
+      '`queued` while the run waits for a concurrency slot, `running` once it has started',
+  }),
+})
+
+export type TriggerAcceptedResponse = typeof triggerAcceptedResponseSchema.Type
+
 // ─── Deploy Intake (sovrium deploy ↔ a Sovrium Cloud app) ────────────────────
 
 /**

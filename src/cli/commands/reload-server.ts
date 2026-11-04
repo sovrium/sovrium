@@ -10,6 +10,7 @@ import { resolve } from 'node:path'
 import { classifyConfigChange } from '@/application/use-cases/config/classify-config-change'
 import { lazyImportCli, lazyImportIndex } from '@/cli/runtime/lazy-modules'
 import { messageAsConfigFinding } from '@/domain/kernel/config-parsing/decode-report-format'
+import { servedAppOf } from '@/domain/models/app/app-served-config-service'
 import { hasPageSearchComponent } from '@/domain/models/app/pages/has-page-search'
 import { searchIndexDir } from '@/domain/models/process-env/data-dir'
 import { printJournalWarning } from '@/infrastructure/logging/cli-output'
@@ -244,7 +245,10 @@ export const reloadServer = async (params: ReloadServerParams): Promise<ReloadOu
 
   const { rawApp, files, app, authoredTableIds, anchor, verdict } = loaded
   if (verdict.kind === 'hot') {
-    await params.currentServer.reload(app, anchor.configHash)
+    // A hot reload serves the same app as a boot or restart, so it keeps the
+    // pages a missing capability hides. The snapshot keeps the decoded app,
+    // which is what the next save is classified against.
+    await params.currentServer.reload(servedAppOf(app, process.env).app, anchor.configHash)
     return finishReload(params, { server: params.currentServer, files, app, rawApp, anchor })
   }
 

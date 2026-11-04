@@ -63,9 +63,9 @@
   },
   "people": {
     "name": "People",
-    "description": "HR: a directory with salaries withheld, time off, admin approvals.",
+    "description": "HR: a directory with salaries withheld, time off, contracts signed online.",
     "category": "business",
-    "topics": ["sovrium", "template", "self-hosted", "hr"]
+    "topics": ["sovrium", "template", "self-hosted", "hr", "e-signature"]
   },
   "events": {
     "name": "Events",

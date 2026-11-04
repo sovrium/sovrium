@@ -159,6 +159,11 @@ export default {
     'Cette app ne déclare aucune couleur sombre : chacune garde sa valeur claire ou reprend la valeur sombre par défaut de la plateforme, affichée et mesurée ci-dessous. Déclare design.darkColors pour choisir les tiennes.',
   'admin.ds.components.emptyBody':
     'Cette app ne déclare aucun composant réutilisable. Déclares-en un sous la clé components de ta config et intègre-le par son nom depuis une page ; il apparaît ici, seul, dès que tu le fais.',
+  'admin.ds.found.code': 'Code',
+  'admin.ds.found.codeLight': 'Clair',
+  'admin.ds.found.codeDark': 'Sombre',
+  'admin.ds.found.codeIntro':
+    'Un rôle syntaxique listé ici prend sa couleur dans ta palette. Les autres gardent les couleurs par défaut. Déclare design.code.tokens pour en colorer un.',
   'admin.ds.found.noSpacing':
     'Cette app ne déclare aucune échelle d’espacement. Les composants Sovrium s’espacent avec des utilitaires Tailwind plutôt qu’avec un token, donc il n’y a rien à surcharger tant que tu ne déclares pas design.spacing.',
   'admin.ds.voice.noTone':

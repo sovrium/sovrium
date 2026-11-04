@@ -6,6 +6,7 @@
  */
 
 import { createContext, useContext } from 'react'
+import type { ColumnAggregate } from './column-aggregate'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
 import type { RecordTextFields } from '@/domain/models/app/tables/record-text-service'
@@ -40,6 +41,8 @@ export interface KanbanFormat {
   readonly recordText?: RecordTextFields
   /** Publishes the card a reader selects, on a board that declares `publishes`. */
   readonly select?: (recordId: unknown) => void
+  /** The figure each column header prints, `kanbanGroupBy.aggregate`. */
+  readonly aggregate?: ColumnAggregate
 }
 
 export const KanbanFormatContext = createContext<KanbanFormat>({

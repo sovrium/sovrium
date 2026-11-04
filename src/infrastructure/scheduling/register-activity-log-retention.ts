@@ -11,7 +11,7 @@ import { purgeExpiredActivityLogs } from '@/infrastructure/database/activity-log
 import { Database } from '@/infrastructure/database/drizzle/layer'
 import { describeSweepFailure } from '@/infrastructure/database/read-write-sweep'
 import { logError } from '@/infrastructure/logging/logger'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { armSweepSchedule } from './arm-sweep-schedule'
 
 /**
  * Activity-log retention scheduler registration.
@@ -71,39 +71,30 @@ export const registerActivityLogRetentionScheduler: Effect.Effect<
 > = Effect.gen(function* () {
   const database = yield* Database
   const scheduler = yield* CronScheduler
-  return yield* scheduler
-    .schedule(
-      RETENTION_CRON_EXPRESSION,
-      () =>
-        // `purgeExpiredActivityLogs` resolves to a count; the scheduler
-        // callback signature is `void`. Any DB error is caught and logged so
-        // the timer re-arms for the next daily tick.
-        Effect.tryPromise({
-          try: () => purgeExpiredActivityLogs(database),
-          catch: (cause) => new ActivityLogRetentionSweepError({ cause }),
-        }).pipe(
-          Effect.tapError((error) =>
-            Effect.sync(() => {
-              logError(
-                describeSweepFailure(
-                  '[activity-log-retention] scheduled retention sweep failed',
-                  error.cause
-                ),
-                error.cause
-              )
-            })
-          ),
-          Effect.catch(() => Effect.void),
-          Effect.asVoid
-        ),
-      { jobId: RETENTION_JOB_ID, timezone: resolveOperatorTimezone(process.env) }
-    )
-    .pipe(
-      Effect.catch((err) =>
+  return yield* armSweepSchedule(scheduler, {
+    cronExpression: RETENTION_CRON_EXPRESSION,
+    jobId: RETENTION_JOB_ID,
+    armFailure: '[activity-log-retention] failed to arm retention scheduler',
+    // `purgeExpiredActivityLogs` resolves to a count; the scheduler callback
+    // signature is `void`. Any DB error is caught and logged so the timer
+    // re-arms for the next daily tick.
+    sweep: Effect.tryPromise({
+      try: () => purgeExpiredActivityLogs(database),
+      catch: (cause) => new ActivityLogRetentionSweepError({ cause }),
+    }).pipe(
+      Effect.tapError((error) =>
         Effect.sync(() => {
-          logError('[activity-log-retention] failed to arm retention scheduler', err)
-          return undefined
+          logError(
+            describeSweepFailure(
+              '[activity-log-retention] scheduled retention sweep failed',
+              error.cause
+            ),
+            error.cause
+          )
         })
-      )
-    )
+      ),
+      Effect.catch(() => Effect.void),
+      Effect.asVoid
+    ),
+  })
 })

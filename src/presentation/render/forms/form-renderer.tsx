@@ -298,18 +298,19 @@ export interface StepFragmentState {
   readonly optionSets?: FormOptionSets
   /** The reader's language, as the page the step belongs to was served in. */
   readonly activeLang?: string
+  /** The query string of the page the form was opened on: a `$query` prefill fills every step. */
+  readonly query?: Readonly<Record<string, string>>
 }
 
 export function renderFormStepFragment(
   authoredApp: Readonly<App>,
   authoredForm: Readonly<Form>,
   stepId: string,
-  { draftValues, optionSets = {}, activeLang }: StepFragmentState
+  { draftValues, optionSets = {}, activeLang, query = {} }: StepFragmentState
 ): string {
   const app = literalTokens.protectLiteralTokensInApp(authoredApp as App)
   const form = literalTokens.protectLiteralTokensDeep(authoredForm)
   const steps = form.steps ?? []
-  if (steps.length === 0) return ''
   const stepIndex = steps.findIndex((s) => s.id === stepId)
   if (stepIndex < 0) return ''
   const step = steps[stepIndex]!
@@ -319,19 +320,18 @@ export function renderFormStepFragment(
     conditionValues: draftValues,
     optionSets,
   })
-  const prefillMap = Object.fromEntries(
-    Object.entries(draftValues).map(([key, value]) => [key, value as PrefillValue])
-  ) as Readonly<Record<string, PrefillValue>>
-  const totalVisible = steps.length
-  const isFirst = stepIndex === 0
-  const isLast = stepIndex === totalVisible - 1
+  // The page's starting values, under every answer the visitor already gave (the draft).
+  const prefillMap: Readonly<Record<string, PrefillValue>> = {
+    ...resolveFormStartingValues(app as App, form as Form, { query, optionSets }),
+    ...(draftValues as Readonly<Record<string, PrefillValue>>),
+  }
   return literalTokens.releaseLiteralTokens(
     renderToString(
       <FormBodyStep
         step={step}
         stepIndex={stepIndex}
-        isFirst={isFirst}
-        isLast={isLast}
+        isFirst={stepIndex === 0}
+        isLast={stepIndex === steps.length - 1}
         stepFields={stepItems(resolvedFields, step.fields)}
         prefillMap={prefillMap}
         lockPrefill={false}

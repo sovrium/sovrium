@@ -82,6 +82,14 @@ export interface UserDirectoryQuery {
    */
   readonly audience?:
     { readonly roles: readonly string[]; readonly teamMembers: boolean } | undefined
+  /**
+   * Narrow the page, in the same query, to the accounts that share at least one
+   * record of the same scope table with `userId` through their `user_access`
+   * assignments — `userId` included when she holds one. A `userId` holding no
+   * assignment in any of `tableSlugs` narrows the page to no one, and so does a
+   * store with no `user_access` table. Every value is a bound parameter.
+   */
+  readonly scope?: { readonly userId: string; readonly tableSlugs: readonly string[] } | undefined
 }
 
 /** Database error for user-directory reads. */

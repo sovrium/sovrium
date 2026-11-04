@@ -67,7 +67,9 @@
  */
 
 import { serializeJsonForScript } from '@/domain/kernel/sanitize/json-script-serialization'
+import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { InlineScript } from '@/presentation/design/inline-script'
+import { resolveComponentClasses } from '@/presentation/design/resolve-component-classes'
 import { runtimeConditionsConfig, type RuntimeConditionsConfig } from './form-runtime-conditions'
 import {
   resolveOnErrorText,
@@ -76,6 +78,7 @@ import {
   resolveRuntimeStrings,
 } from './form-runtime-i18n'
 import { FORM_RUNTIME_SCRIPT } from './form-runtime-script'
+import type { Design } from '@/domain/models/app/design'
 import type { Form, FormOnError, FormOnSuccess } from '@/domain/models/app/forms'
 import type { Languages } from '@/domain/models/app/languages'
 
@@ -102,6 +105,29 @@ export interface FormRuntimeConfig extends RuntimeConditionsConfig {
   readonly table?: string
   /** `display.pendingLabel`, resolved: the submit's in-flight word (else `form.sending`). */
   readonly pendingLabel?: string
+  /**
+   * A success page's actions, drawn as the app's `button`: the classes of the
+   * first (the default variant) and of every other (`outline`), with
+   * `design.components.button` resolved on the server.
+   */
+  readonly actionClasses?: readonly [string, string]
+}
+
+/** The two button class lists a success page's actions take, when it has actions. */
+const successActionClasses = (
+  form: Readonly<Form>,
+  design: Design | undefined
+): Pick<FormRuntimeConfig, 'actionClasses'> => {
+  const actions = form.onSuccess?.type === 'successPage' ? form.onSuccess.actions : undefined
+  if (actions === undefined || actions.length === 0) return {}
+  const button = (variant: 'default' | 'outline'): string =>
+    resolveComponentClasses({
+      design,
+      type: 'button',
+      variant,
+      defaults: computeButtonDefaultClasses({ variant }),
+    })
+  return { actionClasses: [button('default'), button('outline')] }
 }
 
 /**
@@ -116,7 +142,8 @@ export interface FormRuntimeConfig extends RuntimeConditionsConfig {
 export function buildFormRuntimeConfig(
   form: Readonly<Form>,
   languages?: Languages,
-  activeLang?: string
+  activeLang?: string,
+  design?: Design
 ): FormRuntimeConfig {
   const isMultiStep =
     form.layout === 'multi-step' && form.steps !== undefined && form.steps.length > 0
@@ -139,6 +166,7 @@ export function buildFormRuntimeConfig(
     ...(form.submitTo.table !== undefined ? { table: form.submitTo.table } : {}),
     ...resolvePendingLabel(form, languages, activeLang),
     ...runtimeConditionsConfig(form),
+    ...successActionClasses(form, design),
   }
 }
 
@@ -160,16 +188,20 @@ export function FormRuntimeMount({
   form,
   languages,
   activeLang,
+  design,
 }: {
   readonly form: Form
   readonly languages?: Languages
   readonly activeLang?: string
+  readonly design?: Design
 }) {
   // `serializeJsonForScript`, never a bare `JSON.stringify`: a `</script>`
   // sequence in any config string (a form label, a placeholder, a translated
   // message) would otherwise close this block early and turn the remainder
   // into live markup.
-  const configJson = serializeJsonForScript(buildFormRuntimeConfig(form, languages, activeLang))
+  const configJson = serializeJsonForScript(
+    buildFormRuntimeConfig(form, languages, activeLang, design)
+  )
   return (
     <>
       <script

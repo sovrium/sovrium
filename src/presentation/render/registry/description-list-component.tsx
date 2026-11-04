@@ -46,8 +46,9 @@ import {
   computeDescriptionTermClasses,
   type DescriptionListLayout,
 } from '../../design/display-default-classes'
+import { readerZoneText } from '../elements/reader-zone-time'
 import { omitInternalMarkers } from '../props/internal-marker-props'
-import { formatRecordValue } from '../props/record-value-format'
+import { formatRecordValue, readerZoneReadingOf } from '../props/record-value-format'
 import { renderFieldDetail } from './description-list-field-detail'
 import { mergePrestyle } from './interactive-prestyle-builders'
 import type { ComponentRenderer } from './component-dispatch-config'
@@ -95,14 +96,15 @@ function formattedTextDetail(
 ): ReactNode {
   const value = '_formatValue' in item ? item._formatValue : item.detail
   if (value === undefined || value === null || value === '') return undefined
-  const text = formatRecordValue(value, {
+  const binding = {
     table: context.tables?.find((table) => table.name === item._recordTable),
     fieldName: item._formatField,
     format,
     locale: context.lang,
     languages: context.languages,
     tables: context.tables,
-  })
+  }
+  const text = formatRecordValue(value, binding)
   if (text === undefined || text === '') return item.detail
   // A relative reading carries its instant and its absolute moment (`time`).
   const stamp = relativeStampOf(
@@ -112,7 +114,7 @@ function formattedTextDetail(
     parseSovriumTimezone(process.env).zoneId
   )
   return stamp === undefined ? (
-    text
+    readerZoneText(text, readerZoneReadingOf(value, binding), context.lang)
   ) : (
     <time
       dateTime={stamp.dateTime}

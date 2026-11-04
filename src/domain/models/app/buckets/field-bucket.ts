@@ -8,7 +8,8 @@
 import type { App } from '@/domain/models/app'
 
 /**
- * Field types that accept a column-level `bucket` binding.
+ * Field types that accept a column-level `bucket` binding: the two attachment
+ * types, and `signature`, whose image is stored in its field's bucket.
  *
  * The test-only `'attachment'` alias is deliberately absent: it is parsed as
  * `UnknownFieldSchema` and therefore carries no `bucket` property, so it can
@@ -22,13 +23,14 @@ import type { App } from '@/domain/models/app'
 export const BUCKET_BOUND_FIELD_TYPES: ReadonlySet<string> = new Set([
   'single-attachment',
   'multiple-attachments',
+  'signature',
 ])
 
 /**
  * Resolve the storage bucket DECLARED on a table column.
  *
  * Returns the column's `bucket` value, or `undefined` when the table/column
- * is unknown, the column is not a bucket-bindable attachment type, or the
+ * is unknown, the column is not of a bucket-bindable type, or the
  * `bucket` prop was omitted.
  *
  * ── Why this returns `undefined` instead of a fallback ────────────────────

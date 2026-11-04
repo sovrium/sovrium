@@ -58,5 +58,9 @@ export const enqueueAndAdmit: (
   const releaseSlot = yield* scheduler.admit(name, concurrency)
   const admittedAt = new Date()
   yield* markRunRunning(runId, admittedAt)
+  if (input.onAdmitted !== undefined) {
+    const cb = input.onAdmitted
+    cb(runId)
+  }
   return { runId, admittedAt, releaseSlot, unregisterCancellation }
 })

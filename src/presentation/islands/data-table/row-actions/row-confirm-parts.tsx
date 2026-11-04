@@ -7,7 +7,8 @@
 
 import { Dialog } from '@base-ui/react/dialog'
 import { computePartButtonClasses } from '@/presentation/design/button-variant-classes'
-import { isDestructiveAction } from '@/presentation/design/confirm-weight'
+import { isDestructiveAction, isIrreversibleConfirm } from '@/presentation/design/confirm-weight'
+import { solidifyDestructiveButtonClasses } from '@/presentation/design/destructive-solid-button-classes'
 import {
   computeDialogDescriptionClasses,
   computeDialogFooterClasses,
@@ -68,8 +69,21 @@ export function GateHeader({ copy }: { readonly copy: GateCopy }): ReactElement 
 }
 
 /**
- * The `alert-dialog-footer` band: Cancel, then the action, locked until typed —
- * red only when the action is destructive (`isDestructiveAction`).
+ * The classes of the gate's affirming button, in the weight of the action it
+ * confirms: the solid destructive fill when its `confirm` declares the action
+ * `irreversible`, the destructive tint for any other destructive action
+ * (`isDestructiveAction`), the default button otherwise.
+ */
+const affirmClasses = (action: ActionColumnItem): string =>
+  isIrreversibleConfirm(action.confirm)
+    ? solidifyDestructiveButtonClasses(computePartButtonClasses({ variant: 'destructive' }))
+    : computePartButtonClasses({
+        variant: isDestructiveAction(action.variant, action.action) ? 'destructive' : 'default',
+      })
+
+/**
+ * The `alert-dialog-footer` band: Cancel, then the action, locked until typed,
+ * in the weight of the action ({@link affirmClasses}).
  */
 export function GateFooter({
   copy,
@@ -101,9 +115,7 @@ export function GateFooter({
         data-slot="alert-dialog-action"
         data-action-type={actionTypeAttr(action)}
         disabled={locked}
-        className={computePartButtonClasses({
-          variant: isDestructiveAction(action.variant, action.action) ? 'destructive' : 'default',
-        })}
+        className={affirmClasses(action)}
         onClick={onConfirm}
       >
         {copy.confirmLabel}

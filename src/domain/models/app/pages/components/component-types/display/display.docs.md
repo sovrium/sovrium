@@ -33,7 +33,7 @@ A scrollable region with custom scrollbars. Reference: shadcn/ui Scroll Area.
 
 One design token, drawn. A colour token is painted as a chip with its name beneath it; `variant: curve` plots an easing token instead.
 
-Give it the token by **name**: a custom property under the name your stylesheet reads it by, such as `--primary`, `--background`, `--muted-foreground`, `--chart-1` or `--sidebar-primary`, or a step from a design ramp such as `neutral-500`. A custom property resolves to the value your `design.colors` gives that role, and to the default palette's value when you give it none. A literal colour would stop being true the moment the ramp is retuned, and staying true is the whole point of drawing a token rather than describing it.
+Give it the token by **name**: a custom property under the name your stylesheet reads it by, such as `--primary`, `--background`, `--muted-foreground`, `--chart-1` or `--sidebar-primary`, or a step from a design ramp such as `neutral-500`. A custom property resolves to the value your `design.colors` gives that role, and to the default palette's value when you give it none. A literal colour would stop being true the moment the ramp is retuned, and staying true is why you draw a token instead of describing it.
 
 <!-- sovrium:options type:swatch -->
 
@@ -82,11 +82,11 @@ components:
 
 ### The fallback chain is ordered
 
-`src` → `initials` → initials derived from `label` → an empty disc. Each rung exists because the one above it can be absent at **render** time rather than at decode time: a record's photo column is null for most rows, and its name column is not. Binding `src: $record.photo` therefore draws a readable initial rather than a broken image, with no fallback written by hand. Deriving from `label` takes the first letter of each of the first two words: `Ada Lovelace` → `AL`.
+`src` → `initials` → initials derived from `label` → an empty disc. Each rung exists because the one above it can be absent at **render** time rather than at decode time: a record's photo column is null for most rows, and its name column is not. Binding `src: $record.photo` therefore draws a readable initial instead of a broken image, with no fallback written by hand. Deriving from `label` takes the first letter of each of the first two words: `Ada Lovelace` → `AL`.
 
 ### `items` makes it a group
 
-Declaring `items` draws the stack. `src`, `initials`, `alt` and `status` are then read from each item instead of from the component, and the top-level ones are ignored rather than refused: nothing you wrote is lost, it is simply not what a group draws. `label` is the exception: on a group it names the stack for a screen reader, because four overlapping discs are one thing to a reader and four to the DOM. A group can also be read from records: `dataSource` with `userField` draws one person per row (an event's attendances, filtered by the page's record: `dataSource: { table: attendances, filter: [{ field: event, operator: eq, value: $record.id }] }, userField: attendee`), and `users: $record.speakers` draws the people a multi-person `user` field of a collection page's record names. Each person is drawn once, by her name and its initials, with `max` and `+N` as for `items`; a row the reader may not read is neither drawn nor counted, and no name of it reaches the page. Each disc of such a group takes the keyboard focus and names its person in a tooltip on hover and on focus. `items`, `dataSource` and `users` are one choice: two of them, or a `dataSource` without `userField`, are refused when the config loads.
+Declaring `items` draws the stack. `src`, `initials`, `alt` and `status` are then read from each item instead of from the component, and the top-level ones are ignored rather than refused: nothing you wrote is lost, it is not what a group draws. `label` is the exception: on a group it names the stack for a screen reader, because four overlapping discs are one thing to a reader and four to the DOM. A group can also be read from records: `dataSource` with `userField` draws one person per row (an event's attendances, filtered by the page's record: `dataSource: { table: attendances, filter: [{ field: event, operator: eq, value: $record.id }] }, userField: attendee`), and `users: $record.speakers` draws the people a multi-person `user` field of a collection page's record names. Each person is drawn once, by her name and its initials, with `max` and `+N` as for `items`; a row the reader may not read is neither drawn nor counted, and no name of it reaches the page. Each disc of such a group takes the keyboard focus and names its person in a tooltip on hover and on focus. `items`, `dataSource` and `users` are one choice: two of them, or a `dataSource` without `userField`, are refused when the config loads.
 
 `max` counts the members that are **hidden**, not the total: six members with `max: 3` reads `A G T +3`.
 
@@ -114,7 +114,7 @@ A value is written in the foreground. An empty one is an em dash in the muted fo
 
 ## `marquee`
 
-A band of children on a continuously scrolling track. Use it to show more items than fit on screen (a row of screenshots, a set of logos) as a demonstration rather than a static grid. The children are duplicated internally so the loop has no visible seam; the duplicate is hidden from assistive technology, so each item is announced once.
+A band of children on a continuously scrolling track. Use it to show more items than fit on screen (a row of screenshots, a set of logos) as a moving row instead of a static grid. The children are duplicated internally so the loop has no visible seam; the duplicate is hidden from assistive technology, so each item is announced once.
 
 <!-- sovrium:options type:marquee -->
 
@@ -142,7 +142,7 @@ A vertical rail of events, in one of two shapes, and the `dataSource` decides wh
 
 A reader who may read the table but not a field the timeline names sees the timeline without that field, and the page carries neither its name nor its options: a hidden `colorField` draws every bar uncoloured, a hidden `groupBy` draws the bars without lanes, and a hidden `endField`, `labelField` or `dependencyField` is left out. A timeline whose `startField` she may not read has nothing to place on its axis and is left out of her page, as over a table she may not read.
 
-**`children` and `dataSource` are mutually exclusive.** A timeline declaring both is refused at validation. Elsewhere a key belonging to the other shape is simply ignored; here the binding would win and your authored children would vanish from the page with nothing to explain why. Drop `dataSource` to keep the rail, or drop `children` to keep the records.
+**`children` and `dataSource` are mutually exclusive.** A timeline declaring both is refused at validation. Elsewhere a key belonging to the other shape is ignored; here the binding would win and your authored children would vanish from the page with nothing to explain why. Drop `dataSource` to keep the rail, or drop `children` to keep the records.
 
 ## `accordion`
 
@@ -154,13 +154,13 @@ Collapsible content sections, each with a summary trigger and a detail panel. Re
 
 ## `tabs`
 
-A tabbed container. Reference: shadcn/ui Tabs. `panels` declares the tab strip and `children` holds the panel bodies, index-aligned with it. `tabsVariant: line` names the list as shadcn/ui's line variant, the triggers underlined on no ground; `default` is what you get by declaring nothing, and both behave the same way under the keyboard.
+A tabbed container. Reference: shadcn/ui Tabs. `panels` declares the tab strip and `children` holds the panel bodies, index-aligned with it. `tabsVariant: line` names the list as shadcn/ui's line variant, the triggers underlined on no ground; `default` is what you get by declaring nothing, and both behave the same way under the keyboard. To open a different tab per screen width, name it in a per-breakpoint override: with `defaultTab: list` and `responsive: { md: { defaultTab: board } }`, a phone opens List and a screen 768 px wide or more opens Board, with no flash of the other tab first: the server draws both panels and CSS shows the one for the width. A tab set whose `defaultTab` reads the address ignores these overrides, and the address decides.
 
 <!-- sovrium:options type:tabs depth=3 -->
 
 Each entry of `panels` takes `label`, plus optional `id`, `description`, `disabled` and `body`. `id` defaults to a slug of the label; supply it explicitly when the label is a `$t:` reference, whose slug comes from the translation key and so does not move with the locale. `description` is associated with the trigger by `aria-describedby` and is never part of its accessible name. `body` is text, like a `text` component's: it is shown exactly as written, markup included, and so is any value a reference in it fills, such as `$param.tag`. A panel whose body needs markup takes a component in `children` instead.
 
-A tab set whose panels all carry a `body` string needs no `children` at all. When a panel's body is a component rather than a string, it goes in `children` at the same index. **`panels` and `children` must be the same length** when both are present; a different number of each is refused at startup by name. The alignment is positional, so an off-by-one puts the wrong body under every tab after the mistake, and nothing on the page says so. That carries a known limitation, stated rather than designed around: once any panel has a component body, every panel needs a slot, including those whose body would have been a string. An explicit `childIndex` per panel would put the correlation back in the author's hands, which is the thing the refusal exists to take away.
+A tab set whose panels all carry a `body` string needs no `children` at all. When a panel's body is a component rather than a string, it goes in `children` at the same index. **`panels` and `children` must be the same length** when both are present; a different number of each is refused at startup by name. The alignment is positional, so an off-by-one puts the wrong body under every tab after the mistake, and nothing on the page says so. That carries a known limitation: once any panel has a component body, every panel needs a slot, including those whose body would have been a string. An explicit `childIndex` per panel would put the correlation back in the author's hands, which is the thing the refusal exists to take away.
 
 A form placed in a panel works there exactly as it does on the page, whether it embeds a top-level form with `formRef` or is declared in place. It keeps its validation, submits in the background without leaving the page, and runs its richer controls such as the audio recorder, in the panel open on arrival as in one opened later.
 

@@ -151,6 +151,7 @@ export const configuration = defineSection({
         'SOVRIUM_LISTEN_UNIX',
         'SOVRIUM_IDLE_EXIT_SECONDS',
         'SOVRIUM_LOG_FORMAT',
+        'SOVRIUM_REQUEST_IDLE_TIMEOUT_S',
         'SOVRIUM_HOST_ACTIONS',
         'SOVRIUM_INSTANCES_DIR',
         'SOVRIUM_BUNDLE_PUBLIC_KEYS',

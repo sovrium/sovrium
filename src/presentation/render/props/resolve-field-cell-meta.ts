@@ -6,6 +6,10 @@
  */
 
 import {
+  clockRecipeOf,
+  fieldDateTimeRecipeOf,
+} from '@/domain/models/app/tables/datetime-display-service'
+import {
   rollupResultKind,
   type RollupResultKind,
 } from '@/domain/models/app/tables/rollup-currency-service'
@@ -144,11 +148,24 @@ function pickDeclaredKeys(
   return entries.length > 0 ? Object.fromEntries(entries) : undefined
 }
 
-/** Pick the declared display properties a field carries, or `undefined` when it carries none. */
+/**
+ * Pick the declared display properties a field carries, or `undefined` when it
+ * carries none — plus, decided here on the server, how a `datetime` reads by its
+ * own `format`, `dateFormat` and `timeFormat` (`recipe`) and the clock a `time`
+ * reading takes (`clock`): the browser follows both without the date tokenizer.
+ */
 export function resolveFieldDisplayMeta(
   field: Readonly<Record<string, unknown>>
 ): Record<string, unknown> | undefined {
-  return pickDeclaredKeys(field, DISPLAY_META_KEYS)
+  const picked = pickDeclaredKeys(field, DISPLAY_META_KEYS)
+  const recipe = fieldDateTimeRecipeOf(field)
+  const clock = clockRecipeOf(field)
+  if (recipe === undefined && clock === undefined) return picked
+  return {
+    ...picked,
+    ...(recipe === undefined ? {} : { recipe }),
+    ...(clock === undefined ? {} : { clock }),
+  }
 }
 
 /** Pick the declared editor properties a field carries, or `undefined` when it carries none. */

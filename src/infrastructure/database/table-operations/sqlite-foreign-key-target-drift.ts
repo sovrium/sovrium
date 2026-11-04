@@ -16,8 +16,8 @@ import type { Table } from '@/domain/models/app/tables'
  *
  * A table gains or loses a computed field (`count`, `rollup`, `lookup`) by a
  * RENAME between `<name>` and `<name>_base` (Step 5.5). The schema step runs
- * with foreign keys off and Bun's SQLite in `legacy_alter_table` mode, where a
- * rename rewrites no other table's `REFERENCES`: a table linking to the renamed
+ * with foreign keys off and `legacy_alter_table` pinned ON on every platform
+ * (`applySqlitePragmas`), where a rename rewrites no other table's `REFERENCES`: a table linking to the renamed
  * one kept naming the old relation — a `<name>_base` that no longer exists, or
  * a `<name>` that is now a view — and every insert into it failed. Only a
  * rebuild rewrites the stored `CREATE TABLE` text, and the rebuild generates

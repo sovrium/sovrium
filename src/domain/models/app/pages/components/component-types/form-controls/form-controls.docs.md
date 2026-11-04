@@ -110,7 +110,7 @@ Bind the select to a table and let each row become an option. `table` and `displ
 
 `options` and `dataSource` are **mutually exclusive**: both answer "what are the choices", so declaring the two together is refused at startup. `displayField` has no default on purpose: guessing would silently produce a dropdown of blank rows on any table that did not happen to match. The rows are read on the **server**, before the page is sent, so the choices are in the first response, with no empty flash on arrival, and crawlers see them. That also means the binding answers the records API's read rules for the visitor: one who may not read the table gets an empty dropdown, and not one of its row values reaches the page; one who may read it is offered only the rows the table's row-level read rule shows them. Filters accept `$currentUser.*` references, resolved per request, so a per-user option list is a supported binding.
 
-Because the whole list is rendered into the page, `limit` caps it at 1000. A picker over a table larger than that is a different control (one that searches the table as you type), and is `record-picker` rather than this.
+Because the whole list is rendered into the page, `limit` caps it at 1000. A picker over a table larger than that needs a different control, one that searches the table as you type: `record-picker`.
 
 ### Options from a system endpoint
 
@@ -142,7 +142,7 @@ Both keys are required, and the field must be one of the three choice types; a t
 
 ### An "All" row
 
-A filter bar's resting state is "everything". `emptyOption: { label }` adds that choice as the control's first option. Its submitted value is always the empty string: that is what "unset" means everywhere else in the platform, so a filter publishing it simply drops the parameter from the query. With no `defaultValue` declared, the row is the one selected when the page opens. You need the key most when the choices come from a `dataSource` or `optionsFrom`, because either replaces `options` and cannot be declared beside it. Without it, a sourced filter opens on whichever row happened to sort first.
+A filter bar's resting state is "everything". `emptyOption: { label }` adds that choice as the control's first option. Its submitted value is always the empty string: that is what "unset" means everywhere else in the platform, so a filter publishing it drops the parameter from the query. With no `defaultValue` declared, the row is the one selected when the page opens. You need the key most when the choices come from a `dataSource` or `optionsFrom`, because either replaces `options` and cannot be declared beside it. Without it, a sourced filter opens on whichever row happened to sort first.
 
 Two combinations are refused at startup because each would fail silently: `multiple: true`, since a multi-select says "none" by selecting nothing and an empty-valued option would join the selection instead; and an option that already submits `''`, since two choices with one value cannot be told apart when the selection is read back.
 

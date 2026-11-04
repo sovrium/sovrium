@@ -12,7 +12,9 @@ import {
   computeStaticTableRowClasses,
   computeStaticTableShellClasses,
 } from '@/presentation/design/display-default-classes'
+import { DrawnGrid } from '@/presentation/design/drawn-grid'
 import { computeTableSkeletonBarClasses } from '@/presentation/design/table-default-classes'
+import { drawnGridPageOf, type DrawnRows } from '@/presentation/render/resolve/drawn-island-content'
 import type { ReactElement } from 'react'
 
 /**
@@ -87,4 +89,18 @@ export function DataTableSkeleton({ label }: { readonly label: string }): ReactE
       </div>
     </div>
   )
+}
+
+/** A grid's placeholder: its drawn first page when the server read one, else the skeleton. */
+export function GridPlaceholder({
+  drawn,
+  columns,
+  label,
+}: {
+  readonly drawn: DrawnRows | undefined
+  readonly columns: unknown
+  readonly label: string
+}): ReactElement {
+  if (drawn === undefined) return <DataTableSkeleton label={label} />
+  return <DrawnGrid {...drawnGridPageOf(drawn, columns)} />
 }

@@ -15,7 +15,6 @@
 
 import { fillPlaceholders } from '@/domain/kernel/format/placeholder-format'
 import { withDisplayLabels } from '@/domain/models/app/pages/substitute-record-vars'
-import { useAccountChoices } from './record-drawer-choices'
 import { DrawerSaveButton } from './record-drawer-content'
 import { relativeTimeText } from './record-drawer-relative-time'
 import type { ReactElement } from 'react'
@@ -32,17 +31,15 @@ const SAVE_CLASS =
 type Stamps = { readonly at: string; readonly by?: string }
 
 /**
- * The account that last changed the record. The records API answers it as an
- * id (`updatedBy`, lifted out of the record's fields), so it is named from the
- * account directory the user picker reads — only for a signed-in reader, the
- * one the directory answers.
+ * The name of the account that last changed the record, as the records API
+ * labels it: the account id of the updated-by stamp, answered with its name
+ * under `_display` for a reader who may read that stamp. `undefined` when the
+ * record carries no such label (no stamp, an account since deleted).
  */
-function useEditorName(record: RawRecord, stamps: Stamps | undefined, signedIn: boolean) {
-  const shown = withDisplayLabels(record as Record<string, unknown>)
-  const by = stamps?.by === undefined ? undefined : (shown[stamps.by] ?? record['updatedBy'])
-  const id = typeof by === 'string' && by !== '' ? by : undefined
-  const accounts = useAccountChoices(signedIn && id !== undefined)
-  return id === undefined ? undefined : accounts.find((account) => account.value === id)?.label
+function editorName(record: RawRecord, stamps: Stamps | undefined): string | undefined {
+  if (stamps?.by === undefined) return undefined
+  const name = withDisplayLabels(record)[stamps.by]
+  return typeof name === 'string' && name !== '' && name !== record['updatedBy'] ? name : undefined
 }
 
 /** "Edited <when> by <who>", or `undefined` when the record carries no stamp to read. */
@@ -61,7 +58,6 @@ function editedText(
 export function SheetFooter({
   record,
   stamps,
-  signedIn = false,
   words,
   canEdit,
   loading,
@@ -71,8 +67,6 @@ export function SheetFooter({
 }: {
   readonly record: RawRecord
   readonly stamps?: Stamps | undefined
-  /** The reader is signed in, so the account directory answers her. */
-  readonly signedIn?: boolean
   readonly words: Readonly<Record<string, string>>
   readonly canEdit: boolean
   readonly loading: boolean
@@ -85,7 +79,7 @@ export function SheetFooter({
   }
   readonly onCancel: () => void
 }): ReactElement {
-  const name = useEditorName(record, stamps, signedIn)
+  const name = editorName(record, stamps)
   const edited = editedText(record, stamps, name, words['edited'])
   return (
     <div className={FOOTER_CLASS}>

@@ -15,7 +15,8 @@
  * ─── THE DEFAULT BOARD ─────────────────────────────────────────────────────
  *
  * Every page has one board at its default state: drawn for an administrator
- * (the first seeded admin, else the sample one), each query at its default, a
+ * (the first seeded admin, else the sample one) — or, on a page whose rule
+ * turns her away, for the first role it admits —, each query at its default, a
  * routed record page at its first seeded record. It is the board a plain
  * export draws, and the one `pages/<name>.page.html` holds.
  *
@@ -32,6 +33,7 @@ import {
   OPEN_WHEN_UNDECLARED,
   permits,
 } from '@/domain/models/app/auth/permission-evaluation'
+import { resolveAdminRole } from '@/domain/models/app/auth/roles'
 import { SPECIMEN_PERSON } from '@/domain/models/app/pages/specimen-sample-service'
 import { syntheticTitleOf } from '@/domain/models/app/pages/synthetic-seed-service'
 import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
@@ -146,6 +148,20 @@ const PAGE_ACCESS_POLICY = {
 } as const
 
 /**
+ * The role a page is drawn for when no account is named (`--as`): the
+ * administrator where the page admits her, else the app's admin-equivalent
+ * role where the page names it, else the first role the page admits. A page
+ * whose rule names only custom roles is thus drawn as a reader it opens to,
+ * never as one it turns away.
+ */
+const defaultRoleOf = (app: App, page: Page): string => {
+  const admitted = admittedRolesOf(app, page)
+  if (admitted.length === 0 || admitted.includes(DEFAULT_ROLE)) return DEFAULT_ROLE
+  const adminEquivalent = resolveAdminRole(app)
+  return admitted.includes(adminEquivalent) ? adminEquivalent : (admitted[0] ?? DEFAULT_ROLE)
+}
+
+/**
  * Why a page drawn as a seeded account (`--as`) is skipped: its `access`
  * admits no reader of that account's role, so the app answers that account
  * nothing there; `undefined` when it is admitted, or without `--as`.
@@ -170,7 +186,7 @@ const recordPlansOf = (
   options: PageDrawOptions,
   contentSlugs: readonly string[] | undefined
 ): readonly PageBoardPlan[] => {
-  const viewer = options.as ?? viewerFor(options.seed, DEFAULT_ROLE)
+  const viewer = options.as ?? viewerFor(options.seed, defaultRoleOf(app, page))
   const role = viewer?.role ?? DEFAULT_ROLE
   const query = queryDefaultsOf(page)
   const base = {

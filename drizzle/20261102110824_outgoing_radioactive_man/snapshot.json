@@ -1,0 +1,47 @@
+{
+  "type": "diff",
+  "version": "9",
+  "dialect": "postgres",
+  "id": "5286ff12-6891-47bc-bd01-79413c8aac30",
+  "prevIds": [
+    "cc652fd0-4dee-48e0-bed4-ceda4974fba9"
+  ],
+  "footprints": [
+    {
+      "statementType": "add_column",
+      "statementTarget": [
+        "column",
+        "system",
+        "schema_checksum",
+        "analytics_profile"
+      ],
+      "writes": [
+        "s|col|system.schema_checksum.analytics_profile",
+        "n|col|system.schema_checksum.analytics_profile",
+        "e|col|system.schema_checksum.analytics_profile"
+      ],
+      "reads": [
+        "n|tbl|system.schema_checksum",
+        "n|sch|system"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "create",
+      "row": {
+        "schema": "system",
+        "table": "schema_checksum",
+        "name": "analytics_profile",
+        "type": "text",
+        "typeSchema": null,
+        "notNull": false,
+        "dimensions": 0,
+        "default": null,
+        "generated": null,
+        "identity": null,
+        "entityType": "columns"
+      }
+    }
+  ]
+}

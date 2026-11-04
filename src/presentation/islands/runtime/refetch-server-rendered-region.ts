@@ -77,6 +77,9 @@
 
 import { hydrateSessionBindings } from './session-resolver'
 
+/** The regions a refresh skipped for an open confirm gate, owed one once it closes. */
+const held = new Set<HTMLElement>()
+
 /** A live region to refresh, paired with the freshly rendered copy of itself. */
 interface RegionSwap {
   readonly live: HTMLElement
@@ -101,9 +104,27 @@ function serverRenderedTargets(ids: readonly string[]): readonly HTMLElement[] {
     const element = document.getElementById(id)
     if (!element || element.closest('[data-island]')) return []
     if (holdsMountedIsland(element)) return []
-    if (holdsOpenConfirmGate(element)) return []
+    if (holdsOpenConfirmGate(element)) {
+      held.add(element)
+      return []
+    }
+    held.delete(element)
     return [element]
   })
+}
+
+/**
+ * Refresh the regions an open confirm gate held back, once `settled` has: at
+ * once for a cancelled question, after the confirmed action's request for an
+ * answered one. A region the action's own `onSuccess.refetch` already re-read
+ * left the set when that refresh began, so it is not read twice.
+ */
+export function releaseHeldRegions(settled?: unknown): void {
+  void Promise.resolve(settled).then(() =>
+    refreshServerRenderedRegions(
+      [...held].filter((region) => region.isConnected).map((region) => region.id)
+    )
+  )
 }
 
 /**
@@ -209,11 +230,9 @@ function holdsMountedIsland(region: HTMLElement): boolean {
  * pressed it. Losing a confirmation that way is worse than reading a list one
  * beat out of date, so the region waits.
  *
- * It waits for one beat only, and never for the reader's OWN answer: confirming
- * removes the dialog before dispatching, so the refresh that follows an answered
- * gate always finds the region clear. What is deferred is only a refresh
- * arriving from somewhere else while the question is still on screen, and the
- * next one after the gate closes brings the region up to date.
+ * It waits for the question only: the held region is remembered, and closing
+ * the gate releases it ({@link releaseHeldRegions}) — at once on a cancel,
+ * after the confirmed action's request on an answer.
  */
 function holdsOpenConfirmGate(region: HTMLElement): boolean {
   return region.querySelector('[data-confirm-dialog]') !== null
@@ -227,7 +246,8 @@ function holdsOpenConfirmGate(region: HTMLElement): boolean {
  * two refusals.
  */
 export function swapUnheldRegion(swap: RegionSwap): void {
-  if (!holdsMountedIsland(swap.live) && !holdsOpenConfirmGate(swap.live)) swapRegion(swap)
+  if (holdsOpenConfirmGate(swap.live)) held.add(swap.live)
+  else if (!holdsMountedIsland(swap.live)) swapRegion(swap)
 }
 
 /**

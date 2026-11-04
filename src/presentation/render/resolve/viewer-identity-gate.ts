@@ -13,14 +13,15 @@
  * out, so nothing can be read as a role or reach a row filter), which left a
  * `$user.*` comparison resolving to nothing: `$user.email neq $param.email`
  * held on the reader's OWN account page, and the gestures it gated stayed.
- * The route hands the renderer the viewer's id and email instead, and this
- * pass answers exactly the conditions that compare one of those two fields:
+ * The route hands the renderer the viewer's id, email and two-step state
+ * instead, and this pass answers exactly the conditions that compare one of
+ * those fields:
  *
  *   - a condition that does NOT hold removes the node and its subtree, as the
  *     session gate would (exclusion, never `display: none`);
  *   - a condition that holds is answered, and taken off the node, so the
  *     session gate that runs next does not judge it again without a session;
- *   - any other condition — `$user.role`, `$user.twoFactorEnabled` — is left
+ *   - any other condition — `$user.role`, `$user.language` — is left
  *     untouched for the session gate, which resolves it to nothing, as before.
  *
  * It runs BEFORE the session gates, and only on a session-less render: with a

@@ -1,6 +1,6 @@
 # Troubleshooting: Startup & Config
 
-> The errors Sovrium prints when it will not start: port conflicts, a stale lock, an unusable DATABASE_URL, validation failures, an unwritable data directory, and unreadable config files.
+> Why Sovrium will not start: port conflicts, a stale lock, a bad DATABASE_URL, validation failures, an unwritable data directory, and unreadable config files.
 
 The errors you are most likely to meet between typing `sovrium start` and seeing a URL. Every entry quotes the **real message**, so you can match what is in your terminal.
 
@@ -44,11 +44,11 @@ with file: (e.g. file:./database.db).
 
 `DATABASE_URL` is set to something unrecognised. A bare filesystem path is the usual mistake. Three good answers:
 
-- **Leave `DATABASE_URL` unset.** Sovrium uses an embedded SQLite database, no server required.
+- **Leave `DATABASE_URL` unset.** Sovrium then uses an embedded SQLite database and needs no database server.
 - **Point at a SQLite file** with the `file:` prefix: `file:./database.db`.
 - **Use PostgreSQL** with a full URL: `postgres://user:password@localhost:5432/app`.
 
-With no `DATABASE_URL`, tables and authentication work out of the box against a local file. Set the variable only to choose that file's location or to switch to PostgreSQL. See **Database Infrastructure**.
+With no `DATABASE_URL`, tables and authentication work against a local file with no setup. Set the variable only to choose that file's location or to switch to PostgreSQL. See **Database Infrastructure**.
 
 ## "Sovrium refused this configuration" / "Error: Validation failed."
 

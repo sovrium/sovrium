@@ -39,13 +39,15 @@ const renderImageVariant = (variant: string | undefined, props: ElementProps): R
  * display class can never reveal both. `srcDark` is spent here: it never
  * reaches the markup, neither as written nor as the `data-src-dark` the generic
  * prop conversion derives from it. The dark copy drops the `id`, which must
- * stay unique on the page.
+ * stay unique on the page, and is always deferred with no priority hint: a
+ * hidden lazy image is not downloaded, so a visitor in the light scheme
+ * fetches only the copy they see, whatever `loading` or the hero variant ask.
  */
 const renderImage = (variant: string | undefined, elementProps: ElementProps): ReactElement => {
   const { srcDark, 'data-src-dark': _dataSrcDark, ...props } = elementProps
   if (typeof srcDark !== 'string' || srcDark === '') return renderImageVariant(variant, props)
   const author = props['className'] as string | undefined
-  const { id: _id, ...darkProps } = props
+  const { id: _id, fetchPriority: _fp, fetchpriority: _fpLower, ...darkProps } = props
   return createElement(
     Fragment,
     undefined,
@@ -63,6 +65,7 @@ const renderImage = (variant: string | undefined, elementProps: ElementProps): R
       renderImageVariant(variant, {
         ...darkProps,
         src: srcDark,
+        loading: 'lazy',
         className: resolveClasses('', undefined, author, 'hidden dark:block'),
       })
     )

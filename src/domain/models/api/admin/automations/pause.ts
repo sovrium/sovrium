@@ -145,6 +145,50 @@ export const automationCatalogItemSchema = Schema.Struct({
       })
     )
   ),
+  // ─── WHAT IS LEFT TO SET UP ──────────────────────────────────────────────
+  //
+  // An automation `sovrium import` wrote carries a `{{todo.<name>}}` for every
+  // parameter its source did not give, and stays switched off until each is
+  // replaced. Both fields are ABSENT on an automation holding none, so such a
+  // row reads exactly as it did before they existed.
+  placeholderCount: optionalField(
+    Schema.Int.annotate({
+      description:
+        'How many distinct `{{todo.<name>}}` placeholders the automation still holds, across its triggers, its steps at any depth and the action templates its steps call: what is left to set up before it can be switched on. ABSENT when it holds none, never `0`.',
+      examples: [2],
+    }).pipe(Schema.check(Schema.isGreaterThanOrEqualTo(1)))
+  ),
+  placeholders: optionalField(
+    Schema.Array(
+      Schema.Struct({
+        name: Schema.String.annotate({
+          description:
+            'The placeholder’s name, without `todo.`: `recipient` for `{{todo.recipient}}`',
+          examples: ['recipient'],
+        }),
+        path: Schema.String.annotate({
+          description:
+            'Where it sits in the automation, as a config address from the automation: `trigger` or `triggers[1]` for a trigger, `actions[2]` for a step (`actions[2].props.actions[0]` for a nested one), the calling step for a placeholder inside an action template.',
+          examples: ['actions[1]', 'trigger'],
+        }),
+        label: Schema.String.annotate({
+          description:
+            'The entry as one reading, in identifiers only: `<step> · <name>` when a step holds it (`notifyChannel · webhookUrl`), `trigger · <name>` when a trigger does. Display text, never localised.',
+          examples: ['notifyChannel · webhookUrl', 'trigger · channel'],
+        }),
+        step: optionalField(
+          Schema.String.annotate({
+            description:
+              'The name of the step holding it, as declared. ABSENT when a trigger holds it.',
+            examples: ['notifyChannel'],
+          })
+        ),
+      }).annotate({ identifier: 'AutomationCatalogPlaceholder' })
+    ).annotate({
+      description:
+        'Each placeholder left to set up and where it sits: one entry per distinct name per step or trigger, in config order. ABSENT when the automation holds none.',
+    })
+  ),
 }).annotate({ identifier: 'AutomationCatalogItem' })
 
 /** @public */

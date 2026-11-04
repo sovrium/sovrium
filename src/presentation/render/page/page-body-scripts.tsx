@@ -348,18 +348,14 @@ function renderBodyEndScripts(config: {
             autoResizeScript +
             themeToggleScript +
             copyCodeScript +
-            buildBodyEndEnhancerTail(
-              scripts.revealsSidebarCurrent,
-              scripts.spiesToc,
-              scripts.consentChoice,
-              scripts.consent?.declaration
-            ),
+            buildBodyEndEnhancerTail(scripts),
         }}
       />
       {scripts.consent && (
         <ConsentBanner
           consent={scripts.consent}
           lang={lang}
+          design={design}
         />
       )}
     </>
@@ -374,7 +370,6 @@ function renderBodyEndScripts(config: {
  *
  * For 'end' position:
  * - External and inline scripts positioned at body-end
- * - Banner dismiss script (if banner is dismissible)
  * - Scroll animation script (if design has scaleUp animation)
  * - Language switcher script (if languages configured)
  * - Feature flags script (if features configured)

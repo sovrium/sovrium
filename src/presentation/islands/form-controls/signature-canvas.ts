@@ -11,8 +11,17 @@
  * The stroke is drawn in the canvas's own `color` (the foreground ink of the
  * theme), so a signature reads in the ink of the page it was made on. A typed
  * signature is drawn into the same canvas size as an image too, so every stored
- * signature carries one, whichever way it was made.
+ * signature carries one, whichever way it was made. The pad sends the bytes;
+ * the server authors everything stored beside them.
  */
+
+/**
+ * The largest image the server keeps as a signature, in pixels: the caps of
+ * `MAX_SIGNATURE_IMAGE_WIDTH` and `MAX_SIGNATURE_IMAGE_HEIGHT`, repeated here
+ * because their module carries a schema the pad must not ship.
+ */
+const MAX_IMAGE_WIDTH = 2000
+const MAX_IMAGE_HEIGHT = 800
 
 /** Wire pointer drawing onto `canvas`; calls `onInk` after the first stroke. Returns the cleanup. */
 export function wireSignatureCanvas(
@@ -22,9 +31,14 @@ export function wireSignatureCanvas(
 ): () => void {
   const context = canvas.getContext('2d')
   if (context === null) return () => undefined
-  const ratio = globalThis.devicePixelRatio || 1
-  canvas.setAttribute('width', String(canvas.clientWidth * ratio))
-  canvas.setAttribute('height', String(canvas.clientHeight * ratio))
+  // Sharp on a dense screen, but never larger than the server keeps.
+  const ratio = Math.min(
+    globalThis.devicePixelRatio || 1,
+    MAX_IMAGE_WIDTH / Math.max(canvas.clientWidth, 1),
+    MAX_IMAGE_HEIGHT / Math.max(canvas.clientHeight, 1)
+  )
+  canvas.setAttribute('width', String(Math.floor(canvas.clientWidth * ratio)))
+  canvas.setAttribute('height', String(Math.floor(canvas.clientHeight * ratio)))
   context.scale(ratio, ratio)
   context.lineWidth = penWidth
   context.lineCap = 'round'
@@ -91,52 +105,41 @@ export const canvasPng = (canvas: HTMLCanvasElement): Promise<Blob> =>
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('no image'))), 'image/png')
   )
 
-/** What a signature write sends, beside the image. */
+/** What a signature sends, beside the image: the field, the page and the statement read. */
 export interface SignatureWrite {
   readonly table: string
   readonly recordId: string | number
   readonly field: string
-  readonly bucket: string
-  readonly statement: string
-  readonly signerName: string
+  /** The declared page the pad is drawn on. */
+  readonly page: string
+  /** SHA-256 of the statement shown, as the server computed it for this page. */
+  readonly statementDigest: string
   readonly method: 'drawn' | 'typed'
+  /** The name typed, for a typed signature. */
+  readonly typedName?: string
 }
 
 /**
- * Upload the image through the bucket's ordinary upload route (so the uploader
- * is recorded), then write the signature onto the record through the records
- * API — where the write-once rule is enforced. Resolves the stored value.
+ * Post the mark to the field's signing route, with the consent, the page and
+ * the digest of the statement shown. The server checks and stores the image,
+ * resolves the statement itself and writes the signature; it answers the value
+ * it stored, whose signer and instant the pad then reads out.
  */
 export async function writeSignature(
   image: Blob,
   write: SignatureWrite
 ): Promise<{ readonly signerName: string; readonly signedAt: string }> {
   const body = new FormData()
-  body.append('file', image, `signature-${String(write.recordId)}.png`)
-  const upload = await fetch(`/api/buckets/${encodeURIComponent(write.bucket)}/files`, {
-    method: 'POST',
-    body,
-    credentials: 'same-origin',
-  })
-  if (!upload.ok) throw new Error(`upload failed (${upload.status})`)
-  const { key } = (await upload.json()) as { readonly key: string }
-  const signedAt = new Date().toISOString()
-  const value = {
-    image: key,
-    signerName: write.signerName,
-    signedAt,
-    statement: write.statement,
-    method: write.method,
-  }
+  body.append('consent', 'true')
+  body.append('method', write.method)
+  body.append('page', write.page)
+  body.append('statementDigest', write.statementDigest)
+  if (write.typedName !== undefined) body.append('typedName', write.typedName)
+  body.append('image', image, 'signature.png')
   const response = await fetch(
-    `/api/tables/${encodeURIComponent(write.table)}/records/${encodeURIComponent(String(write.recordId))}`,
-    {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'same-origin',
-      body: JSON.stringify({ [write.field]: value }),
-    }
+    `/api/tables/${encodeURIComponent(write.table)}/records/${encodeURIComponent(String(write.recordId))}/signatures/${encodeURIComponent(write.field)}`,
+    { method: 'POST', body, credentials: 'same-origin' }
   )
-  if (!response.ok) throw new Error(`write failed (${response.status})`)
-  return { signerName: write.signerName, signedAt }
+  if (!response.ok) throw new Error(`signing failed (${response.status})`)
+  return (await response.json()) as { readonly signerName: string; readonly signedAt: string }
 }

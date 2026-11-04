@@ -25,8 +25,9 @@ import type { Table } from '@/domain/models/app/tables'
  * The engine triggers a SQLite `ALTER TABLE <from> RENAME TO <to>` carried onto
  * `<to>` that must go.
  *
- * Bun's SQLite runs with `legacy_alter_table = 1`: a rename re-attaches every
- * trigger of the table to the new name but leaves its BODY alone. The engine's
+ * Every read-write connection pins `legacy_alter_table` ON (`applySqlitePragmas`,
+ * whatever the platform's default): a rename re-attaches every trigger of the
+ * table to the new name but leaves its BODY alone. The engine's
  * `updated_at` trigger, for one, runs `UPDATE <from> … WHERE rowid = NEW.rowid`;
  * once `<from>` is gone — or has become the table's lookup VIEW — the first
  * statement that fires or merely compiles it fails. The engine names those

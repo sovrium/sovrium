@@ -25,14 +25,22 @@ export const REDACTED_REPORT_VALUE = '[redacted]'
 /** Any URL with a scheme and an authority, where credentials could sit. */
 const URL_IN_TEXT = /[A-Za-z][A-Za-z0-9+.-]*:\/\/[^\s'"<>`]+/g
 
-/** `Bearer …` / `Basic …` credentials, wherever they appear (the logger's CREDENTIAL_VALUE). */
-const SCHEME_CREDENTIAL = /\b(bearer|basic)\s+[A-Za-z0-9._~+/=-]+/gi
+/**
+ * `Bearer …` / `Basic …` credentials, wherever they appear (the logger's
+ * CREDENTIAL_VALUE). The gap is horizontal: a config's `type: basic` ends its
+ * line, and the next line's key is not its credential.
+ */
+const SCHEME_CREDENTIAL = /\b(bearer|basic)[ \t]+[A-Za-z0-9._~+/=-]+/gi
 
 /** A whole `Cookie:` / `Set-Cookie:` header line: one value holds many pairs. */
 const COOKIE_LINE = /^(\s*(?:set-)?cookie\s*:\s*).+$/gim
 
-/** `key=value`, `key: value`, `"key": "value"` — the key is checked separately. */
-const KEY_VALUE = /([A-Za-z0-9_.-]+)(["']?\s*[:=]\s*["']?)([^\s"',;&]+)/g
+/**
+ * `key=value`, `key: value`, `"key": "value"` — the key is checked separately.
+ * The separator is horizontal: a YAML block key (`auth:`) ends its line, and
+ * the next line is its structure, not its value.
+ */
+const KEY_VALUE = /([A-Za-z0-9_.-]+)(["']?[ \t]*[:=][ \t]*["']?)([^\s"',;&]+)/g
 
 /** Key segments that name a credential, beyond the header markers. */
 const SECRET_KEY_SEGMENT =
@@ -46,6 +54,14 @@ const EMAIL_IN_TEXT = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/g
  * stays readable at a credential key (`token: $env.PAYMENTS_TOKEN`).
  */
 const isEnvReference = (value: string): boolean => /^\$env\.[A-Za-z_][A-Za-z0-9_]*$/.test(value)
+
+/**
+ * A value that is config STRUCTURE rather than a scalar: another YAML key
+ * (`auth: strategies:`) or an inline list or map (`auth: [...]`, `auth: {...}`).
+ * Its own scalars are scanned on their own; blanking it would hide the shape.
+ */
+const isStructure = (value: string): boolean =>
+  value.endsWith(':') || value.startsWith('[') || value.startsWith('{')
 
 /** Whether a key's value is a credential, by its name alone. */
 export const isSecretKeyName = (name: string): boolean =>
@@ -64,7 +80,7 @@ export const redactIssueReportText = (text: string): string =>
     .replace(SCHEME_CREDENTIAL, (_match, scheme: string) => `${scheme} ${REDACTED_REPORT_VALUE}`)
     .replace(COOKIE_LINE, (_match, head: string) => `${head}${REDACTED_REPORT_VALUE}`)
     .replace(KEY_VALUE, (match, key: string, separator: string, value: string) =>
-      isSecretKeyName(key) && !isEnvReference(value)
+      isSecretKeyName(key) && !isEnvReference(value) && !isStructure(value)
         ? `${key}${separator}${REDACTED_REPORT_VALUE}`
         : match
     )

@@ -26,7 +26,12 @@ import {
   ChoiceSelectSkeleton,
   DateBoxSkeleton,
 } from '@/presentation/render/elements/form-control-skeletons'
-import { FIELD_LABEL_CLASS, FIELD_WRAPPER_CLASS, fieldWrapperAttributes } from './form-field-chrome'
+import {
+  FIELD_LABEL_CLASS,
+  FIELD_WRAPPER_CLASS,
+  fieldWrapperAttributes,
+  helpTextIdOf,
+} from './form-field-chrome'
 import { RequiredMark } from './form-field-elements-typed'
 import { HelpText } from './form-help-text'
 import type { ResolvedFormField } from './form-resolved-field'
@@ -74,15 +79,15 @@ function FieldIslandHost({
  * recorded as having picked it. That is silently WRONG data rather than
  * missing data, and `required` could not catch it.
  *
- * - It LEADS the list and is drawn ALWAYS, not only while nothing is chosen, so
- *   the rule stays one sentence: "the empty choice leads the list; it is chosen
- *   only when nothing else resolves". A visitor may return to a required field
- *   and blank it, and being stopped there is correct.
+ * - On an OPTIONAL field it LEADS the list and is drawn ALWAYS, not only while
+ *   nothing is chosen: "the empty choice leads the list; it is chosen only when
+ *   nothing else resolves". A REQUIRED field lists only its real options; its
+ *   placeholder is the trigger's text until a choice is made.
  * - The held value falls back to `''`, never to the first option. A resolved
  *   prefill or literal default still wins outright, which keeps the prefill
  *   contract intact.
  * - The value rides a named input the browser validates, so a required choice
- *   left on "no answer" is `valueMissing`, exactly as an empty `<select>` was.
+ *   left unanswered is `valueMissing`, exactly as an empty `<select>` was.
  */
 export function SelectInput({
   field,
@@ -99,6 +104,7 @@ export function SelectInput({
 }): ReactElement {
   const options = field.options ?? []
   const value = defaultValue ?? ''
+  const describedBy = helpTextIdOf(field)
   return (
     <div
       className={wrapper?.className ?? FIELD_WRAPPER_CLASS}
@@ -115,6 +121,7 @@ export function SelectInput({
           options,
           emptyLabel: field.placeholder,
           required: field.required,
+          ...(describedBy === undefined ? {} : { describedBy }),
         }}
       >
         <ChoiceSelectSkeleton
@@ -124,10 +131,11 @@ export function SelectInput({
           options={options}
           emptyLabel={field.placeholder}
           required={field.required}
+          describedBy={describedBy}
           disabled={field.conditionHidden === true}
         />
       </FieldIslandHost>
-      <HelpText html={field.helpTextHtml} />
+      <HelpText field={field} />
     </div>
   )
 }
@@ -223,7 +231,7 @@ export function ChipsInput({
           values={values}
         />
       </div>
-      <HelpText html={field.helpTextHtml} />
+      <HelpText field={field} />
     </div>
   )
 }
@@ -289,7 +297,7 @@ export function DateInput({
           {...(field.placeholder === '' ? {} : { placeholder: field.placeholder })}
         />
       </FieldIslandHost>
-      <HelpText html={field.helpTextHtml} />
+      <HelpText field={field} />
     </div>
   )
 }

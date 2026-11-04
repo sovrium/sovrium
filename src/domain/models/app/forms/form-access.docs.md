@@ -22,6 +22,8 @@ forms:
 
 A role array may also name a group, with a `group:` prefix: `['admin', 'group:partners']` admits anyone whose role is `admin` or who belongs to the `partners` group.
 
+A role array that names `admin` also admits the app's admin-equivalent role: in an app that declares its own roles, that is the highest one, provided its level reaches the built-in admin's 80. A list that does not name `admin` admits only the roles and groups it names, so a form written for `editor` stays closed to an administrator.
+
 `redirectTo` is accepted and validated today; the canonical route currently answers a denial with the response below rather than a redirect.
 
 ## What a denied submitter gets
@@ -38,7 +40,7 @@ The `401` names the form and the level it requires, because "sign in to use this
 
 ### A role gate answers 404, and that is the feature
 
-`403` would confirm the form exists to anyone who guessed its name, letting an outsider enumerate your internal forms by watching which URLs answer differently. A role-restricted form is simply not there for anyone lacking the role.
+`403` would confirm the form exists to anyone who guessed its name, letting an outsider enumerate your internal forms by watching which URLs answer differently. A role-restricted form is not there for anyone lacking the role.
 
 The practical consequence: when you hit an unexpected `404` on a form you know you configured, check the signed-in user's role before going looking for a routing bug.
 

@@ -16,11 +16,13 @@ import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-
 import { analyticsEvents as analyticsEventsPg } from '@/infrastructure/database/drizzle/schema/analytics-events'
 import { analyticsEvents as analyticsEventsSqlite } from '@/infrastructure/database/drizzle/schema-sqlite/analytics-events'
 import { makeDbWrap } from '@/infrastructure/database/sql/db-effect'
+import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import type {
   AnalyticsEventRow,
   MinimisedEventWrite,
   UnminimisedEventsPage,
 } from '@/application/ports/repositories/analytics/analytics-repository'
+import type { AnalyticsProfile } from '@/domain/models/app/analytics/analytics-profile-service'
 import type { PortableDb } from '@/infrastructure/database/drizzle/db'
 import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 import type { AllowedJsonKey } from '@/infrastructure/database/sql/dialect-sql-strategy'
@@ -45,7 +47,12 @@ const mayCarryExcludedFields = (dialect: Dialect): SQL | undefined => {
   return or(
     and(
       eq(analyticsEvents.eventType, 'page_view'),
-      or(...PAGE_VIEW_EXCLUDED_PROPERTIES.map(present), hasQuery('path'))
+      or(
+        ...PAGE_VIEW_EXCLUDED_PROPERTIES.map(present),
+        hasQuery('path'),
+        sql`${analyticsEvents.eventName} LIKE '%?%'`,
+        sql`${analyticsEvents.eventName} LIKE '%#%'`
+      )
     ),
     and(
       eq(analyticsEvents.eventType, 'outbound_click'),
@@ -98,7 +105,7 @@ const listUnminimisedEvents =
       }))
     })
 
-/** Overwrite one row's identifiers and properties; its other columns are kept. */
+/** Overwrite one row's identifiers, event name and properties; its other columns are kept. */
 const rewriteEvent =
   (db: PortableDb, dialect: Dialect) =>
   (write: MinimisedEventWrite): Effect.Effect<void, AnalyticsDatabaseError> =>
@@ -106,6 +113,7 @@ const rewriteEvent =
       await db
         .update(analyticsEvents)
         .set({
+          ...(write.eventName === undefined ? {} : { eventName: write.eventName }),
           visitorHash: write.visitorHash,
           sessionHash: write.sessionHash,
           properties: dialect.sql.bindJsonb(write.properties) as never,
@@ -113,5 +121,44 @@ const rewriteEvent =
         .where(eq(analyticsEvents.id, write.id))
     })
 
-/** The two repository members, spread into `AnalyticsRepositoryLive`. */
-export const minimisationMembers = { listUnminimisedEvents, rewriteEvent }
+/**
+ * The analytics profile the last start's sweep ran under, kept on the schema
+ * checksum's singleton row (`analytics_profile`); `undefined` when none was
+ * recorded, or the row does not exist yet.
+ */
+const readSweptProfile = (
+  db: PortableDb,
+  dialect: Dialect
+): Effect.Effect<string | undefined, AnalyticsDatabaseError> =>
+  wrap(async () => {
+    const rows = await executeRawOn(
+      dialect.kind,
+      db,
+      sql`SELECT analytics_profile FROM ${dialect.sql.systemTableRef('schema_checksum')} WHERE id = 'singleton'`
+    )
+    const stored = rows[0]?.['analytics_profile']
+    return typeof stored === 'string' ? stored : undefined
+  })
+
+/**
+ * Record the profile this start ran under. Writes the existing singleton row
+ * only: without one, nothing is recorded and the next start sweeps again.
+ */
+const recordSweptProfile =
+  (db: PortableDb, dialect: Dialect) =>
+  (profile: AnalyticsProfile): Effect.Effect<void, AnalyticsDatabaseError> =>
+    wrap(async () => {
+      await executeRawOn(
+        dialect.kind,
+        db,
+        sql`UPDATE ${dialect.sql.systemTableRef('schema_checksum')} SET analytics_profile = ${profile} WHERE id = 'singleton'`
+      )
+    })
+
+/** The sweep's repository members, spread into `AnalyticsRepositoryLive`. */
+export const minimisationMembers = {
+  listUnminimisedEvents,
+  rewriteEvent,
+  readSweptProfile,
+  recordSweptProfile,
+}

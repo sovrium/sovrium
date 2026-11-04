@@ -9,7 +9,10 @@ import {
   bucketKeyStart,
   bucketStartsBetween,
 } from '@/domain/models/app/pages/components/component-types/data/chart/fill-bucket-service'
-import { type AggregateFunction, reduceAggregate } from '../runtime/aggregate-functions'
+import {
+  type AggregateFunction,
+  reduceAggregate,
+} from '@/domain/models/app/tables/aggregate-reduce-service'
 import { readDisplayText } from '../runtime/record-display-label'
 import { resolveSeriesColor } from './chart-config'
 import type { ChartSeriesConfig } from './chart-series-shared'

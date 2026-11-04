@@ -13,15 +13,16 @@ import {
   type CommittedRowChange,
 } from '@/application/ports/services/record-change-feed'
 import { BusinessRuleViolationError } from '@/domain/errors'
+import { signatureKeptRefusal } from '@/domain/models/app/tables/fields/field-types/media/signature-value-validation'
 import { upsertUpdateChange } from '@/domain/models/app/tables/insert-only-field-service'
 import { DatabaseError, ValidationError } from '@/infrastructure/database'
 import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { confirmBatchAccounts } from '../mutation-helpers/account-confirmation'
 import { injectCreateAuthorship } from '../mutation-helpers/authorship-helpers'
-import { resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
+import { givenEntries, resolveArrayColumnTypes } from '../mutation-helpers/column-value-encoding'
 import { rowAfterTriggers } from '../mutation-helpers/record-fetch-helpers'
-import { buildUpdateSetClauseCRUD } from '../mutation-helpers/update-helpers'
+import { buildUpdateSetClauseCRUD, emptyColumnsGuard } from '../mutation-helpers/update-helpers'
 import { logCommittedRowChanges } from '../query-helpers/activity-log-helpers'
 import { validateColumnName, tableIdentifier } from '../statement/validation'
 import { createSingleRecord } from './batch-helpers'
@@ -67,13 +68,14 @@ async function updateSingleRecord(
     readonly fields: Record<string, unknown>
     readonly fieldsToMergeOn: readonly string[]
     readonly insertOnlyFields: readonly string[]
+    readonly writeOnce: readonly string[]
   }
 ): Promise<Record<string, unknown> | undefined> {
   // A merge key is already equal, and an insert-only column (creation date,
   // created-by author) describes the row's creation, which happened once: an
   // update rewrites neither. SQLite has no trigger to restore `created_at`, so
   // dropping it here is what keeps the rule on both engines.
-  const updateEntries = Object.entries(upsertUpdateChange(params.fields, params))
+  const updateEntries = givenEntries(upsertUpdateChange(params.fields, params))
   if (updateEntries.length === 0) return undefined
 
   // Same array-encoding resolution the create branch performs, and for the same
@@ -85,13 +87,21 @@ async function updateSingleRecord(
     await resolveArrayColumnTypes(on, tableName, [Object.fromEntries(updateEntries)])
   )
 
+  // A write-once column (a signature) is filled only while empty: the matched row
+  // holding one already is left as it is, and the upsert refused.
+  const emptyColumns = params.writeOnce.filter((column) =>
+    updateEntries.some(([name]) => name === column)
+  )
+  const guard = emptyColumnsGuard(emptyColumns)
   const result = await executeRawOn(
     on.dialect.kind,
     on.tx,
-    sql`UPDATE ${tableIdentifier(tableName)} SET ${setClause} WHERE id = ${recordId} RETURNING *`
+    sql`UPDATE ${tableIdentifier(tableName)} SET ${setClause} WHERE id = ${recordId}${guard} RETURNING *`
   )
 
   const [updated] = result
+  const [filled] = emptyColumns
+  if (updated === undefined && filled !== undefined) throw signatureKeptRefusal(filled)
   return updated === undefined ? undefined : { ...(await rowAfterTriggers(on, tableName, updated)) }
 }
 
@@ -126,10 +136,11 @@ function handleUpsertUpdate(
     readonly fields: Record<string, unknown>
     readonly fieldsToMergeOn: readonly string[]
     readonly insertOnlyFields: readonly string[]
+    readonly writeOnce: readonly string[]
     readonly existing: Record<string, unknown>
     readonly acc: UpsertResult
   }
-): Effect.Effect<UpsertResult, DatabaseError> {
+): Effect.Effect<UpsertResult, DatabaseError | ValidationError> {
   return Effect.gen(function* () {
     const recordId = String(params.existing.id)
     const updated = yield* Effect.tryPromise({
@@ -138,8 +149,12 @@ function handleUpsertUpdate(
           fields: params.fields,
           fieldsToMergeOn: params.fieldsToMergeOn,
           insertOnlyFields: params.insertOnlyFields,
+          writeOnce: params.writeOnce,
         }),
-      catch: (error) => new DatabaseError(`Failed to update record in ${params.tableName}`, error),
+      catch: (error) =>
+        error instanceof ValidationError
+          ? error
+          : new DatabaseError(`Failed to update record in ${params.tableName}`, error),
     })
 
     if (!updated) {
@@ -228,6 +243,7 @@ function processSingleUpsert(
     readonly index: number
     readonly fieldsToMergeOn: readonly string[]
     readonly insertOnlyFields: readonly string[]
+    readonly writeOnce: readonly string[]
     readonly hiddenIds: readonly string[]
     readonly judge: InTransactionRuleJudge | undefined
     readonly acc: UpsertResult
@@ -270,6 +286,18 @@ const judgedUpsertRows = (
     )
   })
 
+/** How an upsert matches, stamps, judges and guards its rows. */
+interface UpsertOptions {
+  readonly fieldsToMergeOn: readonly string[]
+  readonly insertOnlyFields?: readonly string[]
+  readonly hiddenIds?: readonly string[]
+  readonly accounts?: readonly AccountReference[]
+  /** The rules, judged on every row inside the transaction (keyed by row position). */
+  readonly judge?: InTransactionRuleJudge | undefined
+  /** Columns a matched row has written only while empty (signatures). */
+  readonly writeOnce?: readonly string[] | undefined
+}
+
 /**
  * Upsert records (create or update based on merge fields)
  */
@@ -279,26 +307,19 @@ export const upsertRecords =
     session: Readonly<Session>,
     tableName: string,
     recordsData: readonly Record<string, unknown>[],
-    options: {
-      readonly fieldsToMergeOn: readonly string[]
-      readonly insertOnlyFields?: readonly string[]
-      readonly hiddenIds?: readonly string[]
-      readonly accounts?: readonly AccountReference[]
-      /** The rules, judged on every row inside the transaction (keyed by row position). */
-      readonly judge?: InTransactionRuleJudge | undefined
-    }
+    options: UpsertOptions
   ): Effect.Effect<
     Omit<UpsertResult, 'committed'>,
     DatabaseError | BatchValidationError | ValidationError | BusinessRuleViolationError
   > => {
-    const { fieldsToMergeOn, insertOnlyFields = [], hiddenIds = [] } = options
+    const { fieldsToMergeOn, insertOnlyFields = [], hiddenIds = [], writeOnce = [] } = options
     return Effect.gen(function* () {
       yield* refuseEmptyUpsert(recordsData, fieldsToMergeOn)
       fieldsToMergeOn.forEach((field) => validateColumnName(field))
       yield* validateMergeFieldsPresent(recordsData, fieldsToMergeOn)
 
       const merge = { fieldsToMergeOn, insertOnlyFields, hiddenIds }
-      const write = { session, tableName, ...merge, judge: options.judge }
+      const write = { session, tableName, ...merge, writeOnce, judge: options.judge }
       const result = yield* withOutboxTransaction(
         { client: db, dialect },
         (upserted: UpsertResult) => upserted.committed

@@ -17,9 +17,10 @@ import {
 import { hasDataBinding } from '../runtime/data-binding'
 import { resolvePageLocale } from '../runtime/page-locale'
 import { ListContinuation } from './list-continuation'
-import { useListRowClick } from './list-row-click'
+import { listItemTitleLink, useListRowClick } from './list-row-click'
 import { ListFailure, ListLoading, ListMissing } from './list-skeleton'
 import { useListRecords, type ListRecordsDataSource } from './use-list-records'
+import type { FetchResult } from '../hooks/use-records-query'
 import type { SharedFilterPublisherConfig } from '../hooks/use-shared-filter-publisher'
 import type { RecordGroupBy } from '../parts/grouped-records'
 import type { ViewStrings } from '../parts/view-states'
@@ -67,6 +68,8 @@ interface ListIslandProps extends ListRowInputs {
   readonly uiStrings?: Readonly<Record<string, string>>
   /** The bound view's grouping: the items are drawn under a header per group. */
   readonly groupBy?: RecordGroupBy
+  /** The first page the server drew for this reader, shown until the first read answers. */
+  readonly drawn?: FetchResult
 }
 
 /** A grouped view's headers, fetched only by a list bound to one. */
@@ -77,6 +80,13 @@ const withText = (record: Record<string, unknown>, inputs: ListRowInputs) =>
   withRecordTextFields(record, inputs.recordText, resolvePageLocale(), new Date())
 
 /**
+ * What an item is drawn with. `inert` while the items are still the page the
+ * server drew: they are read and printed, never pressed or focused, since they
+ * carry no more of each record than their printed text.
+ */
+type ItemInputs = ListRowInputs & { readonly inert?: boolean }
+
+/**
  * The list's rows, or its empty message. One handler on the list answers a
  * click or an Enter on any item (`inputs.onItemEvent`, from `onRowClick`).
  */
@@ -84,7 +94,7 @@ function renderRows(input: {
   readonly records: readonly Record<string, unknown>[]
   readonly emptyMessage: string | undefined
   readonly itemTemplate: ItemTemplate | undefined
-  readonly inputs: ListRowInputs
+  readonly inputs: ItemInputs
   readonly groupBy?: RecordGroupBy | undefined
   readonly uiStrings?: Readonly<Record<string, string>> | undefined
 }): ReactElement | undefined {
@@ -108,13 +118,14 @@ function renderRows(input: {
 function renderItems(
   records: readonly Record<string, unknown>[],
   itemTemplate: ItemTemplate,
-  inputs: ListRowInputs,
+  inputs: ItemInputs,
   group?: string
 ): ReactElement {
   return (
     <ul
       data-slot="item-group"
       data-group={group}
+      inert={inputs.inert === true}
       aria-label={inputs.ariaLabel}
       className={inputs.listClasses ?? computeListShellClasses()}
       onClick={inputs.onItemEvent}
@@ -194,12 +205,14 @@ export default function ListIsland({
   publishes,
   uiStrings,
   groupBy,
+  drawn: firstPage,
   ...rowInputs
 }: ListIslandProps): ReactElement | null {
-  const read = useListRecords(dataSource)
+  const read = useListRecords(dataSource, firstPage)
   const { records, hasMore, isLoadingMore, loadMore: fetchMore, retry, total } = read
   const drawn = maxItems === undefined ? records : records.slice(0, maxItems)
   const onItemEvent = useListRowClick(onRowClick, drawn, dataSource?.table, publishes)
+  const titleNode = listItemTitleLink(!read.showsDrawn && itemTemplate?.title && onRowClick)
 
   const status = renderListStatus({
     ...read,
@@ -219,7 +232,7 @@ export default function ListIsland({
         records: drawn,
         emptyMessage,
         itemTemplate,
-        inputs: { ...rowInputs, onItemEvent },
+        inputs: { ...rowInputs, onItemEvent, inert: read.showsDrawn, titleNode },
         groupBy,
         uiStrings,
       })}

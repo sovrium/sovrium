@@ -6,9 +6,24 @@ Declare `consent` and Sovrium draws a banner on every page you declare and holds
 
 Three pages the engine answers itself draw no banner. Its own not-found page, shown when you declare no `/404` page, carries the tracker held the same way, so it sends a page view only for a visitor who has already accepted. Its own error page and a standalone form page (`forms[].path`) carry no tracker at all. A `/404` or `/500` page you declare is a page like any other and draws the banner.
 
+## Its look, and where focus goes
+
+The banner is restyled app-wide under `design.components.consent-banner`: `root` is its card, `title` and `description` its two lines of text, and `action` every one of its buttons at once, so `Refuse all` and `Accept all` always look alike whatever classes you give them. Where it sits on the page is not styleable.
+
+```yaml
+design:
+  components:
+    consent-banner:
+      parts:
+        root: rounded-none border-2
+        action: uppercase tracking-wide
+```
+
+After a choice the banner hides and a status line announces the outcome. Focus goes back to the element the visitor was on before entering the banner, passing over the floating badge beside it, or to the page's main content when there was none. While the banner shows it keeps clear the end of the page, and of a content column that scrolls on its own in a window-high layout, so it never covers what a visitor scrolls or tabs to.
+
 ## What it holds back
 
-A page script whose `consent` key names a declared purpose, in `externalScripts` or `inlineScripts`: its address is not fetched and its code does not run until that purpose is accepted, then it runs on the same page. When you declare a purpose with the id `analytics`, it also holds back the tracker the built-in analytics puts on the page, which sends page views and outgoing-link clicks, and every page `meta.analytics` provider, including its `dnsPrefetch` lookup. An app declaring `consent` and providers without that purpose is refused at validation.
+A page script whose `consent` key names a declared purpose, in `externalScripts` or `inlineScripts`: its address is not fetched and its code does not run until that purpose is accepted, then it runs on the same page. A script declared only on a page the visitor reaches by client-side navigation does not come with that navigation, which swaps the main content alone, so it runs on that page's next full load. When you declare a purpose with the id `analytics`, it also holds back the tracker the built-in analytics puts on the page, which sends page views and outgoing-link clicks, and every page `meta.analytics` provider, including its `dnsPrefetch` lookup. An app declaring `consent` and providers without that purpose is refused at validation.
 
 ## What stays outside it
 
@@ -30,7 +45,7 @@ To choose between these setups, and for what remains yours to decide, see **Set 
 
 ## Privacy signals
 
-Global Privacy Control and Do Not Track, when the site honours them, stop the tracker even after a visitor accepted the `analytics` purpose on the banner, so a visitor may accept and still not be measured. They also stop short-link clicks and QR scans being recorded. They do not stop form submission events or an automation's `analytics` action, and they do not gate page scripts or `meta.analytics` providers, which follow the banner alone.
+Global Privacy Control and Do Not Track, when the site honours them, stop the tracker even after a visitor accepted the `analytics` purpose on the banner, so a visitor may accept and still not be measured. They also stop short-link clicks, QR scans and form submission events being recorded. They do not stop an automation's `analytics` action, and they do not gate page scripts or `meta.analytics` providers, which follow the banner alone.
 
 ## The stored choice
 

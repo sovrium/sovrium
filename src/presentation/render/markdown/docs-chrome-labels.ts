@@ -6,6 +6,12 @@
  */
 
 import { resolveForLanguage } from '@/domain/models/app/languages/locale-lookup-service'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import {
+  resolvePageSearchWords,
+  type PageSearchWords,
+} from '@/presentation/render/elements/search-input-renderers'
+import type { Languages } from '@/domain/models/app/languages'
 
 /**
  * Per-locale docs-article CHROME labels.
@@ -17,9 +23,11 @@ import { resolveForLanguage } from '@/domain/models/app/languages/locale-lookup-
  * those labels — a presentation-layer locale → label map (the same shape the docs
  * sidebar's section zone mapping in `docs-sidebar-tabs.ts` uses).
  *
- * NOTE: only the LABELS localize here — NOT the last-updated DATE VALUE (still an
- * English `Month D, YYYY` from `formatHumanDate`); locale-aware date formatting
- * is a documented follow-up.
+ * The words an app may rename — the sidebar search field, the outline, the
+ * breadcrumb and the pager — are engine interface strings instead (`docs.*`,
+ * `breadcrumb.label`), resolved through
+ * {@link resolveInterpreterString} so `languages.translations[<lang>]['sovrium.<key>']`
+ * overrides them as it overrides every other engine word.
  */
 
 /** The full set of localizable docs-chrome labels. */
@@ -48,12 +56,24 @@ export interface DocsChromeLabels {
   readonly table: string
   /** Placeholder and accessible name of the docs search field in the sidebar (`nav.search`). */
   readonly searchDocs: string
+  /** Accessible name of the article's outline (`docs.outline`). */
+  readonly outline: string
+  /** Accessible name of the article's breadcrumb (`breadcrumb.label`). */
+  readonly breadcrumb: string
+  /** Name of the button that closes the navigation drawer below `lg` (`sidebar.drawerClose`). */
+  readonly menuClose: string
+  /** What the sidebar search's results panel says (`search.searching`, …). */
+  readonly searchWords: PageSearchWords
 }
 
-const EN: DocsChromeLabels = {
+/** The labels no app renames: drawn from the locale map below. */
+type FixedDocsChromeLabels = Omit<
+  DocsChromeLabels,
+  'previous' | 'next' | 'searchDocs' | 'outline' | 'breadcrumb' | 'menuClose' | 'searchWords'
+>
+
+const EN: FixedDocsChromeLabels = {
   home: 'Home',
-  previous: 'Previous',
-  next: 'Next',
   onThisPage: 'On this page',
   viewAsMarkdown: 'View as Markdown',
   copyAsMarkdown: 'Copy as Markdown',
@@ -62,13 +82,10 @@ const EN: DocsChromeLabels = {
   lastUpdated: 'Last updated',
   menu: 'Menu',
   table: 'Table',
-  searchDocs: 'Search the docs',
 }
 
-const FR: DocsChromeLabels = {
+const FR: FixedDocsChromeLabels = {
   home: 'Accueil',
-  previous: 'Précédent',
-  next: 'Suivant',
   onThisPage: 'Sur cette page',
   viewAsMarkdown: 'Voir en Markdown',
   copyAsMarkdown: 'Copier en Markdown',
@@ -77,7 +94,6 @@ const FR: DocsChromeLabels = {
   lastUpdated: 'Dernière mise à jour',
   menu: 'Menu',
   table: 'Tableau',
-  searchDocs: 'Rechercher dans la documentation',
 }
 
 /**
@@ -85,7 +101,7 @@ const FR: DocsChromeLabels = {
  * union) so any supported locale WITHOUT an entry resolves gracefully to the
  * English default via {@link getDocsChromeLabels}.
  */
-const DOCS_CHROME_LABELS: Readonly<Record<string, DocsChromeLabels>> = {
+const DOCS_CHROME_LABELS: Readonly<Record<string, FixedDocsChromeLabels>> = {
   en: EN,
   fr: FR,
 }
@@ -110,6 +126,23 @@ const DOCS_CHROME_LABELS: Readonly<Record<string, DocsChromeLabels>> = {
  * `meta.lang` and by the persisted language preference, both of which carry the
  * full locale. Keeping the four lookups identical is what stops this one being
  * the odd one out if the docs lang source ever widens to that resolver.
+ *
+ * `languages` carries the app's own words: an override of an engine key the
+ * docs chrome reads replaces the built-in word in that language.
  */
-export const getDocsChromeLabels = (lang: string | undefined): DocsChromeLabels =>
-  resolveForLanguage(DOCS_CHROME_LABELS, lang, EN)
+export const getDocsChromeLabels = (
+  lang: string | undefined,
+  languages?: Languages
+): DocsChromeLabels => {
+  const word = (key: string): string => resolveInterpreterString(key, lang, languages)
+  return {
+    ...resolveForLanguage(DOCS_CHROME_LABELS, lang, EN),
+    previous: word('docs.pager.previous'),
+    next: word('docs.pager.next'),
+    searchDocs: word('docs.search'),
+    outline: word('docs.outline'),
+    breadcrumb: word('breadcrumb.label'),
+    menuClose: word('sidebar.drawerClose'),
+    searchWords: resolvePageSearchWords(lang, languages),
+  }
+}

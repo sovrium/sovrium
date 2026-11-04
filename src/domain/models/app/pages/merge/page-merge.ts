@@ -48,6 +48,7 @@ import {
   nodeEdits,
   treeAsDrawn,
   variantPropertyOf,
+  withDrawnAs,
   withText,
   type CurrentNode,
   type Findings,
@@ -405,7 +406,7 @@ const buildAdded = (context: MergeContext, entry: PlacedDrawnNode, pointer: stri
   })
   const layout = addedLayout(id, node, context.input.spacing)
   const label = REQUIRED_LABELS[String(node.type)]
-  const bare = bareAddedNode(node, label)
+  const bare = withDrawnAs(bareAddedNode(node, label), node)
   const withChildren: Node =
     children.list.length > 0
       ? { ...bare, children: children.list }

@@ -136,6 +136,16 @@ export default {
   'admin.profile.password.failed':
     'Impossible de changer ton mot de passe — vérifie ton mot de passe actuel.',
 
+  'admin.profile.twoFactor.label': 'Vérification en deux étapes',
+  'admin.profile.twoFactor.on':
+    'Activée. La connexion te demande un code de ton application d’authentification.',
+  'admin.profile.twoFactor.hint':
+    'Demande un code d’une application d’authentification après ton mot de passe. Tu reçois des codes de récupération pour le jour où l’application n’est pas sous la main.',
+  'admin.profile.twoFactor.enableRegion': 'Activer la vérification en deux étapes',
+  'admin.profile.twoFactor.enable': 'Activer',
+  'admin.profile.twoFactor.disableRegion': 'Désactiver la vérification en deux étapes',
+  'admin.profile.twoFactor.disable': 'Désactiver',
+
   'admin.profile.language.label': 'Langue',
   'admin.profile.language.hint':
     'S’applique dès que tu choisis, sur tous les navigateurs où tu te connectes.',
@@ -249,6 +259,7 @@ export default {
   'admin.auditLog.action.config.schema.queried': 'A lu le schéma de la config',
   'admin.auditLog.action.config.env.queried': 'A lu l’environnement',
   'admin.auditLog.action.config.design.queried': 'A lu le design system',
+  'admin.auditLog.action.audit.export.queried': 'A exporté le journal d’audit',
   'admin.auditLog.action.table.overview.queried': 'A lu l’aperçu des tables',
   'admin.auditLog.action.table.record.created': 'A créé un enregistrement',
   'admin.auditLog.action.table.record.updated': 'A modifié un enregistrement',
@@ -452,6 +463,12 @@ export default {
   'admin.resetPassword.missing.blurb':
     'Un lien de réinitialisation ne sert qu’une fois et expire au bout d’une heure.',
   'admin.resetPassword.missing.ask': 'En demander un nouveau',
+
+  'admin.twoFactor.heading': 'Saisis ton code',
+  'admin.twoFactor.blurb': 'La vérification en deux étapes est activée pour ce compte.',
+  'admin.twoFactor.submit': 'Vérifier',
+  'admin.twoFactor.useRecoveryCode': 'Utiliser plutôt un code de récupération',
+  'admin.twoFactor.useAuthenticator': 'Utiliser plutôt ton application d’authentification',
 
   'admin.auth.backToSignIn': 'Retour à la connexion',
 

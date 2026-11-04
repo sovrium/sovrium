@@ -12,6 +12,8 @@ Usage: sovrium init [dir] [options]
 
 Scaffold a new project into the given directory, or into the current one when none is passed. Every scaffold writes a config file, a `CLAUDE.md` written for that template's domain, Sovrium's agent skills under `.claude/skills/` (as `sovrium skills` writes them; see **Agent Skills**), an `.env.example`, a `.gitignore`, and a `public/` directory for static assets. The bare `hello-world` default gets the same set.
 
+Every scaffold also writes the two records a design agent reads before it changes a page: `PRODUCT.md` (who the app is for and what it does; a template fills it from its own description) and `DESIGN.md` with its `.impeccable/design.json` sidecar and one surface brief per zone, which is what `sovrium design-system --format design-md --output DESIGN.md` writes (see **DESIGN.md for Design Agents**). A project created from a GitHub repository, a published document or a bundle gets `PRODUCT.md` alone, because its config is never run to write the rest; `init` prints the command to run once you have read the project.
+
 ```bash
 sovrium init ./my-app                          # blank starter
 sovrium init ./my-app --template crm --name acme-crm
@@ -31,7 +33,9 @@ sovrium init ./my-app --typescript
 
 `--typescript` writes an `app.ts` **instead of** a YAML config, alongside the `sovrium.d.ts` and `tsconfig.json` that make it check. It refuses to combine with `--template`: a template ships its own `app.yaml`, and Sovrium resolves `app.yaml` before `app.ts`, so the generated config would be permanently shadowed. Scaffold the template first, then convert its config by hand.
 
-**`init` never clobbers what it does not own.** An existing `.gitignore`, `.env.example` or `public/` is left verbatim. The config file is the one thing `init` owns, and even that is only overwritten with `--force`.
+**`init` never clobbers what it does not own.** An existing `.gitignore`, `.env.example`, `public/`, `PRODUCT.md` or `DESIGN.md` is left verbatim, and nothing is written beside an existing `DESIGN.md`. The config file is the one thing `init` owns, and even that is only overwritten with `--force`.
+
+**Importing into a new project? Add `auth` first.** The default scaffold declares no `auth` block, so nobody can sign in to the app, and `sovrium import` keeps collaborators as plain email addresses instead of accounts their owners can claim. Before you import users or collaborators, add an `auth` block with at least one strategy, such as `auth: { strategies: [{ type: emailAndPassword }] }`; see **Migrating From Another Tool**.
 
 ### `--git`: start the project under version control
 
@@ -47,7 +51,7 @@ Sovrium <local@sovrium>
 Initial commit from sovrium init
 ```
 
-That identity is passed per invocation rather than read from your git config, because a machine that has never run `git config --global user.email` is exactly the machine this flag is for, and there an inherited identity is no identity and the commit simply fails. `local@sovrium` has no TLD on purpose: it cannot be mistaken for a real mailbox. The `.gitignore` that `init` writes is what keeps the data directory and `.env` out of that commit.
+That identity is passed per invocation rather than read from your git config, because a machine that has never run `git config --global user.email` is exactly the machine this flag is for, and there an inherited identity is no identity and the commit fails. `local@sovrium` has no TLD on purpose: it cannot be mistaken for a real mailbox. The `.gitignore` that `init` writes is what keeps the data directory and `.env` out of that commit.
 
 **A convenience, never a prerequisite.** On a host with no `git` the scaffold still succeeds, exits `0`, writes no repository, and says what was skipped:
 

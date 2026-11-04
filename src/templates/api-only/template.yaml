@@ -7,6 +7,9 @@ intro: |
   tasks, called with an API key on `x-api-key`, with per-role rules on every table and one
   landing page at `/` that gives the command, the call and the tables. Nobody can open an
   account; the admin comes from `AUTH_ADMIN_*`, the demo member and viewer from the seed.
+audience: >-
+  A developer who needs a backend for a script, an integration or another front-end. Its callers
+  are an admin, members who read and write, and viewers who only read, each through an API key.
 glance:
   - |-
     **Tables** (2): projects, tasks (each with a `permissions` block: every role reads, admin and

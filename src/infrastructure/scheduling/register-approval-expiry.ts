@@ -33,7 +33,7 @@ import { Effect } from 'effect'
 import { CronScheduler } from '@/application/ports/services/cron-scheduler'
 import { expireAutomationApprovals } from '@/application/use-cases/automations/expire-automation-approvals'
 import { logDebug, logError, logInfo } from '@/infrastructure/logging/logger'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { armSweepSchedule } from './arm-sweep-schedule'
 import type { ResolveRequirements } from '@/application/use-cases/automations/resolve-automation-approval'
 import type { App } from '@/domain/models/app'
 
@@ -82,18 +82,10 @@ export const registerApprovalExpiryScheduler = (
     yield* scheduler.runOnce(() => sweepOnce(app, 'boot').pipe(Effect.provide(services)), {
       jobId: BOOT_SWEEP_JOB_ID,
     })
-    return yield* scheduler
-      .schedule(
-        EXPIRY_CRON_EXPRESSION,
-        () => sweepOnce(app, 'scheduled').pipe(Effect.provide(services)),
-        { jobId: EXPIRY_JOB_ID, timezone: resolveOperatorTimezone(process.env) }
-      )
-      .pipe(
-        Effect.catch((err) =>
-          Effect.sync(() => {
-            logError('[approval-expiry] failed to arm the approval-expiry sweep', err)
-            return undefined
-          })
-        )
-      )
+    return yield* armSweepSchedule(scheduler, {
+      cronExpression: EXPIRY_CRON_EXPRESSION,
+      jobId: EXPIRY_JOB_ID,
+      armFailure: '[approval-expiry] failed to arm the approval-expiry sweep',
+      sweep: sweepOnce(app, 'scheduled').pipe(Effect.provide(services)),
+    })
   })

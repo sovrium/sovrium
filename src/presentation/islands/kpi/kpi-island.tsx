@@ -5,15 +5,17 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import {
+  formatKpiValue,
+  type KpiAggregateConfig,
+  type KpiFormatConfig,
+} from '@/domain/models/app/pages/components/component-types/data/kpi/kpi-figure-service'
 import { resolvePageLocale } from '../runtime/page-locale'
 import { isRateLimitedRead } from '../runtime/read-failure'
 import { KpiCard, type KpiTrendConfig } from './kpi-card'
 import {
   computeSparklineSeries,
-  formatKpiValue,
   resolveKpiThresholdColor,
-  type KpiAggregateConfig,
-  type KpiFormatConfig,
   type KpiSparklineConfig,
   type KpiThresholdConfig,
 } from './kpi-compute'
@@ -62,6 +64,8 @@ interface KpiIslandProps extends KpiPresentationProps {
   readonly valueCurrency?: CurrencyDisplayOptions
   /** The figure comes from one aggregate read (resolved server-side); else from a page of records. */
   readonly aggregateRead?: boolean
+  /** The figure the server drew for this reader, shown while the tile's first read is out. */
+  readonly drawn?: number | null
 }
 
 /** Narrowing guard: is this data source the system read-endpoint variant? */
@@ -117,6 +121,17 @@ function KpiSystemTile({
   )
 }
 
+/** A table-bound tile's props: the binding, how its figure is read, and the server's figure. */
+type KpiTableTileProps = KpiPresentationProps & {
+  readonly source: KpiTableSource
+  readonly kpiAggregate?: KpiAggregateConfig
+  readonly thresholds?: readonly KpiThresholdConfig[]
+  readonly sparkline?: KpiSparklineConfig
+  readonly valueCurrency?: CurrencyDisplayOptions
+  readonly aggregateRead?: boolean
+  readonly drawn?: number | null
+}
+
 /**
  * DB-table binding — the figure from one aggregate read (a page of records
  * reduced here when the figure is one the read cannot answer), formatted via
@@ -131,19 +146,14 @@ function KpiTableTile({
   valueCurrency,
   uiStrings,
   aggregateRead,
+  drawn,
   ...card
-}: KpiPresentationProps & {
-  readonly source: KpiTableSource
-  readonly kpiAggregate?: KpiAggregateConfig
-  readonly thresholds?: readonly KpiThresholdConfig[]
-  readonly sparkline?: KpiSparklineConfig
-  readonly valueCurrency?: CurrencyDisplayOptions
-  readonly aggregateRead?: boolean
-}): ReactElement {
+}: KpiTableTileProps): ReactElement {
   const { rows, metric, caption, isLoading, isError, error, retry } = useKpiTileFigure(source, {
     aggregate: kpiAggregate ?? { function: 'count' },
     aggregateRead: aggregateRead === true,
     sparkline: sparkline !== undefined,
+    drawn,
   })
 
   if (isLoading) return <KpiLoading label={uiStrings?.['kpi.loading']} />

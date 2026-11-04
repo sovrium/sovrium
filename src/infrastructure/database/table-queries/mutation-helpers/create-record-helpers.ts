@@ -11,7 +11,7 @@ import { getBaseTableName } from '@/infrastructure/database/lookup/lookup-view-g
 import { INSERTED_ID_SETTING } from '@/infrastructure/database/lookup/lookup-view-triggers'
 import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { validateColumnName, tableIdentifier } from '../statement/validation'
-import { encodeColumnValue } from './column-value-encoding'
+import { encodeColumnValue, givenEntries } from './column-value-encoding'
 import { rowAfterTriggers } from './record-fetch-helpers'
 import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
@@ -76,7 +76,7 @@ export function buildInsertClauses(
   // A value that is `undefined` — a template that rendered nothing as a whole
   // value — is not given: it would bind no parameter at all (`VALUES ($1, )`),
   // so the column takes its default, and a required one refuses the row by name.
-  const entries = Object.entries(fields).filter(([, value]) => value !== undefined)
+  const entries = givenEntries(fields)
   // No column to write: `insertAndResolveRow` inserts `DEFAULT VALUES`.
   if (entries.length === 0) return { columnsClause: undefined, valuesClause: undefined }
 

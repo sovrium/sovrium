@@ -11,7 +11,12 @@ import {
   type ContentDirEntry,
   type ContentDirReadError,
 } from '@/application/ports/services/content-dir-reader'
-import { pageRoutePatterns, primaryPagePath } from '@/domain/kernel/matching/localized-path'
+import {
+  declaresLanguageSegment,
+  pageRoutePatterns,
+  primaryPagePath,
+  withLanguagePrefix,
+} from '@/domain/kernel/matching/localized-path'
 import { validateLanguageSubdirectory } from '@/domain/models/app/languages/language-detection'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { isPublicArticle } from '@/domain/models/app/pages/content-dir-access'
@@ -171,6 +176,64 @@ const renderEntryBullet = (entry: ContentDirEntry, baseUrl: string): string => {
   return `- [${entry.title}](${url})${suffix}`
 }
 
+/** The heading of the section listing config pages, after the content sections. */
+const CONFIG_PAGES_HEADING = 'Pages'
+
+/**
+ * The addresses one config page is listed at on ONE locale's index: each of
+ * its route patterns that belongs to that locale (by the same declared-prefix
+ * rule as {@link pagesForLanguage}), its `:lang` segment filled with the
+ * locale, and kept only when nothing else in it is dynamic — a pattern whose
+ * address depends on a row or a wildcard names no single page to link to.
+ */
+const configPageAddresses = (
+  app: App,
+  page: Page,
+  language: string | undefined
+): readonly string[] => {
+  const routeLanguage = language ?? app.languages?.default
+  return pageRoutePatterns(page.path)
+    .filter((path) => {
+      if (language === undefined) return true
+      const declared = validateLanguageSubdirectory(app, path)
+      return declared === undefined || declared === language
+    })
+    .flatMap((path) => {
+      if (!declaresLanguageSegment(path)) return [path]
+      return routeLanguage === undefined ? [] : [withLanguagePrefix(routeLanguage, path)]
+    })
+    .filter((path) => !path.includes(':') && !path.includes('*'))
+}
+
+/**
+ * The `- [title](path): description` bullets of the config pages section: the
+ * public pages with no `contentDir` that declare a `meta.description`, which is
+ * the author's statement that the page deserves a line. Empty unless the app
+ * opts in with `llms.includeConfigPages`, so an index that does not ask for
+ * them is unchanged. Title and description resolve `$t:` in the route language.
+ */
+const configPageBullets = (
+  app: App,
+  pages: readonly Page[],
+  baseUrl: string,
+  language: string | undefined
+): readonly string[] => {
+  if (app.llms?.includeConfigPages !== true) return []
+  const translate = (text: string): string =>
+    resolveTranslationPattern(text, language ?? app.languages?.default ?? '', app.languages)
+  return pages.flatMap((page) => {
+    const description = page.meta?.description
+    if (page.contentDir !== undefined || page.meta === undefined || description === undefined) {
+      return []
+    }
+    const title = translate(page.meta.title)
+    const suffix = translate(description)
+    return configPageAddresses(app, page, language).map(
+      (path) => `- [${title}](${baseUrl}${path}): ${suffix}`
+    )
+  })
+}
+
 /** The `/llms.txt` text for entries already read. */
 const renderLlmsIndex = (
   app: App,
@@ -181,10 +244,15 @@ const renderLlmsIndex = (
   const { title, description } = resolveLlmsHeader(app, language)
   const grouped = groupEntries(entries)
 
-  const sections = grouped.map(([heading, groupEntriesList]) => {
+  const contentSections = grouped.map(([heading, groupEntriesList]) => {
     const bullets = groupEntriesList.map((entry) => renderEntryBullet(entry, baseUrl))
     return [`## ${heading}`, '', ...bullets].join('\n')
   })
+  const pageBullets = configPageBullets(app, pagesForLanguage(app, language), baseUrl, language)
+  const sections =
+    pageBullets.length > 0
+      ? [...contentSections, [`## ${CONFIG_PAGES_HEADING}`, '', ...pageBullets].join('\n')]
+      : contentSections
 
   const header = [`# ${title}`, '', `> ${description}`].join('\n')
   const sectionsBlock = sections.length > 0 ? `\n\n${sections.join('\n\n')}` : ''
@@ -199,7 +267,9 @@ const renderLlmsIndex = (
  *  - `> <description>` (blockquote)
  *  - one `## <Group>` (H2) section per `contentDir.nav.groupBy` value, headed
  *    by its `nav.groupLabels` label (else the key in title case), each
- *    followed by `- [title](url): description` bullets.
+ *    followed by `- [title](url): description` bullets;
+ *  - with `llms.includeConfigPages`, a last `## Pages` section listing the
+ *    described public config pages (see {@link configPageBullets}).
  *
  * `baseUrl` is prefixed to each page path; pass an empty string to emit
  * relative URLs (`/docs/getting-started`).

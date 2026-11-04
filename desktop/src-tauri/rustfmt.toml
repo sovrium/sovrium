@@ -1,0 +1,4 @@
+# Formatting for the desktop shell crate. `cargo fmt --check` must exit 0 here.
+# rustfmt's defaults are the house style: this file pins the edition so the
+# formatter never guesses one, and states that nothing else is customised.
+edition = "2021"

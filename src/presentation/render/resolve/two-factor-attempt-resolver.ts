@@ -28,6 +28,7 @@
  */
 
 import { loginPageOf } from '@/domain/models/app/auth/login-page-service'
+import { servingMountHref } from './auth-form-facts-stamp'
 import { collapseExpiredCodePage } from './two-factor-expired-page'
 import type { DataSourceDb } from './data-source-contracts'
 import type { App } from '@/domain/models/app'
@@ -39,7 +40,7 @@ export interface TwoFactorAttemptStamp {
   readonly expired: boolean
   /** A sign-in waits on a page of its own: the code field takes focus on load. */
   readonly focusCode: boolean
-  /** The app's sign-in page, the notice's way back. */
+  /** The app's sign-in page, under the mount serving it, the notice's way back. */
   readonly loginPage: string
   /** Where the waiting sign-in was headed, kept on the server. */
   readonly destination?: string
@@ -98,7 +99,9 @@ export async function resolvePageTwoFactorAttempt(
   const stamp: TwoFactorAttemptStamp = {
     expired: !attempt.live && !holdsSignIn,
     focusCode: attempt.live && !holdsSignIn,
-    loginPage: loginPageOf(input.app.auth),
+    // A mounted app (the operator console) signs in on its OWN card, under its
+    // base: never the host app's `auth.loginPage`.
+    loginPage: servingMountHref(input.app, loginPageOf(input.app.auth)),
     ...('destination' in attempt && attempt.destination !== undefined
       ? { destination: attempt.destination }
       : {}),

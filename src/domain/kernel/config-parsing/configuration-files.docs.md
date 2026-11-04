@@ -71,7 +71,7 @@ Configuration comes from the first source that answers.
 | 4     | Auto-discovery    | `app.yaml`, then `app.yml`, then `app.ts`     |
 | 5     | Nothing           | `Error: No configuration provided`            |
 
-**A file path always wins over the environment.** That ordering is what lets a container carry a default `APP_SCHEMA` while a local run overrides it simply by naming a file, rather than having to unset a variable it did not set.
+**A file path always wins over the environment.** That ordering is what lets a container carry a default `APP_SCHEMA` while a local run overrides it by naming a file, without having to unset a variable it did not set.
 
 **Auto-discovery is last, and that is deliberate.** `sovrium start` with no argument probes the project directory for `app.yaml`, `app.yml` and `app.ts`, in that order, and boots the first that exists. It prints a one-line notice naming what it found, so a discovered config is never mysterious. Placing the probe after both environment variables means no invocation that resolves today resolves differently; the step only fires where the command used to error out.
 

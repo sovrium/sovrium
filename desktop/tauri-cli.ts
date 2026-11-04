@@ -158,9 +158,17 @@ const macOverlay = (args: readonly string[]): readonly string[] => {
   return ['--config', JSON.stringify(overlay)]
 }
 
+// Everything after a bare `--` belongs to the runner (cargo), as in
+// `tauri build … -- --locked`. The overlay is a CLI option, so it goes BEFORE
+// that separator: appended after it, cargo would receive `--config <json>`.
 const args = process.argv.slice(2)
-const command = args[0]
-const extra = command === 'build' || command === 'bundle' ? macOverlay(args) : []
+const separator = args.indexOf('--')
+const cliArgs = separator === -1 ? args : args.slice(0, separator)
+const runnerArgs = separator === -1 ? [] : args.slice(separator)
+const command = cliArgs[0]
+const extra = command === 'build' || command === 'bundle' ? macOverlay(cliArgs) : []
 
-const run = spawnSync(process.execPath, [TAURI_JS, ...args, ...extra], { stdio: 'inherit' })
+const run = spawnSync(process.execPath, [TAURI_JS, ...cliArgs, ...extra, ...runnerArgs], {
+  stdio: 'inherit',
+})
 process.exit(run.status ?? 1)

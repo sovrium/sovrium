@@ -25,7 +25,8 @@
  * decode step to a read path that currently has none.
  *
  * Regenerate after adding a migration, a template or a console sample — every
- * tracked file of a template ships, via the recursive `src/templates/` walk:
+ * tracked file of a template ships, via the recursive `src/templates/` walk,
+ * except its design records (`isTemplateDesignRecord`):
  *   bun run scripts/build/generate-embedded-static-assets.ts
  * (also run automatically by `build` and `build:binary`).
  *
@@ -241,6 +242,23 @@ const readProjectIgnoreRules = (): readonly IgnoreRule[] => {
   return parseGitignore(contents)
 }
 
+/**
+ * Whether a path relative to the templates ROOT is one of a template's design
+ * records: `<slug>/DESIGN.md`, `<slug>/PRODUCT.md`, or `<slug>/.impeccable` and
+ * everything under it (the `design.json` sidecar and the surface briefs).
+ *
+ * Those are TRACKED, so the ignore rules keep them, and they are never embedded
+ * all the same. Each is written by `sovrium design-system --format design-md`
+ * and committed so the published `<slug>-template` repository carries it, but
+ * `sovrium init` renders a new project's records itself and never copies a
+ * template's (`NEVER_SCAFFOLDED` in `src/cli/commands/init/template-scaffold.ts`).
+ * Embedding them would ship about 720 KB the binary never reads. Matched at the
+ * slug root only, the way the formats place them: a `DESIGN.md` under
+ * `config/` or `content/` is ordinary template data and still ships.
+ */
+export const isTemplateDesignRecord = (relPath: string): boolean =>
+  /^[^/]+\/(?:DESIGN\.md|PRODUCT\.md|\.impeccable(?:\/.*)?)$/.test(relPath)
+
 const walkTemplates = (
   dir: string,
   root: string,
@@ -254,7 +272,7 @@ const walkTemplates = (
     // Match on the path relative to the templates root, in POSIX form, so the
     // rules read in `.gitignore`'s own vocabulary on every platform.
     const rel = posixRelative(root, abs)
-    if (isIgnored(rel, entry.isDirectory(), rules)) return []
+    if (isIgnored(rel, entry.isDirectory(), rules) || isTemplateDesignRecord(rel)) return []
     if (entry.isDirectory()) return walkTemplates(abs, root, rules)
     if (entry.isFile() && !entry.name.endsWith('.ts')) return [abs]
     return []

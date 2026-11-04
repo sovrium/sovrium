@@ -55,6 +55,7 @@ import designSystemStrings from './config/i18n/design-system'
 import developerStrings from './config/i18n/developers'
 import engineVoiceStrings from './config/i18n/engine-voice'
 import frStrings from './config/i18n/fr'
+import signatureStrings from './config/i18n/signatures'
 import surfaceStrings from './config/i18n/surfaces'
 import acceptInvitation from './config/pages/accept-invitation'
 import apiKeys from './config/pages/api-keys'
@@ -73,6 +74,7 @@ import notFound from './config/pages/not-found'
 import profile from './config/pages/profile'
 import report from './config/pages/report'
 import resetPassword from './config/pages/reset-password'
+import twoFactor from './config/pages/two-factor'
 import { consoleRedirects } from './config/redirects'
 import type { AppEncoded as AppConfig } from '@/domain/models/app'
 
@@ -121,6 +123,7 @@ export default {
         ...chromeStrings,
         ...consoleStrings,
         ...dataStrings,
+        ...signatureStrings,
         ...developerStrings,
         ...commonStrings,
         ...surfaceStrings,
@@ -195,6 +198,7 @@ export default {
     login,
     forgotPassword,
     resetPassword,
+    twoFactor,
     acceptInvitation,
     // Inside the shell, for a signed-in operator on an address no page answers.
     notFound,

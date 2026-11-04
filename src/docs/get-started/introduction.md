@@ -1,8 +1,8 @@
 # Welcome to Sovrium
 
-> What Sovrium is, why it exists, and how one configuration file becomes a complete web application.
+> What Sovrium is, why it exists, and how one configuration file becomes a running web application.
 
-Sovrium is a source-available, self-hosted platform that turns a single configuration file into a complete web application.
+Sovrium is a source-available, self-hosted platform that turns a single configuration file into a running web application.
 
 Install it with one command:
 
@@ -16,7 +16,7 @@ curl -fsSL https://sovrium.com/install | sh
 
 Sovrium is a configuration-driven application platform. You describe your application (data models, authentication, pages, themes, analytics) in a YAML, JSON or TypeScript file, and Sovrium turns it into a running, full-stack web application.
 
-No boilerplate code, no framework setup, no build pipeline. Just one file that declares what your app should be.
+You write no application code and set up no framework or build step: the file declares what the app is, and Sovrium runs it.
 
 ```yaml
 name: my-app
@@ -41,12 +41,15 @@ design:
 
 ## Why Sovrium?
 
-Most business applications share the same building blocks: data tables, user authentication, server-rendered pages, and a design system. Sovrium provides all of these out of the box, configured through a single schema.
+Most business applications share the same building blocks: data tables, user authentication, server-rendered pages, and a design system. Sovrium ships all four and configures them from a single schema.
 
-- **No vendor lock-in.** Self-hosted on your infrastructure. Your data stays yours.
-- **Configuration over code.** Declare what you need instead of writing boilerplate. Dozens of field types, dozens of component types, built-in auth.
-- **Progressive complexity.** Start with just a name. Add tables, design, pages, auth, and analytics as your needs grow.
-- **Source-available.** Business Source License 1.1: free for internal and non-commercial use; it prevents offering Sovrium as a competing hosted service. The licence terms are in `LICENSE.md`.
+It runs on your own infrastructure, so the data sits in a database you control instead of a vendor's.
+
+You declare what you need and Sovrium builds it: dozens of field types, dozens of component types and authentication are part of the binary.
+
+An app can start as nothing but a name. You add tables, design, pages, auth and analytics as the app needs them.
+
+The source is available under the Business Source License 1.1. It is free for internal and non-commercial use, and it prevents offering Sovrium as a competing hosted service. The licence terms are in `LICENSE.md`.
 
 ## How it works
 
@@ -54,7 +57,7 @@ Write a configuration file, run one command, and get a working application:
 
 1. Define your schema in YAML, JSON or TypeScript.
 2. Run `sovrium start app.yaml`.
-3. Get a full-stack app with data tables, auth, pages, and more.
+3. Open the running app, with its data tables, sign-in and pages.
 
 ## Next steps
 

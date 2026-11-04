@@ -49,6 +49,7 @@ import {
 import { FIELD_LABEL_PLAIN, FIELD_STACK_PLAIN } from '@/presentation/design/field-default-classes'
 import { computeInputRecipeClasses } from '@/presentation/design/input-default-classes'
 import { restoreInertTemplateValue } from '@/presentation/design/session-template'
+import { releaseHeldRegions } from './refetch-server-rendered-region'
 import { fetchSessionUser, resolveSessionTemplate } from './session-resolver'
 import type { ConfirmObject } from '@/domain/models/app/pages/components/confirm-gate'
 
@@ -298,29 +299,36 @@ export function resolveGateLabels(
 export function openFetchConfirmObjectGate(
   trigger: HTMLButtonElement,
   config: ConfirmObject,
-  onConfirm: () => void
+  onConfirm: () => unknown
 ): void {
   if (trigger.nextElementSibling?.hasAttribute('data-confirm-dialog')) return
   const title = config.title ?? config.message
   const { confirm: confirmLabel, cancel: cancelLabel } = resolveGateLabels(trigger, config)
   const modal = config.input !== undefined
   const dialog = buildObjectConfirmShell(config, title, modal)
-  const dismiss = (): void => dismissGate(dialog)
+  // A region held back while the question was open is refreshed once it closes:
+  // at once on a cancel, after the action's request on an answer.
+  const dismiss = (settled?: unknown): void => {
+    dismissGate(dialog)
+    releaseHeldRegions(settled)
+  }
   const confirmBtn = createGateButton({
     label: confirmLabel,
     // In the weight of the action, decided on the server (`data-confirm-class`).
     className: trigger.getAttribute('data-confirm-class') ?? '',
-    onClick: () => {
-      dismiss()
-      onConfirm()
-    },
+    onClick: () => dismiss(onConfirm()),
   })
   if (config.input) appendObjectConfirmInput(dialog, config.input, confirmBtn)
-  appendObjectConfirmButtons(dialog, confirmBtn, { label: cancelLabel, dismiss, modal })
+  appendObjectConfirmButtons(dialog, confirmBtn, {
+    label: cancelLabel,
+    dismiss: () => dismiss(),
+    modal,
+  })
   trigger.insertAdjacentElement('afterend', dialog)
   if (dialog instanceof HTMLDialogElement) {
     // Escape closes the dialog natively; it leaves the page with it, unfired.
     dialog.addEventListener('close', () => dialog.remove())
+    dialog.addEventListener('cancel', () => releaseHeldRegions())
     dialog.showModal()
   }
 }

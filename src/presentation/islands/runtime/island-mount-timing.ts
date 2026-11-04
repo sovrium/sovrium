@@ -12,13 +12,16 @@
  * chart nobody scrolled to and of a chat nobody opened. The mounter now asks
  * {@link heldBack} first, handing it the callback that mounts the host later.
  *
- * Only two families wait, and both are named rather than inferred:
+ * Only two families wait, and neither is inferred:
  *
- * - {@link UNTIL_SEEN}: islands that show data and answer only gestures made on
- *   themselves. One far from the viewport mounts when it comes within
- *   {@link NEAR_PX} of it. Every other island mounts at once, as before: a
- *   dialog, a drawer or a form can be opened or filled by an event sent from
- *   elsewhere on the page, and a listener that is not mounted hears nothing.
+ * - Display islands whose host the server marked `data-island-drawn`: it
+ *   drew what their reader would read in them (a KPI's figure, a table's or a
+ *   list's rows), so find-in-page and a print reach it before any code runs.
+ *   One far from the viewport mounts when it comes within {@link NEAR_PX} of
+ *   it. An island with nothing readable drawn never waits: it mounts at once,
+ *   as does every other island — a dialog, a drawer or a form can be opened or
+ *   filled by an event sent from elsewhere on the page, and a listener that is
+ *   not mounted hears nothing.
  * - {@link UNTIL_USED}: the AI chat, wherever it sits, while it has nothing of
  *   its own to show. It mounts on the first hover, focus, press, key or input
  *   inside its panel; the mounter's own focus capture hands the caret back to
@@ -45,22 +48,6 @@
  */
 
 import { whenIslandReady } from './pre-mount-input'
-
-/** Display islands that may wait until they come near the viewport. */
-const UNTIL_SEEN = new Set([
-  'kpi',
-  'table',
-  'chart',
-  'graph',
-  'kanban',
-  'event-calendar',
-  'gallery',
-  'carousel',
-  'map',
-  'timeline',
-  'list',
-  'tree',
-])
 
 /** Islands that may wait until the reader uses them. */
 const UNTIL_USED = new Set(['ai-chat'])
@@ -116,7 +103,9 @@ function insideWaitingHost(el: HTMLElement): boolean {
 export function waitFor(el: HTMLElement, type: string): 'seen' | 'used' | undefined {
   if (inUse(el)) return undefined
   if (UNTIL_USED.has(type) && quietChat(el)) return 'used'
-  return (UNTIL_SEEN.has(type) || UNTIL_USED.has(type)) && !nearViewport(el) ? 'seen' : undefined
+  return ('islandDrawn' in el.dataset || UNTIL_USED.has(type)) && !nearViewport(el)
+    ? 'seen'
+    : undefined
 }
 
 /** Stop waiting on `el`, and run its mount if it is still in the page. */

@@ -31,9 +31,41 @@ pages:
 
 <!-- sovrium:options StructuredDataSchema depth=1 -->
 
-Instead of one raw object, `structuredData` (or its newer name `schema`) can take a keyed object whose keys are the Schema.org types it emits: `organization`, `person`, `localBusiness`, `product`, `article`, `breadcrumb`, `faqPage` and `educationEvent`. Each key's value is emitted as its own JSON-LD block, so it carries its own `@context` and `@type`, and each type has its own option table in the reference. The same caveat applies: the object is not decoded against these tables at `sovrium validate` time, and the key names are not checked either, so a mistake reaches the page unchanged.
+Instead of one raw object, `structuredData` (or its newer name `schema`) can take a keyed object whose keys are the Schema.org types it emits: `organization`, `person`, `localBusiness`, `product`, `article`, `breadcrumb`, `faqPage` and `educationEvent`. Each key's value is emitted as its own JSON-LD block, so it carries its own `@context` and `@type`, and each type has its own option table in the reference. The same caveat applies: the object is not decoded against these tables at `sovrium validate` time, and the key names are not checked either, so a mistake reaches the page unchanged. The one exception is `itemList`, described next.
 
 In either form, only the strings change on the way out: a `$t:` key resolves in the language the page is served in and an `$app.*` reference to its value, exactly as in `meta.title`, so a French page ships a French FAQ and `softwareVersion: $app.engineVersion` names the running version. Every other value is emitted as written.
+
+### A list built from rows
+
+A list page (a gallery, a directory, a catalogue) can describe the rows it shows as a Schema.org `ItemList` without naming them by hand. `schema.itemList` is the one shorthand key that is not emitted as written: it names the rows to read, and the page builds the list each time it is requested, so the markup follows the table as rows are published or withdrawn.
+
+<!-- sovrium:options ItemListSourceSchema depth=2 -->
+
+```yaml
+name: app-gallery
+pages:
+  - name: gallery
+    path: /apps
+    meta:
+      title: Apps
+      schema:
+        itemList:
+          dataSource:
+            table: apps
+            filter:
+              - { field: status, operator: eq, value: published }
+            sort:
+              - { field: name, direction: asc }
+          item:
+            name: $record.name
+            url: /apps/$record.slug
+    components:
+      - { type: text, element: h1, content: Apps }
+```
+
+`dataSource` takes the `table`, `filter` and `sort` of a list component's `dataSource`, so the JSON-LD and the visible list can read the same rows. Each row becomes one `ListItem` with its `position` (the first row is 1), its `name` and its `url`, which is emitted as a full address on the host the page was requested from, with the page's language prefix (a page rendered with no request, such as a static build, gets an address relative to the site root instead). The list holds at most 100 rows. Unlike the other shorthand keys, `itemList` is checked by `sovrium validate`: an `item` with no `url`, or a `sort` direction other than `asc` or `desc`, is refused.
+
+**The rows are read as the visitor would read them.** The table's read permission, its row-level rules and the field-level rules on the fields `item` names all apply to whoever requests the page, and a row whose `name` or `url` names a field the visitor may not read is left out rather than emitted half-filled. A search engine is a signed-out visitor, so a table only members may read contributes no item to the public page, and a member who signs in sees the list built from the rows they may read. A page carrying an `itemList` reads rows on every request, like a page with a bound list.
 
 **Valid markup is not the same as a rich result.** Google retired the FAQ rich result on 7 May 2026 and the HowTo rich result in 2023. A `faqPage` block, or a raw `HowTo` object, is still valid Schema.org and is still read by other consumers, but it no longer earns a special search listing. Emit it when the questions are visible on the page; do not add it to win a listing that no longer exists.
 

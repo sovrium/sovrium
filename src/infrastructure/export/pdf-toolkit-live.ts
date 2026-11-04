@@ -7,6 +7,7 @@
 
 import { Effect, Layer } from 'effect'
 import { PdfInputError, PdfToolkit, type LoadedPdf } from '@/application/ports/services/pdf-toolkit'
+import { assertRewritable, SignedPdfRefusal } from './pdf-rewrite-guard'
 import type { PDFDocument } from '@cantoo/pdf-lib'
 
 /**
@@ -35,8 +36,10 @@ export const PdfToolkitLive = Layer.succeed(PdfToolkit, {
   merge: (parts) =>
     Effect.tryPromise({
       try: async () => {
-        const { PDFDocument: Document } = await pdfLib()
-        const merged = await Document.create()
+        const lib = await pdfLib()
+        // A signed part would carry its signature into a merged file it does not cover.
+        parts.forEach((part) => assertRewritable(lib, asDocument(part.pdf)))
+        const merged = await lib.PDFDocument.create()
         await parts.reduce(async (previous, part) => {
           await previous
           const copied = await merged.copyPages(asDocument(part.pdf), [...part.pages])
@@ -47,7 +50,10 @@ export const PdfToolkitLive = Layer.succeed(PdfToolkit, {
       catch: (cause) =>
         new PdfInputError({
           index: -1,
-          message: `the PDFs could not be merged (${reason(cause)})`,
+          message:
+            cause instanceof SignedPdfRefusal
+              ? cause.message
+              : `the PDFs could not be merged (${reason(cause)})`,
         }),
     }).pipe(Effect.withSpan('documents.pdf-merge')),
 })

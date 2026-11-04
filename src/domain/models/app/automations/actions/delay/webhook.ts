@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { DURATION_PATTERN, DURATION_UNITS_LABEL } from '@/domain/kernel/time/parse-duration'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
@@ -44,10 +45,9 @@ export const DelayWebhookActionSchema = Schema.Struct({
     timeout: Schema.optional(
       Schema.String.pipe(
         Schema.annotate({
-          description:
-            'How long to wait before continuing with timedOut: true, since callbacks are not received yet. Number + unit (ms, s, m, h, d), at most 90 days. Longer than one minute parks the run until then. Examples: "1h", "7d"',
+          description: `How long to wait before continuing with timedOut: true, since callbacks are not received yet. Number + unit (${DURATION_UNITS_LABEL}), at most 90 days. Longer than one minute parks the run until then. Examples: "1h", "7d"`,
         }),
-        Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/))
+        Schema.check(Schema.isPattern(DURATION_PATTERN))
       )
     ),
 

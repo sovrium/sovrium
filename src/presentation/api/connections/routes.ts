@@ -69,6 +69,7 @@ import { logError } from '@/infrastructure/logging/logger'
 import { requireSession, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { answerFailures, runHandlerEffect, shapedJson } from '@/presentation/api/runtime/run-effect'
 import { parseCallbackInputs } from './callback-inputs'
+import { clientCredentialsStatus, usesClientCredentials } from './client-credentials-status'
 import { connectionError } from './error-envelopes'
 import { handleGifMedia, handleGifSearch } from './gif-handlers'
 import {
@@ -313,6 +314,7 @@ function handleStatus(c: Context, app: App): Promise<Response> {
         if (conn === undefined) return notFound(c, 'Connection not found')
         const scopeGate = yield* gateAdminForAppScope(c, conn, session.userId, app)
         if (scopeGate !== undefined) return scopeGate
+        if (usesClientCredentials(conn)) return yield* clientCredentialsStatus(c, conn)
 
         const result = yield* readConnectionStatus({ name, userId: session.userId }).pipe(
           Effect.result

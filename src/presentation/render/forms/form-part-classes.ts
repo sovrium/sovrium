@@ -33,7 +33,9 @@ import type { ComponentPartName } from '@/domain/models/app/design/component-par
  *  - `input` — each text control and Select (not a box, a radio, a file or a slider);
  *  - `submit` — the submit button, with the button's focus floor after it;
  *  - `error` — the reason the form runtime writes under a field, carried to it
- *    on the `<form>` as `data-error-class` since the element does not exist yet.
+ *    on the `<form>` as `data-error-class` since the element does not exist yet;
+ *  - `summary` — the banner an `onError: { type: message }` form shows above its
+ *    fields, carried the same way as `data-summary-class`.
  */
 
 /** Input types that are not a text control: a mark, a slider, a swatch, a file or a button. */
@@ -96,7 +98,7 @@ const withFormAttribute = (html: string, name: string, value: string): string =>
   html.replace(/<form(?=[\s>])/, `<form ${name}="${escapeHtmlDoubleQuotedAttribute(value)}"`)
 
 /** The classes a part receives: the author's, then its floor. */
-const partClasses = (
+export const partClasses = (
   styles: ComponentDesignResolution,
   part: Exclude<ComponentPartName<'form'>, 'root'>
 ): string =>
@@ -144,9 +146,12 @@ export const applyFormPartClasses = (
           input
         )
   const { error } = styles.parts
-  return error === undefined || error === ''
-    ? withControls
-    : withFormAttribute(withControls, 'data-error-class', error)
+  const summary = partClasses(styles, 'summary')
+  const withError =
+    error === undefined || error === ''
+      ? withControls
+      : withFormAttribute(withControls, 'data-error-class', error)
+  return summary === '' ? withError : withFormAttribute(withError, 'data-summary-class', summary)
 }
 
 /**

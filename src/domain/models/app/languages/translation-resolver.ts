@@ -200,19 +200,21 @@ export function resolveTranslation(
   // Normalize language code to match translation keys (e.g., 'fr-FR' → 'fr')
   const normalizedLang = normalizeLanguageCode(currentLang, translations)
 
-  // Try current language first
-  const currentTranslations = translations[normalizedLang]
-  if (currentTranslations?.[key]) {
-    return currentTranslations[key]
+  // Try current language first. A key the language declares answers with its
+  // value even when that value is empty: `''` is a deliberate blank, not a gap
+  // for the fallback language (or the key itself) to fill.
+  const current = translations[normalizedLang]?.[key]
+  if (current !== undefined) {
+    return current
   }
 
   // Try fallback language (defaults to default language)
   const fallbackLang = fallback || languages.default
   if (fallbackLang !== normalizedLang) {
     const normalizedFallback = normalizeLanguageCode(fallbackLang, translations)
-    const fallbackTranslations = translations[normalizedFallback]
-    if (fallbackTranslations?.[key]) {
-      return fallbackTranslations[key]
+    const fallbackValue = translations[normalizedFallback]?.[key]
+    if (fallbackValue !== undefined) {
+      return fallbackValue
     }
   }
 
@@ -389,11 +391,10 @@ export function collectTranslationsForKey(
   // Collect translation for this key from all available languages (functional approach)
   const result = Object.entries(languages.translations).reduce(
     (acc, [lang, translations]) => {
-      const translationDict = translations as Record<string, string>
-      if (translationDict[key]) {
-        return { ...acc, [lang]: translationDict[key] }
-      }
-      return acc
+      const value = (translations as Record<string, string | undefined>)[key]
+      // An empty value is declared, so it travels too: the client switcher
+      // must draw the blank rather than fall back to another language.
+      return value === undefined ? acc : { ...acc, [lang]: value }
     },
     {} as Record<string, string>
   )

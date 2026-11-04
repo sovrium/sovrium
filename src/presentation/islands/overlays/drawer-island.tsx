@@ -41,6 +41,12 @@ interface DrawerIslandProps {
    * `sovrium:open-drawer` custom event (see {@link useExternalOpenTrigger}).
    */
   readonly defaultOpen?: boolean
+  /**
+   * Set by the server when some trigger in the page config names this sheet,
+   * drawn or not (a tab panel not opened yet, another view, a `visibility`
+   * rule): the sheet then mounts closed and waits for it.
+   */
+  readonly hasOpener?: boolean
 }
 
 /**
@@ -48,7 +54,11 @@ interface DrawerIslandProps {
  * triggers, and the popup-body injection handler. Extracted from `DrawerIsland`
  * to keep that component under the `max-lines-per-function` cap.
  */
-function useDrawerController(id: string | undefined, defaultOpen: boolean) {
+function useDrawerController(
+  id: string | undefined,
+  defaultOpen: boolean,
+  hasOpener: boolean | undefined
+) {
   // Default `open=true` matches the legacy hydration contract: a pre-hydration
   // `data-click-modal` click would otherwise be lost on a non-portal placeholder.
   // PG-04 quick-edit drawers (referenced by an openSheet dispatch) opt out via
@@ -60,7 +70,11 @@ function useDrawerController(id: string | undefined, defaultOpen: boolean) {
   // the page it was meant to wait beside — the same rule the dialog island
   // follows (`computeInitialOpen`). A click that beat hydration is replayed by
   // `useExternalOpenTrigger`, which is what the open default was guarding.
-  const [open, setOpen] = useState(() => defaultOpen && !hasExternalTrigger(id))
+  // The trigger need not be drawn: the server marks a sheet the page config
+  // names (`hasOpener`), as it does a dialog.
+  const [open, setOpen] = useState(
+    () => defaultOpen && hasOpener !== true && !hasExternalTrigger(id)
+  )
   // PG-04: when `sovrium:open-drawer` fires, the dispatched record is
   // captured in this ref so the popup-body injection step can populate form
   // fields. The ref is updated *before* `setOpen(true)` triggers the
@@ -99,9 +113,10 @@ export default function DrawerIsland({
   className,
   id,
   defaultOpen = true,
+  hasOpener,
   'data-testid': testId,
 }: DrawerIslandProps): ReactElement {
-  const { open, setOpen, handleBodyInjected } = useDrawerController(id, defaultOpen)
+  const { open, setOpen, handleBodyInjected } = useDrawerController(id, defaultOpen, hasOpener)
   // A pending control inside holds the reader's dismissals (overlay-pending.ts).
   const { panelRef, onOpenChange } = useOverlayPending(setOpen)
   const sizeClass = getSizeClass(drawerSide, drawerSize)

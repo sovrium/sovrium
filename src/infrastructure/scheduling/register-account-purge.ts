@@ -11,7 +11,7 @@ import { resolvePurgeTableAuthorship } from '@/infrastructure/database/account-p
 import { purgeDueAccounts } from '@/infrastructure/database/account-purge-sweep'
 import { Database } from '@/infrastructure/database/drizzle/layer'
 import { logError } from '@/infrastructure/logging/logger'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { armHourlySweep } from './arm-sweep-schedule'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -30,7 +30,8 @@ import type { App } from '@/domain/models/app'
  * but it is gated behind an internal-only token — it is not, and must not be,
  * the production erasure path.
  *
- * Cadence: hourly. Erasures are not time-critical to the minute — a user's
+ * Cadence: hourly, at the app's hourly maintenance minute
+ * (`hourly-maintenance.ts`). Erasures are not time-critical to the minute — a user's
  * grace window is measured in days — so an hourly sweep keeps the worst-case
  * delay between "grace window elapsed" and "data physically gone" under an
  * hour while imposing negligible load.
@@ -44,9 +45,6 @@ import type { App } from '@/domain/models/app'
 class AccountPurgeSweepError extends Data.TaggedError('AccountPurgeSweepError')<{
   readonly cause: unknown
 }> {}
-
-/** Hourly — top of every hour. Erasures tolerate up to an hour of latency. */
-const PURGE_CRON_EXPRESSION = '0 * * * *'
 
 /** Stable scheduler job id so re-registration (config reload) is idempotent. */
 const PURGE_JOB_ID = 'account-purge-due'
@@ -84,33 +82,22 @@ export const registerAccountPurgeScheduler = (
 
     const database = yield* Database
     const scheduler = yield* CronScheduler
-    return yield* scheduler
-      .schedule(
-        PURGE_CRON_EXPRESSION,
-        () =>
-          // `purgeDueAccounts` resolves to a count; the scheduler callback
-          // signature is `void`. Any DB error is caught and logged so the
-          // timer re-arms for the next hourly tick.
-          Effect.tryPromise({
-            try: () => purgeDueAccounts(database, appTables, app),
-            catch: (cause) => new AccountPurgeSweepError({ cause }),
-          }).pipe(
-            Effect.tapError((error) =>
-              Effect.sync(() => {
-                logError('[account-purge] scheduled erasure sweep failed', error.cause)
-              })
-            ),
-            Effect.catch(() => Effect.void),
-            Effect.asVoid
-          ),
-        { jobId: PURGE_JOB_ID, timezone: resolveOperatorTimezone(process.env) }
-      )
-      .pipe(
-        Effect.catch((err) =>
+    // `purgeDueAccounts` resolves to a count; the sweep is `void`. Any DB
+    // error is caught and logged so the timer re-arms for the next hour.
+    return yield* armHourlySweep(scheduler, app.name, {
+      jobId: PURGE_JOB_ID,
+      armFailure: '[account-purge] failed to arm erasure scheduler',
+      sweep: Effect.tryPromise({
+        try: () => purgeDueAccounts(database, appTables, app),
+        catch: (cause) => new AccountPurgeSweepError({ cause }),
+      }).pipe(
+        Effect.tapError((error) =>
           Effect.sync(() => {
-            logError('[account-purge] failed to arm erasure scheduler', err)
-            return undefined
+            logError('[account-purge] scheduled erasure sweep failed', error.cause)
           })
-        )
-      )
+        ),
+        Effect.catch(() => Effect.void),
+        Effect.asVoid
+      ),
+    })
   })

@@ -259,6 +259,15 @@ export default {
   'admin.profile.password.saved': 'Password changed.',
   'admin.profile.password.failed': 'Could not change your password — check your current one.',
 
+  'admin.profile.twoFactor.label': 'Two-step verification',
+  'admin.profile.twoFactor.on': 'On. Signing in asks for a code from your authenticator app.',
+  'admin.profile.twoFactor.hint':
+    'Asks for a code from an authenticator app after your password. You get recovery codes for when the app is out of reach.',
+  'admin.profile.twoFactor.enableRegion': 'Turn on two-step verification',
+  'admin.profile.twoFactor.enable': 'Turn on',
+  'admin.profile.twoFactor.disableRegion': 'Turn off two-step verification',
+  'admin.profile.twoFactor.disable': 'Turn off',
+
   'admin.profile.language.label': 'Language',
   'admin.profile.language.hint':
     'Applies as soon as you choose, on every browser you sign in from.',
@@ -372,6 +381,7 @@ export default {
   'admin.auditLog.action.config.schema.queried': 'Read the config schema',
   'admin.auditLog.action.config.env.queried': 'Read the environment',
   'admin.auditLog.action.config.design.queried': 'Read the design system',
+  'admin.auditLog.action.audit.export.queried': 'Exported the audit log',
   'admin.auditLog.action.table.overview.queried': 'Read the tables overview',
   'admin.auditLog.action.table.record.created': 'Created a record',
   'admin.auditLog.action.table.record.updated': 'Updated a record',
@@ -561,6 +571,13 @@ export default {
   'admin.resetPassword.missing.heading': 'This link is missing or has expired.',
   'admin.resetPassword.missing.blurb': 'Reset links work once and expire after one hour.',
   'admin.resetPassword.missing.ask': 'Ask for a new one',
+
+  // ── Sign-in code step (`/two-factor`) ───────────────────────────────────
+  'admin.twoFactor.heading': 'Enter your code',
+  'admin.twoFactor.blurb': 'Two-step verification is on for this account.',
+  'admin.twoFactor.submit': 'Verify',
+  'admin.twoFactor.useRecoveryCode': 'Use a recovery code instead',
+  'admin.twoFactor.useAuthenticator': 'Use your authenticator app instead',
 
   // Shared by both recovery surfaces.
   'admin.auth.backToSignIn': 'Back to sign in',

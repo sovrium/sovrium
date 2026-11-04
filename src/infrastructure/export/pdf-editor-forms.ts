@@ -6,6 +6,7 @@
  */
 
 import { assertDrawable, EditRefusal, pdfLib } from './pdf-editor-library'
+import { assertRewritable } from './pdf-rewrite-guard'
 import type { PdfLib } from './pdf-editor-library'
 import type { BuiltPdf, PdfFormValue } from '@/application/ports/services/pdf-editor'
 import type { PdfInspectResult } from '@/domain/models/app/automations/actions/pdf/inspect'
@@ -124,6 +125,7 @@ export const fillPdfForm = async (
   flatten: boolean
 ): Promise<BuiltPdf> => {
   const lib = await pdfLib()
+  assertRewritable(lib, document)
   const form = document.getForm()
   if (form.getFields().length === 0) throw new EditRefusal('the PDF has no form fields')
   const font = await document.embedFont(lib.StandardFonts.Helvetica)

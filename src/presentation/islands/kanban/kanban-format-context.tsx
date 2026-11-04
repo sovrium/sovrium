@@ -9,12 +9,14 @@ import { useMemo, type ReactElement, type ReactNode } from 'react'
 import { resolveCurrencyOptions } from '@/domain/kernel/format/currency-format'
 import { resolvePageLocale } from '../runtime/page-locale'
 import { KanbanFormatContext, type KanbanFormat } from './use-kanban-format'
+import type { ColumnAggregate } from './column-aggregate'
 import type { FieldMetaMap } from '../hooks/use-inline-editing'
 import type { RecordTextFields } from '@/domain/models/app/tables/record-text-service'
 
 /**
  * Supplies the page language, the footer columns' currency treatment, the
- * colour-field hues, the board's bound table and its drag gate to every card.
+ * colour-field hues, the board's bound table and its drag gate to every card,
+ * and the column figure to every column header.
  */
 export function KanbanFormatProvider({
   fieldMeta,
@@ -24,6 +26,7 @@ export function KanbanFormatProvider({
   laneFields,
   recordText,
   select,
+  aggregate,
   children,
 }: {
   readonly fieldMeta: FieldMetaMap | undefined
@@ -33,6 +36,7 @@ export function KanbanFormatProvider({
   readonly laneFields?: readonly (string | undefined)[] | undefined
   readonly recordText: RecordTextFields | undefined
   readonly select?: ((recordId: unknown) => void) | undefined
+  readonly aggregate?: ColumnAggregate | undefined
   readonly children: ReactNode
 }): ReactElement {
   const value = useMemo<KanbanFormat>(
@@ -46,8 +50,18 @@ export function KanbanFormatProvider({
       ...(laneFields ? { laneFields } : {}),
       ...(recordText ? { recordText } : {}),
       ...(select ? { select } : {}),
+      ...(aggregate ? { aggregate } : {}),
     }),
-    [fieldMeta, table, colorFieldColors, draggableEnabled, laneFields, recordText, select]
+    [
+      fieldMeta,
+      table,
+      colorFieldColors,
+      draggableEnabled,
+      laneFields,
+      recordText,
+      select,
+      aggregate,
+    ]
   )
   return <KanbanFormatContext.Provider value={value}>{children}</KanbanFormatContext.Provider>
 }

@@ -92,7 +92,6 @@ export function MenuTriggerButton(
     | 'triggerChildrenHtml'
     | 'triggerContent'
     | 'triggerClassName'
-    | 'triggerAriaLabel'
     | 'className'
     | 'id'
     | 'data-testid'
@@ -109,7 +108,6 @@ export function MenuTriggerButton(
         triggerChildrenHtml: props.triggerChildrenHtml,
         authored: props.triggerClassName ?? props.className,
       })}
-      aria-label={props.triggerAriaLabel}
       id={props.id}
       data-testid={props['data-testid']}
       openOnHover={props.hoverEnabled}

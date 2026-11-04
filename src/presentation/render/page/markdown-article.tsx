@@ -6,7 +6,6 @@
  */
 
 import { type ReactElement } from 'react'
-import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { cn } from '@/presentation/design/class-merge'
 import { InlineScript } from '@/presentation/design/inline-script'
 import { renderDocsArticleHeader } from '@/presentation/render/markdown/docs-article-header'
@@ -30,6 +29,7 @@ import {
 import { wrapMarkdownTables } from '@/presentation/render/markdown/markdown-table-scroll'
 import { renderToc } from '@/presentation/render/markdown/markdown-toc-nav'
 import { applyProsePartClasses } from '@/presentation/render/markdown/prose-part-classes'
+import type { Languages } from '@/domain/models/app/languages'
 import type { ResolvedMarkdownPage } from '@/presentation/render/markdown/markdown-page-resolver'
 
 /**
@@ -81,6 +81,8 @@ const BODY_TYPESET_CLASSES: Readonly<
 
 interface MarkdownArticleProps {
   readonly markdown: ResolvedMarkdownPage
+  /** The app's languages, whose `sovrium.<key>` overrides rename the docs chrome's engine words. */
+  readonly languages?: Languages
 }
 
 /**
@@ -221,8 +223,9 @@ function renderDocsLayout(
         <DocsSidebarNav
           nav={markdown.collectionNav}
           menuLabel={labels.menu}
-          closeLabel={resolveInterpreterString('sidebar.drawerClose', markdown.lang)}
+          closeLabel={labels.menuClose}
           searchLabel={labels.searchDocs}
+          searchWords={labels.searchWords}
           parts={markdown.parts}
         />
         {article}
@@ -252,7 +255,9 @@ function renderMarkdownBody(
     labels
   )
   if (markdown.layout === 'docs') {
-    return renderDocsLayout(markdown, article, sidebarToc, labels)
+    // The phone menu's name is an engine string an app may rename per language.
+    const docsLabels = { ...labels, menu: markdown.menuLabel ?? labels.menu }
+    return renderDocsLayout(markdown, article, sidebarToc, docsLabels)
   }
   if (sidebarToc !== undefined) {
     return (
@@ -265,11 +270,14 @@ function renderMarkdownBody(
   return article
 }
 
-export function MarkdownArticle({ markdown }: MarkdownArticleProps): Readonly<ReactElement> {
+export function MarkdownArticle({
+  markdown,
+  languages,
+}: MarkdownArticleProps): Readonly<ReactElement> {
   if (markdown.layout === 'none') return renderRawMarkdown(markdown)
   // Resolve the per-locale docs-chrome labels ONCE from the active language and
   // thread them down through every chrome renderer.
-  const labels = getDocsChromeLabels(markdown.lang)
+  const labels = getDocsChromeLabels(markdown.lang, languages)
   const body = renderMarkdownBody(markdown, labels)
   // NOTE: there is deliberately no code-copy enhancement here. Every fence is
   // server-rendered inside a `<figure data-code-frame>` whose header carries

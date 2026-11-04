@@ -157,6 +157,7 @@ const mergeAll = async (
   const { projectPageForExport } = await import('@/application/use-cases/design/page-projection')
   const { isReshapedUnstampedDrawing, planPageMerge } =
     await import('@/domain/models/app/pages/merge/page-merge')
+  const { restampedDrawing } = await import('@/domain/models/app/pages/merge/position-service')
   const rawPages = ((parsed as Readonly<Record<string, unknown>>)['pages'] ??
     []) as readonly Readonly<Record<string, unknown>>[]
   const scale: MergeScale = {
@@ -177,7 +178,13 @@ const mergeAll = async (
       return refuse(`Error: The page ${drawn.page} could not be read back from the config.`)
     }
     const projected = projectPageForExport(app, page)
-    const drawing = { page: raw, tree: projected.tree.nodes, nodeMap: projected.map, drawn }
+    const restamped = restampedDrawing(drawn, baseline, projected.tree.nodes)
+    const drawing = {
+      page: raw,
+      tree: projected.tree.nodes,
+      nodeMap: projected.map,
+      drawn: restamped,
+    }
     if (isReshapedUnstampedDrawing(drawing)) {
       const holdsMoreNodes = nodeCount(drawn.nodes) > nodeCount(projected.tree.nodes)
       return refuse(reshapedUnstampedBoardRefusal({ ...drawn, holdsMoreNodes }))

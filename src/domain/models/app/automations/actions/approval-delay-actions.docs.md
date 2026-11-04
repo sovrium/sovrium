@@ -73,7 +73,7 @@ Pause for a fixed duration, or until a specific instant.
   props: { until: '{{steps.dayBefore.instant}}' }
 ```
 
-`duration` is a number and a unit: `ms`, `s`, `m`, `h` or `d`. `until` is an ISO 8601 datetime, or a template resolving to one. An `until` with an offset or `Z` is that instant; one without (`2026-12-24T09:00`, or a bare date read as its midnight) is read in the operator time zone, `SOVRIUM_TIMEZONE` (UTC when unset), never the host's. An `until` already past continues at once.
+`duration` is a number and a unit: `ms`, `s`, `m`, `h`, `d` or `y`, a year being exactly 365 days (a `y` duration passes the 90-day ceiling, so it is refused here; it exists for the settings that keep things for years). `until` is an ISO 8601 datetime, or a template resolving to one. An `until` with an offset or `Z` is that instant; one without (`2026-12-24T09:00`, or a bare date read as its midnight) is read in the operator time zone, `SOVRIUM_TIMEZONE` (UTC when unset), never the host's. An `until` already past continues at once.
 
 A wait of one minute or less sleeps inside the run, so a synchronous webhook still answers with what the steps after it produced. A longer wait **parks** the run: the step answers `{ resumeAt }`, the run turns `waiting-delay` with that `resumeAt`, and the trigger is answered at once with the run's id and the status `waiting-delay`. A sweep resumes the run within about a minute after `resumeAt` (at the next start for a run whose time passed while the server was stopped), and the step then also reads `resumedAt`. Nothing is promised to the second, and nothing is ever shortened.
 

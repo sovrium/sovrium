@@ -26,6 +26,7 @@ import {
   type StorageError,
   type StorageService,
 } from '@/application/ports/services/storage-service'
+import { isSignatureEvidenceKey } from '@/domain/models/app/signatures/signature-capture-service'
 import {
   PLATFORM_SSO_PROVIDER_ID,
   SOVRIUM_PLATFORM_SSO_ADMIN_SUBJECT_VAR,
@@ -327,6 +328,10 @@ export const referencingText = async (database: DatabaseService): Promise<string
  * surviving rows — does not name, and answer how many. Each removed file is
  * evicted from the transform cache too: the server keeps the bytes it last
  * served, and a deleted file must not be served again.
+ *
+ * A file a signing request holds as evidence is never removed: a reset keeps
+ * the evidence tables, and the chain names a signer's mark only inside its
+ * canonical bytes, which the rows' text spells as numbers, not as the key.
  */
 export const removeFilesNotNamedIn = (
   storage: Context.Service.Shape<typeof StorageService>,
@@ -335,7 +340,9 @@ export const removeFilesNotNamedIn = (
   Effect.gen(function* () {
     const keys = yield* storage.list('')
     const catalogued = yield* storage.catalogBuckets(keys)
-    const orphans = [...catalogued.entries()].filter(([key]) => !text.includes(key))
+    const orphans = [...catalogued.entries()].filter(
+      ([key]) => !text.includes(key) && !isSignatureEvidenceKey(key)
+    )
     yield* Effect.forEach(
       orphans,
       ([key, bucket]) =>

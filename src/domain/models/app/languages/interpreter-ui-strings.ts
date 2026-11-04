@@ -405,6 +405,12 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'search.placeholder': { en: 'Search...', fr: 'Rechercher…' },
   /** A search box's accessible name when the author declares no placeholder. */
   'search.label': { en: 'Search', fr: 'Rechercher' },
+  /** A page search's panel while a query is on its way, and when nothing matched `{query}`. */
+  'search.searching': { en: 'Searching…', fr: 'Recherche en cours…' },
+  'search.noResultsFor': { en: 'No results for “{query}”', fr: 'Aucun résultat pour « {query} »' },
+  /** The status announcing how many results a page search lists. */
+  'search.resultCount': { en: '{count} results', fr: '{count} résultats' },
+  'search.resultCountOne': { en: '{count} result', fr: '{count} résultat' },
   'list.loading': { en: 'Loading list...', fr: 'Chargement de la liste…' },
   'list.loadFailed': {
     en: 'Failed to load list items: {error}',
@@ -549,6 +555,11 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'auth.email': { en: 'Email', fr: 'E-mail' },
   'auth.password': { en: 'Password', fr: 'Mot de passe' },
   /** The error summary an auth form inserts above its fields after a refused submit. */
+  /** A two-step code the server refused, said on the code field. */
+  'auth.invalidCode': {
+    en: 'That code didn’t work. Try the code your app shows now.',
+    fr: 'Ce code n’a pas fonctionné. Essaie celui que ton application affiche maintenant.',
+  },
   'auth.fixErrors': {
     en: 'Please fix the following errors:',
     fr: 'Corrigez les erreurs suivantes :',
@@ -607,6 +618,16 @@ export const INTERPRETER_UI_STRINGS: Readonly<Record<string, Readonly<Record<str
   'twoFactor.recoveryCodes': { en: 'Recovery codes', fr: 'Codes de récupération' },
   'twoFactor.codesSaved': { en: 'I have saved these codes', fr: 'J’ai enregistré ces codes' },
   'twoFactor.done': { en: 'Done', fr: 'Terminé' },
+  /** The scan screen's one sentence: what to do with the QR code. */
+  'twoFactor.scanHint': {
+    en: 'Scan this QR code with your authenticator app, then enter the code it shows.',
+    fr: 'Scanne ce QR code avec ton application d’authentification, puis saisis le code qu’elle affiche.',
+  },
+  /** Above the recovery codes: what they are for. */
+  'twoFactor.codesHint': {
+    en: 'Keep these codes somewhere safe: each one signs you in once if you lose your authenticator app.',
+    fr: 'Garde ces codes en lieu sûr : chacun te connecte une fois si tu perds ton application d’authentification.',
+  },
   /** A password sign-in whose account still owes its second step. */
   'twoFactor.pendingSignIn': {
     en: 'Two-step verification is on — enter your code to finish signing in',
@@ -747,7 +768,6 @@ export const RETIRED_ENGINE_KEYS: readonly string[] = [
   'datatable.facet.empty',
   'datatable.sort.ascending',
   'datatable.sort.descending',
-  'datatable.createFailed',
 ]
 
 /** Platform default language for interpreter strings when none is resolved. */

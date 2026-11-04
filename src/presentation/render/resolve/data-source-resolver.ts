@@ -45,6 +45,7 @@ import {
 } from './data-source-contracts'
 import { checkFieldErrors, resolveByMode } from './data-source-modes'
 import { resolveIslandShortCircuit, stampNestedIslands } from './data-source-rows'
+import { withDrawnList } from './drawn-island-content'
 import { drawsOwnRows, resolveRowNestedLists } from './nested-row-lists'
 import { gateNestedInheritedRecord, gateNestedTableBinding } from './nested-table-gates'
 import { denyWhenUnreadable, holdsInheritedRecord, resolveRenderPlan } from './read-plan-gates'
@@ -118,7 +119,7 @@ async function resolveComponent(
   // `:placeholder` (`system.param`) and any `$param.<name>` filter value —
   // BEFORE the island short-circuit below serialises `dataSource` for the
   // client, which would otherwise hand the island a literal `:group`.
-  const bound = bindAuthSource(item as Component, app, session)
+  const bound = bindAuthSource(item as Component, app, session, db.viewerIdentity)
   const component = bindRouteParams(desugarSystemSourceRef(bound, app), routeParams)
   // A layout container carries no binding of its own, but may HOST one: descend
   // to stamp the island props of any data-bound descendant whose island-ness is
@@ -132,7 +133,8 @@ async function resolveComponent(
   // stamped for its island and SKIPS server-side resolution + app.tables
   // cross-validation — the island owns the fetch.
   const islandStamped = resolveIslandShortCircuit(component, routeParams, app)
-  if (islandStamped) return islandStamped
+  // A list carries its first page, read for its reader, so it is readable before it mounts.
+  if (islandStamped) return withDrawnList(islandStamped, { app, session, db })
 
   const { table: tableName, fields: requestedFields } = tableBindingOf(component)!
   const matchedTable = (app.tables ?? []).find((t) => t.name === tableName)
@@ -367,7 +369,7 @@ export async function resolvePageDataSources(
 
   // Account lists and account forms are bound (or withheld) at every depth
   // before any island stamp serialises a binding for the browser.
-  const accountBound = bindAuthSourcesInTree(components, app, ctx.session)
+  const accountBound = bindAuthSourcesInTree(components, app, ctx.session, ctx.db.viewerIdentity)
   const resolvedComponents = await Promise.all(
     accountBound.map((item) => resolveComponent(item, componentCtx))
   )

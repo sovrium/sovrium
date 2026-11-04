@@ -25,6 +25,10 @@ import { isGuestSession } from '@/domain/models/app/auth/guest-session'
 import { NO_GRANT_ROLE } from '@/domain/models/app/auth/permission-evaluation'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import {
+  isControlPlaneObject,
+  type StarterGateScope,
+} from '@/domain/models/app/automations/actions/file/control-plane-object-validation'
+import {
   permitsBucketFileDelete,
   permitsBucketFileRead,
   type BucketFileCaller,
@@ -178,10 +182,17 @@ const publicStorageAccess = (): StoragePublicAccess | undefined => {
   }
 }
 
-/** A stored file as the catalog records it: its key, and its bucket when it has one. */
+/**
+ * A stored file as the catalog records it: its key, its bucket when it has
+ * one, and whether the catalog holds a row for it at all. Every engine write
+ * records a row (a NULL bucket for a run's temporary copies and exports); a
+ * file with no row was put in the store out of band, or is what is left of a
+ * removed or erased file ({@link StarterGateScope}).
+ */
 export interface CatalogEntry {
   readonly key: string
   readonly bucket: string | undefined
+  readonly recorded: boolean
 }
 
 /**
@@ -209,11 +220,13 @@ const bucketServes = (
  * THE one decision: may the person who started `automation`'s run, standing as
  * `standing`, reach the stored file `entry`?
  *
- * Always when her standing is open (a run nobody started, an admin starter) or
- * the catalog records no bucket. Otherwise when this run wrote the file
- * (`writtenFiles`) or, unless it is a chat attachment, read its key from a
- * record she may read (`readFiles`), each in that very bucket; failing those,
- * only when no table's attachment
+ * Always when her standing is open (a run nobody started, an admin starter).
+ * A file no bucket holds (a temporary copy, an export, a key with no catalog
+ * row at all) only when this run wrote it; the steps that read control-plane
+ * objects widen that through {@link StarterGateScope}, never here. Otherwise when
+ * this run wrote the file (`writtenFiles`) or, unless it is a chat attachment,
+ * read its key from a record she may read (`readFiles`), each in that very
+ * bucket; failing those, only when no table's attachment
  * field stores into the bucket (`system` for a field that names none) AND the
  * bucket's `download` admits her as the files API judges it. Every gated road
  * asks here, so a wider rule is written here alone.
@@ -226,8 +239,8 @@ export const starterMayReach = (
 ): boolean => {
   if (standing.kind === 'open') return true
   const { bucket, key } = entry
-  if (bucket === undefined) return true
-  if (automation.writtenFiles?.has(bucket, key) === true) return true
+  if (automation.writtenFiles?.has(bucket ?? UNATTRIBUTED_BUCKET, key) === true) return true
+  if (bucket === undefined) return false
   // A chat attachment is its uploader's alone, served by the chat's own route.
   if (isChatAttachmentKey(key)) return false
   if (automation.readFiles?.has(bucket, key) === true) return true
@@ -237,22 +250,53 @@ export const starterMayReach = (
 }
 
 /**
+ * The catalog entry a read of `key` is judged on; `null` when it could not be
+ * read. A key with no row of its own is judged on the row of another spelling
+ * the store would serve it as (NFC, or letter case where the store folds it),
+ * so respelling a recorded file never makes it look row-less.
+ */
+const readEntry = (
+  storage: Effect.Success<typeof StorageService>,
+  key: string
+): Effect.Effect<CatalogEntry | null> =>
+  Effect.gen(function* () {
+    const row = yield* catalogRow(storage, key)
+    if (row === null) return null
+    if (row !== undefined) return { key, bucket: row.bucket, recorded: true }
+    const other = yield* storage.findOtherSpelling(key).pipe(
+      Effect.map(Option.getOrUndefined),
+      Effect.tapCause(reportOutage(key)),
+      // effect-swallow: an unanswered spelling read refuses the key; the outage was logged just above.
+      Effect.orElseSucceed(() => null)
+    )
+    if (other === null) return null
+    return other === undefined
+      ? { key, bucket: undefined, recorded: false }
+      : { key: other.key, bucket: other.bucket, recorded: true }
+  })
+
+/**
  * The gate of `automation`'s run: open unless someone who is not
  * admin-equivalent started it by hand; then a key nothing is stored under, a
  * catalog that cannot be read and a file {@link starterMayReach} refuses all
- * answer the refusal.
+ * answer the refusal, unless `scope` admits it ({@link StarterGateScope}).
  */
 export const starterFileGate =
-  (app: App, automation: AutomationContext): StarterFileGate =>
+  (
+    app: App,
+    automation: AutomationContext,
+    scope: StarterGateScope = 'engine-files'
+  ): StarterFileGate =>
   (key) =>
     Effect.gen(function* () {
       const standing = yield* starterStanding(app, automation)
       if (standing.kind === 'open') return NO_REFUSAL
       const storage = yield* StorageService
       if (!(yield* isStored(storage, key))) return CALLER_REFUSAL
-      const bucket = yield* catalogBucket(storage, key)
-      if (bucket === null) return CALLER_REFUSAL
-      return starterMayReach(app, automation, { key, bucket }, standing)
+      const entry = yield* readEntry(storage, key)
+      if (entry === null) return CALLER_REFUSAL
+      if (starterMayReach(app, automation, entry, standing)) return NO_REFUSAL
+      return scope === 'control-plane-objects' && isControlPlaneObject(entry)
         ? NO_REFUSAL
         : CALLER_REFUSAL
     }).pipe(Effect.withSpan('automations.starter-file-gate'))
@@ -325,6 +369,11 @@ export const starterRemovalGate =
       if (!(yield* isStored(storage, key))) return CALLER_REFUSAL
       const row = yield* catalogRow(storage, key)
       if (row === null) return CALLER_REFUSAL
-      const entry = { key, bucket: row?.bucket, uploadedBy: row?.uploadedBy }
+      const entry = {
+        key,
+        bucket: row?.bucket,
+        recorded: row !== undefined,
+        uploadedBy: row?.uploadedBy,
+      }
       return starterMayRemove(app, automation, entry, standing) ? NO_REFUSAL : CALLER_REFUSAL
     }).pipe(Effect.withSpan('automations.starter-removal-gate'))

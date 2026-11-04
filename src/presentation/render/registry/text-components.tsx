@@ -10,14 +10,10 @@ import { applyProsePartClasses } from '@/presentation/render/markdown/prose-part
 import { renderTextComponentMarkdown } from '@/presentation/render/markdown/text-component-markdown'
 import * as Renderers from '../elements'
 import { omitInternalMarkers } from '../props/internal-marker-props'
+import { isAuthoredEmpty } from '../resolve/authored-empty-text'
 import { kbdComponent } from './kbd-component'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 
-/**
- * Text and heading components (h1-h6, text, paragraph, code, etc.)
- *
- * These components render text content and typography elements.
- */
 /**
  * The elements a `text` draws as themselves with nothing but its props and
  * its content or children, keyed by element name.
@@ -98,7 +94,9 @@ export function bindSessionContent(
  * no node at all: an empty `<p>` or `<span>` is still announced by a screen
  * reader and still takes its padding. Only the empty string counts: a text
  * authored as a single space is a deliberate separator between two inline
- * siblings, and dropping it glues their words together.
+ * siblings, and dropping it glues their words together. A text WRITTEN empty
+ * (`content: ''`, or a template variable passed as `''`) is not one: it is a
+ * slot its author placed, and draws (`resolve/authored-empty-text.ts`).
  *
  * Unless something can still fill it: an `id` (a status line an action writes
  * into, a script's target), a live region (`role`, `aria-live`), or a session
@@ -113,6 +111,7 @@ const resolvedToNothing = (
   typeof content === 'string' &&
   content === '' &&
   renderedChildren.length === 0 &&
+  !isAuthoredEmpty(component) &&
   component['session'] === undefined &&
   props['id'] === undefined &&
   props['role'] === undefined &&
@@ -131,6 +130,11 @@ function omitLanguageScriptPayload(props: Record<string, unknown>): Record<strin
   )
 }
 
+/**
+ * Text and heading components (h1-h6, text, paragraph, code, etc.)
+ *
+ * These components render text content and typography elements.
+ */
 export const textComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> = {
   // `kbd` — a key or a chord, as keycaps. It sits with the text family because
   // that is what it is: an inline element inside a sentence. In its own module

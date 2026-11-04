@@ -9,6 +9,7 @@ import { type ReactElement } from 'react'
 import { sanitizeRichTextHTML } from '@/domain/kernel/sanitize/html-sanitization'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { partClasses } from '@/presentation/render/forms/form-part-classes'
 import { synthesizedComponent } from '@/presentation/render/resolve/component-rewrite'
 import { computeFormClasses } from '../../design/forms-default-classes'
 import { omitInternalMarkers } from '../props/internal-marker-props'
@@ -103,8 +104,9 @@ function renderCrudFormVariant(config: RenderFormConfig): ReactElement {
 }
 
 function renderAuthFormVariant(config: RenderFormConfig): ReactElement {
-  const { props, action, tables, component, lang, languages, landingPath } = config
-  const context = { tables, component, lang, languages, landingPath }
+  const { props, action, tables, component, lang, languages, landingPath, designStyles } = config
+  const summaryClassName = (designStyles && partClasses(designStyles, 'summary')) || undefined
+  const context = { tables, component, lang, languages, landingPath, summaryClassName }
   const byStrategy = renderStrategyAuthForm(props, action, context)
   if (byStrategy !== undefined) return byStrategy
   return withSessionEndedNotice(renderAuthForm(props, action!, context), action, context)

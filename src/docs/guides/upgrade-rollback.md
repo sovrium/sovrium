@@ -32,6 +32,42 @@ sovrium stop && sovrium start app.yaml
 
 A refusal names the place in the config and, in most cases, what to write instead. Fix it, validate again, then restart. Environment variables are read when the server starts rather than by `validate`, so an invalid one surfaces at `start`, before the app serves traffic. Then read the breaking changes between your version and the new one: `sovrium changelog --since <the version you run>` gathers them in one list.
 
+## Upgrading from 0.46.x to 0.47.0
+
+Upgrading from 0.46.0 or 0.46.1, read the notes for 0.46.2 below too: they apply on the way.
+
+### Configs that are refused
+
+- **A `signature` field whose `bucket` names a bucket the app does not declare**, refused since 0.46.2. Declare the bucket under `buckets`, or omit `bucket` to keep the images in the built-in `system` bucket.
+
+### Behaviour that changes without a config change
+
+- **An API client can no longer write a `signature` field.** A value for one sent through the records API (`PATCH`, `POST`, a batch, an upsert, a CSV import), a form mapping, an automation's record step or an agent tool is refused with a `400` naming the field, even when the field is empty. A signature is given by the person signing: through a `signature-pad` on a page, a form's signature field bound to the column, a signing flow's page, or a post to the field's signing route, `POST /api/tables/{table}/records/{id}/signatures/{field}`, with the signer's consent, the drawing as PNG bytes, the page and the digest of the statement shown. A client that used to `PATCH` a signature value moves to that route. See [Attachment Fields](/en/docs/attachment-fields#signature).
+- **The server writes every part of a signature.** A new signature is stored as a version 2 value carrying `version`, `evidenceId`, `identity` (`account` for a signed-in person) and the statement the server resolved from the page, not text from the request. A signature stored before this version is kept as it is, and a read labels it `"provenance": "client-asserted"`.
+- **`sovrium seed` writes signatures again**, as `imported` values with no `evidenceId`, from the old shape or a version 2 value.
+- **A form `signature` answer is a drawing, not a value.** The answer is posted as a PNG file part named after the field with `<name>.consent` set to `true`; a data URL or a composed object is refused with a `400` naming the field.
+
+### New in 0.47
+
+Nothing here changes an app that does not use it.
+
+- **Signing flows**: a `signatures` root key asks the people a record names to sign the PDF it holds, each from a link of her own, and keeps an evidence file of every step, with the `signature/send` and `signature/cancel` steps, a `signature` trigger and `sovrium signature verify`. What a flow produces is a simple electronic signature with an evidence file. The fields a flow writes back (each signer's `signature` field and the `output` fields) are written by the engine only: a client write to one is refused with a `400` naming the field, whatever the caller's role. While a request is open, a client write to the flow's `document.field` is refused too. See [Signing Flows](/en/docs/signing-flows) and [Collect signatures on a document](/en/docs/collect-signatures).
+- **Four environment variables**, all optional until you use them: `SIGNATURE_SEAL_KEY` and `SIGNATURE_SEAL_CERT_CHAIN` (the organisation's seal, both or neither), `SIGNATURE_TSA_URL` (a timestamp authority) and `SIGNATURE_OTP_SECRET` (the one-time-code secret). `SIGNATURE_OTP_SECRET` becomes required as soon as one flow declares `verify`: without it the server refuses to start, naming the flow. An invalid value of any of them, or a seal key without its chain, refuses the start too, naming the variable. See [Signing Keys](/en/docs/signing-keys).
+- **Durations accept a `y` unit**, a year being 365 days, such as `evidence.keep: 6y`, beside `ms`, `s`, `m`, `h` and `d`. Each option keeps its own range, so a wait still refuses more than its maximum however it is written, and every duration that was valid stays valid.
+
+## Upgrading from 0.46.1 to 0.46.2
+
+### Configs that are refused
+
+- **A `signature` field whose `bucket` names a bucket the app does not declare.** It used to validate, and signing then failed when the image was uploaded. `sovrium validate` and `sovrium start` now refuse it with the message an attachment field naming an undeclared bucket gets. Declare the bucket under `buckets`, or omit `bucket` to keep the images in the built-in `system` bucket.
+
+### Behaviour that changes without a config change
+
+- **A stored signature is kept on every way a record is written.** A batch update, a bulk edit from the grid, an upsert and a CSV import that would change or clear one are refused with a `400`, as a single update already was. Resending the stored value unchanged is still accepted.
+- **A first signature is checked when it is stored.** It must carry its image, signer name, statement and method (`drawn` or `typed`), and its image must be a file the signing person uploaded into the field's bucket. Its `signedAt` is the moment the server stores it, whatever instant the request carried. A client writing signatures itself uploads the image as the signing person first, as a `signature-pad` does. See [Attachment Fields](/en/docs/attachment-fields#signature).
+- **A write with nobody signing behind it no longer fills an empty `signature` field.** An automation's record step, `sovrium seed` and a form submitted without signing in upload no image as the signer, so a first signature they carry is refused, as is a form's `signature` answer mapped onto a `signature` field through `submitTo.mapping`. Leave the field out of those writes and let the person sign it from a `signature-pad`.
+- **Purging a record keeps a signature image another record still names**, and deletes the last one from the field's own bucket rather than from `system`.
+
 ## Upgrading from 0.45 to 0.46
 
 | Removed                                                             | Replace with                                                                                                                                                                                                                                                                                                                                                                                 |

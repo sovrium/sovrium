@@ -32,7 +32,7 @@ The index TYPE follows the field type, and only on PostgreSQL:
 - `geolocation` fields get a GiST index.
 - Everything else gets a B-tree.
 
-SQLite has neither GIN nor GiST, so an `array`, `json` or `geolocation` field is simply left unindexed there. The column still works and every query still answers, it just scans. Every other type gets a plain index on both dialects.
+SQLite has neither GIN nor GiST, so an `array`, `json` or `geolocation` field is left unindexed there. The column still works and every query still answers, it just scans. Every other type gets a plain index on both dialects.
 
 What `indexed` buys you is faster `filter`, `sort` and foreign-key lookups on that column, paid for with slightly slower writes. It is **not** a prerequisite for any search: `?q=` either matches substrings or reads the full-text index `fullTextSearch` asks for, and the ⌘K palette maintains an index of its own. Index a field because you filter or sort on it often, not because you intend to search it.
 

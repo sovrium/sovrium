@@ -18,6 +18,7 @@
 
 import { Context, Data } from 'effect'
 import type { FinalFailure } from '@/domain/models/app/automations/automation-run-outcome-service'
+import type { StreakRun } from '@/domain/models/app/automations/failure-streak-service'
 import type { Effect } from 'effect'
 
 /** Database error for the run-outcome reads and the two sweeps. */
@@ -119,6 +120,17 @@ export class AutomationRunOutcomeRepository extends Context.Service<
       readonly limit: number
       readonly startedAfter?: Readonly<Date> | undefined
     }) => Effect.Effect<readonly string[], AutomationRunOutcomeDatabaseError>
+
+    /**
+     * The latest runs of `automationName` a failure streak reads (see
+     * `STREAK_COUNTED_RUN_STATUSES`) completed before `before`, newest first,
+     * at most `limit` — the count `notify.afterConsecutiveFailures` waits for.
+     */
+    readonly listStreakRuns: (input: {
+      readonly automationName: string
+      readonly before: Readonly<Date>
+      readonly limit: number
+    }) => Effect.Effect<readonly StreakRun[], AutomationRunOutcomeDatabaseError>
 
     /**
      * Per automation, how many runs were created in `[from, to)` and how they

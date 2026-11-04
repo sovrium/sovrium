@@ -39,6 +39,7 @@
  */
 
 import sanitizeHtml from 'sanitize-html'
+import { DEFAULT_LINK_SCHEMES, linkSchemesWith } from './link-schemes'
 import { readSvgDrawing, svgDrawingProfile, type SvgDrawing } from './svg-drawing-profile'
 
 export type { SvgDrawing } from './svg-drawing-profile'
@@ -108,7 +109,7 @@ const RICH_TEXT_OPTIONS: sanitizeHtml.IOptions = {
   allowedAttributes: ALLOWED_ATTRIBUTES,
   // Only navigable, non-scripting schemes. `javascript:`, `data:` and
   // `vbscript:` are absent, so href/src carrying them are dropped.
-  allowedSchemes: ['http', 'https', 'mailto'],
+  allowedSchemes: [...DEFAULT_LINK_SCHEMES],
   allowProtocolRelative: false,
   // These tags are dropped *together with* their text content.
   nonTextTags: ['script', 'style', 'textarea', 'option', 'noscript'],
@@ -247,18 +248,30 @@ const EMAIL_OPTIONS: sanitizeHtml.IOptions = {
  */
 export type SanitizeProfile = 'rich-text' | 'email'
 
+/** What a sanitize runs with: its profile, and the link schemes it keeps beside the profile's. */
+export interface SanitizeOptions {
+  readonly profile?: SanitizeProfile
+  /** Extra schemes an `<a href>` keeps (an email step's `allowedLinkSchemes`); see `link-schemes.ts`. */
+  readonly linkSchemes?: readonly string[]
+}
+
+/** The sanitize-html options a sanitize runs: the profile's, with links widened to the extra schemes. */
+// eslint-disable-next-line functional/prefer-immutable-types -- sanitize-html options are mutable by library design (see RICH_TEXT_OPTIONS)
+const optionsFor = (options: SanitizeOptions): sanitizeHtml.IOptions => {
+  const profile = options.profile === 'email' ? EMAIL_OPTIONS : RICH_TEXT_OPTIONS
+  const a = linkSchemesWith(options.linkSchemes)
+  const byTag = typeof profile.allowedSchemesByTag === 'object' ? profile.allowedSchemesByTag : {}
+  return a === undefined ? profile : { ...profile, allowedSchemesByTag: { ...byTag, a: [...a] } }
+}
+
 /**
  * Allowlist-sanitise HTML that will be rendered into the page (rich-text
  * columns, customHTML components) or sent as an email body. Strips scripts,
  * embedding sinks, inline event handlers, and dangerous URL schemes while
- * preserving safe markup; see {@link SanitizeProfile} for what each keeps.
+ * preserving safe markup; see {@link SanitizeProfile} and {@link SanitizeOptions}.
  */
-export function sanitizeRichTextHTML(
-  input: string,
-  options: { readonly profile?: SanitizeProfile } = {}
-): string {
-  const profile = options.profile === 'email' ? EMAIL_OPTIONS : RICH_TEXT_OPTIONS
-  return normaliseVoidElements(sanitizeHtml(input, profile))
+export function sanitizeRichTextHTML(input: string, options: SanitizeOptions = {}): string {
+  return normaliseVoidElements(sanitizeHtml(input, optionsFor(options)))
 }
 
 /** A link the sanitizer kept as text but stripped of its address, because of its scheme. */
@@ -291,9 +304,9 @@ type LinkWatch =
  */
 export function sanitizeRichTextHTMLReportingLinks(
   input: string,
-  options: { readonly profile?: SanitizeProfile } = {}
+  options: SanitizeOptions = {}
 ): { readonly html: string; readonly droppedLinks: readonly DroppedLink[] } {
-  const profile = options.profile === 'email' ? EMAIL_OPTIONS : RICH_TEXT_OPTIONS
+  const profile = optionsFor(options)
   const own = profile.transformTags?.['a']
   // Keyed by the attribute object a link's frame carries from the transform
   // on; a Map keeps insertion order, which is the order the links open in.

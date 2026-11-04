@@ -23,7 +23,7 @@ Its foreign key is `ON DELETE SET NULL`: deleting the account clears the referen
 
 ### Picking a person
 
-A picker reads the account directory, `GET /api/users/directory`, which lists people by name and avatar, never by email, and never an agent. It answers a signed-in person only where the app gives her a reason to pick someone: a `user`, `created-by` or `updated-by` field on a table she may create or update records in, presence shown to her role (see **Presence**), or a page that lists the directory. Anywhere else it answers `404`, so an app with nothing to pick discloses nobody's name. A caller who is not signed in is answered `401`.
+A picker reads the account directory, `GET /api/users/directory`, which lists people by name and avatar, never by email, and never an agent. It answers a signed-in person only where the app gives her a reason to pick someone: a `user` field she may write on a table she may create or update records in, presence shown to her role (see **Presence**), or a page that lists the directory. A `user` field her field permissions keep her from writing does not count, and neither does a `created-by` or `updated-by` field, which the engine fills itself. Anywhere else it answers `404`, so an app with nothing to pick discloses nobody's name. In an app that declares `auth.scopeTables`, it lists only the people who share at least one scope record with her through their assignments, herself included, and a search by name reaches nobody else; a person with no assignment is listed no one, and a role with admin rights lists everyone. A caller who is not signed in is answered `401`.
 
 ### Several people
 

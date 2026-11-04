@@ -22,6 +22,8 @@ The primary content component: inline text, a semantic element, or a whole markd
 
 <!-- sovrium:options type:text -->
 
+An empty `text` follows what you wrote. Content written as an empty string, `content: ""`, or a template variable a placement passes as `""`, draws the element, empty, with every attribute it declares: a slot a script or a `::before` fills. Content that is a reference resolving to nothing, such as `$app.version` in an app that declares no version or a `$record` field left empty, draws no element, since an empty paragraph is still announced by a screen reader; an `id`, a `role` or `aria-live` keeps it, because something can still fill it.
+
 `props.format: markdown` renders `content` as sanitised HTML: headings, bold, italic, links, images, nested lists. The sanitiser strips `<script>` tags and event-handler attributes, so record-supplied markdown cannot execute.
 
 Two of the `element` values look like they overlap with a type of their own, and do not:
@@ -109,7 +111,7 @@ components:
 
 `endpoint` and `template` are required; `rowsKey` defaults to `items` and `separator` to a newline. Declare `", "` for an inline enumeration. The endpoint is fetched on the render path with the caller's own credentials, so a visitor who may not see it gets no rows.
 
-**The template is never rendered on an empty result.** `empty` is the block's content when there are no rows, and like any content a leading `$t:key` in it reads in the page language. With no `empty` declared the block is simply empty: a leaked `$record` token in a block an operator pastes into a shell is worse than silence. A row value is always rendered as text, never as markup, whatever it begins with, so a template producing an XML or HTML example yields a code block rather than markup.
+**The template is never rendered on an empty result.** `empty` is the block's content when there are no rows, and like any content a leading `$t:key` in it reads in the page language. With no `empty` declared the block is empty: a leaked `$record` token in a block an operator pastes into a shell is worse than silence. A row value is always rendered as text, never as markup, whatever it begins with, so a template producing an XML or HTML example yields a code block rather than markup.
 
 Four declarations are refused when the config is validated, each because it would mean nothing: `content` beside `contentFrom` (two answers to what the block holds); `children` beside `contentFrom` (children render only when there is no content, so they never would); a `template` with no `$record.` reference (every row would render the same constant; a `$t:` key is accepted, and translated before each row fills the references its translation carries); and a `contentFrom` nested inside a row template (the block would be cloned per row, each clone fetching its own binding).
 

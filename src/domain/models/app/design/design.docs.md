@@ -10,7 +10,7 @@ Every token category is a direct key of `design`, named for the decision it make
 
 <!-- sovrium:options DesignSchema depth=1 -->
 
-**There is no `theme` key.** It was removed, along with `design.theme` and `design.scales`. A config still declaring one is refused by `sovrium validate`, with a message naming the destination for every member. A rename is a rename, and being told which key to use is the whole point of refusing rather than guessing.
+**There is no `theme` key.** It was removed, along with `design.theme` and `design.scales`. A config still declaring one is refused by `sovrium validate`, with a message naming the destination for every member. A rename is a rename, and being told which key to use is why the config is refused instead of guessed at.
 
 The token keys have their own articles: Theme Overview & Colors, Baseline & Dark Mode, Typography, Type Scale, Spacing/Radius/Elevation, Responsive Design, Animations, Density, and Component Styles. What follows is the charter: the half of a design system that is prose rather than values.
 
@@ -61,7 +61,7 @@ design:
 - **Root-relative**: `/logos/wordmark.svg`. This covers both storage homes with one rule: a file in the app's public directory is served at `/name.ext`, and a bucket object at `/api/buckets/{bucket}/files/{path}`.
 - **Absolute `https://`**: for a mark on a CDN or owned by another party.
 
-Everything else is refused, each for a reason. A bare relative path resolves against the **current page**, so the same declaration loads `/wordmark.svg` on the home page and `/fr/docs/guide/wordmark.svg` inside a docs zone. There is no way to write a correct one, so accepting one accepts only mistakes. `http://` on an https app is mixed content: the browser blocks it silently and the mark is simply absent. `data:` inlines a wordmark into every page's HTML, paid for on every request and cached on none.
+Everything else is refused, each for a reason. A bare relative path resolves against the **current page**, so the same declaration loads `/wordmark.svg` on the home page and `/fr/docs/guide/wordmark.svg` inside a docs zone. There is no way to write a correct one, so accepting one accepts only mistakes. `http://` on an https app is mixed content: the browser blocks it silently and the mark does not appear. `data:` inlines a wordmark into every page's HTML, paid for on every request and cached on none.
 
 **Prefer SVG.** A wordmark is line art: resolution-independent, smaller than any raster encoding of it, sharp at every density, and with no codec question at all. A mark declared here is served verbatim and never enters the runtime image-transform pipeline. A customer's wordmark is their trademark, and re-encoding it is not Sovrium's call.
 
@@ -131,7 +131,7 @@ design:
 
 Guidance gives your own reusable components something to say beside their name, and it lives **on the template**, as `components[].guidance`, not here. Three fields, three different questions: `usage` is what it _is_, `when` is the situation that selects it over its neighbours, and `dont` is the misuse to refuse. All optional.
 
-Co-locating it removed a whole class of mistake rather than moving one: a rename can no longer half-apply, because there is no second place holding the name.
+Co-locating it removed a whole class of mistake: a rename can no longer half-apply, because there is no second place holding the name.
 
 ## Exporting it
 
@@ -139,13 +139,13 @@ The whole point of declaring this is to be able to hand it over. One generator p
 
 ```bash
 sovrium design-system app.yaml                                  # the agent brief, on stdout
-sovrium design-system app.yaml --output DESIGN.md               # committed beside the config
+sovrium design-system app.yaml --format design-md --output DESIGN.md  # for design agents
 sovrium design-system app.yaml --format json --output tokens.json
 sovrium design-system app.yaml --format bundle --output design-system
 sovrium design-system app.yaml --format bundle --pages --output design-system  # with your pages
 ```
 
-Markdown is the default because the default reader is a model. The command runs offline (no server, no database), so it fits a pre-commit hook or a CI step. It refuses an unknown `--format`, refuses `--mode` with any format but `json` (the brief and the bundle describe both colour schemes), and refuses a config that fails validation rather than exporting a design system describing an app that cannot boot. The brief lists each colour's light and dark value side by side, one row per colour; the Dark column is what the app paints under `.dark`. `--format bundle` writes the portable bundle (the brief, the tokens for both colour modes, the theme CSS and a rendered component kit) into a directory a design tool or an assistant can be handed whole. When `design.code.tokens` colours a syntax role, the tokens, `css/theme.css`, `css/tailwind.css` and the brief carry it too; without it they are unchanged. `--pages` adds your pages to it, drawn as the app draws them, so a designer starts from the real screen rather than a screenshot.
+Markdown is the default because the default reader is a model. The command runs offline (no server, no database), so it fits a pre-commit hook or a CI step. It refuses an unknown `--format`, refuses `--mode` with any format but `json` (the brief and the bundle describe both colour schemes), and refuses a config that fails validation rather than exporting a design system describing an app that cannot boot. The brief lists each colour's light and dark value side by side, one row per colour; the Dark column is what the app paints under `.dark`. `--format bundle` writes the portable bundle (the brief, the tokens for both colour modes, the theme CSS and a rendered component kit) into a directory a design tool or an assistant can be handed whole. When `design.code.tokens` colours a syntax role, the tokens, `css/theme.css`, `css/tailwind.css` and the brief carry it too; without it they are unchanged. `--pages` adds your pages to it, drawn as the app draws them, so a designer starts from the real screen instead of a screenshot. `--format design-md` writes the DESIGN.md that design agents read instead, with a sidecar and one surface brief per zone; text written inside its narrative blocks survives the next export.
 
 The same content is served at runtime from `GET /api/admin/design-system.json` (a W3C DTCG 2025.10 document; `?mode=dark` answers the dark palette) and `GET /api/admin/design-system.md` (the brief the CLI prints), with the bundle at `GET /api/admin/design-system.zip`. All are admin-gated and read-only, and return `404` to anyone else. The design-system console renders the same content as a page a person reads, and can publish it behind a revocable link to someone with no login.
 
@@ -170,6 +170,8 @@ It reads a Claude Design system in the 0.2.47 format (`tokens.json`, or the proj
 **Only tokens map.** A colour goes to `colors` under its path joined with `-` (a leading `color` group dropped), and the dark value the source states to `darkColors` when it differs from what the app paints in dark, even when it equals the light one. A layered source (a DTCG `dark` file or resolver context, a Tokens Studio dark theme, a `.dark` block) states only what its dark layer says; a Claude Design system or a Figma mode file states every token in every mode. A length goes to `radius`, `spacing` or `breakpoints` when its group says which; a font family under a `font` group to `typeScale.families`; a text style named for a type-scale rung (`h1`, `body`, `caption`, …) to that rung. Everything else is listed as unmapped with the reason, never guessed into a key. A colour written in a space `colors` cannot hold (`oklab()`, `lab()`, `lch()`, `hwb()`, `color()`, or a DTCG colour space other than sRGB and Oklch with no hex) is listed as unmapped too, naming the space, so an import never writes a value the config would refuse. **Components are never imported**: the report counts the ones it found and reads their tokens only. A Claude Design project's components are counted as Claude Design lists them, each name once: a `components/<Name>/` folder holding a `preview.html` or a `README.md`, a single `components/<Name>.html` or `components/<Name>.prompt.md`, a `components/<group>/<Name>/` card, and the names `components/bundle.js` declares; `lib/`, `src/` and a folder of types only are not components.
 
 **A change is a real change.** Each token is compared with what the app already paints, declared or inherited, by value: `10px` and `0.625rem` are the same length at a 16px base, and two colours are the same when their sRGB hex and their opacity are. Radius and spacing are written in `rem`, except a length of 1000px or more, written in `px` as a pill radius is (`9999px`); breakpoints are written in `px`. The import adds and changes keys; it never removes one, and a second `--write` with the same file changes nothing.
+
+A `DESIGN.md`, the design record design agents read and write, is read too (`--from design-md`), from its YAML front matter: `colors` go to `colors`, `rounded` to `radius` and `spacing` to `spacing`, and the type roles `display`, `headline`, `title`, `body` and `label` to the rungs `display`, `h1`, `h2`, `body` and `caption` (a role named for a rung itself goes there, and wins it over a role that only maps onto it). The `body` role's family becomes the `body` face and the `display` role's (else the `headline` role's) the `title` face, unless one of the app's faces already paints that family. A colour's dark value comes from the `.impeccable/design.json` sidecar beside the file, when there is one, and only for a colour the front matter declares. Its `components`, its `name` and `description`, and any other role or key are listed as unmapped.
 
 **Writing.** Without `--write` (or with `--dry-run`) nothing is written. With it, a YAML or JSON config is patched on its `design` key only. The rest of the file, comments included, is left as it was; the block itself is rewritten, so a comment inside `design:` does not survive. The result is validated before it is written. A TypeScript config is never edited: the whole resulting `design` goes to a `design.json` beside it, and the command prints the two lines to paste:
 

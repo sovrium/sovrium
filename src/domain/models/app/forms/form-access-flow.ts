@@ -9,6 +9,7 @@ import {
   evaluatePermission,
   OPEN_WHEN_UNDECLARED,
 } from '@/domain/models/app/auth/permission-evaluation'
+import { isAdminEquivalent, type AdminRoleResolvable } from '@/domain/models/app/auth/roles/role'
 import type { PermissionValue } from '@/domain/models/app/auth/permissions'
 
 /**
@@ -37,7 +38,29 @@ export interface FormAccessSession {
   readonly userId: string
   readonly role: string
   readonly groups?: readonly string[]
+  /**
+   * The caller is the app's administrator: the built-in `admin`, or the app's
+   * top role when its level reaches the admin's. Lets an `admin` entry in the
+   * form's role array admit that role. Build it with {@link toFormAccessSession}.
+   */
+  readonly adminEquivalent?: boolean
 }
+
+/**
+ * Project a resolved session onto the form evaluator's shape, marking whether
+ * its role is admin-equivalent for this app. Every doorway to a form builds its
+ * session here, so the page that draws a form and the endpoint that accepts it
+ * reach the same verdict.
+ */
+export const toFormAccessSession = (
+  session: { readonly userId: string; readonly role: string; readonly groups?: readonly string[] },
+  app: AdminRoleResolvable
+): FormAccessSession => ({
+  userId: session.userId,
+  role: session.role,
+  ...(session.groups !== undefined ? { groups: session.groups } : {}),
+  adminEquivalent: isAdminEquivalent(session.role, app),
+})
 
 /**
  * Evaluate a form's `access.require` against the (optional) session.
@@ -50,6 +73,9 @@ export interface FormAccessSession {
  *   block is a public form, which is the common case;
  * - there is NO admin override — `require: ['editor']` hides the form from an
  *   admin too. A form's audience is a product decision, not a privilege ladder.
+ *   An `admin` ENTRY, though, names the app's administrator: it admits a
+ *   session marked `adminEquivalent` (the app's top role), not only the
+ *   literal `admin`.
  *
  * The evaluator's `denied` maps to 404 (never 403) so a role-gated form cannot
  * be enumerated, while `unauthorized` keeps its 401 auth challenge.
@@ -60,7 +86,9 @@ export const evaluateFormAccess = (
 ): FormAccessDecision => {
   const decision = evaluatePermission(
     require,
-    session === undefined ? undefined : { role: session.role, groups: session.groups },
+    session === undefined
+      ? undefined
+      : { role: session.role, groups: session.groups, adminEquivalent: session.adminEquivalent },
     { whenUndeclared: OPEN_WHEN_UNDECLARED, adminOverride: 'no-admin-override' }
   )
   if (decision.kind === 'allow') return { kind: 'allow' }

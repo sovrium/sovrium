@@ -39,7 +39,7 @@ export const computeConfirmAffirmClasses = (destructive: boolean, irreversible =
     : computePartButtonClasses({ variant: destructive ? 'destructive' : 'default', size: 'sm' })
 
 /** Whether a confirm declares that its action cannot be undone (`confirm.irreversible`). */
-const isIrreversibleConfirm = (confirm: unknown): boolean =>
+export const isIrreversibleConfirm = (confirm: unknown): boolean =>
   typeof confirm === 'object' &&
   confirm !== null &&
   (confirm as Readonly<Record<string, unknown>>)['irreversible'] === true

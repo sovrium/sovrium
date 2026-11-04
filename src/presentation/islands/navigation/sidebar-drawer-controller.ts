@@ -9,8 +9,9 @@
  * The behaviour of one sidebar drawer, wired onto its server-rendered frame.
  *
  * The frame (`render/registry/sidebar-drawer.tsx`) renders four things inside
- * the element carrying `data-sidebar-drawer`: this island's host, a disabled
- * menu button, an empty `<dialog>`, and the inline body holding the navigation.
+ * the element carrying `data-sidebar-drawer`: this island's host, a menu button
+ * that natively invokes the `<dialog>`, that empty `<dialog>`, and the inline
+ * body holding the navigation.
  * These attribute names are spelled on both sides of the SSR boundary because
  * the render tree and the island tree may not import each other.
  *
@@ -115,7 +116,8 @@ const open = (parts: DrawerParts): void => {
   moveChildren(parts.body, parts.content)
   lockScroll(parts.root)
   parts.trigger.setAttribute('aria-expanded', 'true')
-  parts.panel.showModal()
+  // A press made before the island mounted already opened the panel natively.
+  if (!parts.panel.open) parts.panel.showModal()
   // `showModal` focuses the first focusable descendant; a drawer holding none
   // (every group fetched and still loading) takes focus itself instead, so the
   // reader is never left on the inert page behind.
@@ -159,7 +161,11 @@ export const wireSidebarDrawer = (root: Element): (() => void) => {
   const parts = findParts(root)
   if (parts === undefined) return () => undefined
 
-  const onTrigger = (): void => open(parts)
+  const onTrigger = (event: MouseEvent): void => {
+    // The island opens the panel itself; the native `show-modal` command stands down.
+    event.preventDefault()
+    open(parts)
+  }
   const onPanelClick = (event: MouseEvent): void => {
     const { target } = event
     const closes =
@@ -178,7 +184,8 @@ export const wireSidebarDrawer = (root: Element): (() => void) => {
   parts.panel.addEventListener('click', onPanelClick)
   parts.panel.addEventListener('close', onPanelClose)
   window.addEventListener('resize', onResize)
-  parts.trigger.removeAttribute('disabled')
+  // A press made while the scripts were loading opened the panel empty: fill it now.
+  if (parts.panel.open) open(parts)
 
   return () => {
     close(parts)
@@ -186,6 +193,5 @@ export const wireSidebarDrawer = (root: Element): (() => void) => {
     parts.panel.removeEventListener('click', onPanelClick)
     parts.panel.removeEventListener('close', onPanelClose)
     window.removeEventListener('resize', onResize)
-    parts.trigger.setAttribute('disabled', '')
   }
 }

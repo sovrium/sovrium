@@ -158,6 +158,15 @@ const TABLE_EMPTY_STATE = ['py-6 px-2 text-center text-sm', `text-muted-foregrou
  */
 export const computeTableEmptyStateClasses = (): string => TABLE_EMPTY_STATE
 
+/**
+ * The empty state of a grid drawn inside another component, a section of a
+ * longer page: no header row stands above it, so it reads as one compact line
+ * of words starting on the grid's left edge rather than a centred, framed
+ * message.
+ */
+export const computeTableCompactEmptyStateClasses = (): string =>
+  'px-3 py-3 text-left text-sm text-muted-foreground'
+
 // ──────────────────────────────────────────────────────────────────────────────
 // SKELETON BAR — the pre-hydration pulse bar
 // ──────────────────────────────────────────────────────────────────────────────

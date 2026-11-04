@@ -6,6 +6,7 @@
  */
 
 import { validateAllDesignConsoleComponents } from './design/design-console-component-validation'
+import { validateTemplateCycles } from './pages/component-cycle-validation'
 import { validateAllComponentReferences } from './pages/component-reference-validation'
 import { validateAllComponentSlots } from './pages/component-slot-validation'
 import { validateAllFormSections } from './pages/components/component-types/data/form/sections-validation'
@@ -18,7 +19,8 @@ import { validateAllTemplateInputs } from './pages/template-input-validation'
 /**
  * The page-component checks of the AppSchema final filter, as one branch: the
  * design console's plotted tokens, every bare `$ref` placement against
- * `app.components`, every `fill` target against its page's component ids,
+ * `app.components`, every template against placing itself, every `fill`
+ * target against its page's component ids,
  * every `seek` target against its page's video and audio players, every
  * `disabledWhen` / `disabledReason` pair against what it can explain,
  * every template slot against the placements that fill it, every template
@@ -40,6 +42,8 @@ export const validateComponentPlacements = (
   if (designConsoleError !== true) return designConsoleError
   const referenceError = validateAllComponentReferences(app)
   if (referenceError !== true) return referenceError
+  const cycleError = validateTemplateCycles(app)
+  if (cycleError !== true) return cycleError
   const fillError = validateAllFillTargets(app)
   if (fillError !== true) return fillError
   const seekError = validateAllSeekTargets(app)

@@ -37,6 +37,16 @@ export const tablesHoldingPersonField = <T extends TableLike>(app: {
   readonly tables?: ReadonlyArray<T>
 }): ReadonlyArray<T> => (app.tables ?? []).filter(holdsPersonField)
 
+/**
+ * The fields of a table where a person PICKS an account: the `user` fields.
+ * The `created-by` and `updated-by` stamps hold an account too, but the engine
+ * fills them itself, so they give no one a reason to pick anybody.
+ */
+export const pickedPersonFieldNames = (table: {
+  readonly fields: ReadonlyArray<{ readonly name: string; readonly type: string }>
+}): readonly string[] =>
+  table.fields.filter((field) => field.type === 'user').map((field) => field.name)
+
 const namesDirectory = (endpoint: unknown): boolean =>
   typeof endpoint === 'string' &&
   (endpoint === USER_DIRECTORY_ENDPOINT || endpoint.startsWith(`${USER_DIRECTORY_ENDPOINT}?`))

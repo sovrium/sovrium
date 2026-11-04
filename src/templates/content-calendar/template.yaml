@@ -6,6 +6,9 @@ intro: |
   published, sits on one month coloured by its channel, on a board by status, and in a grid
   grouped by campaign. A piece sent to Review waits for the lead's approval before it is
   scheduled, and every Monday the team gets the week's pieces by email.
+audience: >-
+  A small marketing team that plans what it publishes: the people who plan and write each piece,
+  and the lead who approves what leaves Review.
 glance:
   - |-
     **Tables** (2): campaigns (a window, a budget and a status), content (the pieces; `flag`

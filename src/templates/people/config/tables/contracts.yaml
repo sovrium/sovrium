@@ -1,0 +1,118 @@
+# Employment contracts: the draft HR prepares, who signs it, and what comes
+# back once everyone has signed. Only HR (admins) reads or writes this table.
+#
+# The flow in config/signatures/employment-contract.yaml signs these rows.
+# The two signatures, the signed file, the proof file and `signing_status`
+# are written by the engine alone: a form, the records API or an automation
+# that tries to write them is refused.
+id: 3
+name: contracts
+fields:
+  - id: 1
+    name: title
+    type: single-line-text
+    required: true
+  # Who the contract is for, and the manager who countersigns. Each is a row
+  # of the directory, so the flow reads their names and addresses from there.
+  - id: 2
+    name: employee
+    type: relationship
+    relatedTable: employees
+    relationType: many-to-one
+    displayField: name
+  - id: 3
+    name: employee_name
+    type: lookup
+    relationshipField: employee
+    relatedField: name
+  - id: 4
+    name: employee_email
+    type: lookup
+    relationshipField: employee
+    relatedField: email
+  - id: 5
+    name: manager
+    type: relationship
+    relatedTable: employees
+    relationType: many-to-one
+    displayField: name
+  - id: 6
+    name: manager_name
+    type: lookup
+    relationshipField: manager
+    relatedField: name
+  - id: 7
+    name: manager_email
+    type: lookup
+    relationshipField: manager
+    relatedField: email
+  # The PDF to sign. When the request is sent, the engine copies and
+  # fingerprints it: every signer signs that copy, whatever happens to this
+  # field afterwards.
+  - id: 8
+    name: draft_pdf
+    type: single-attachment
+    bucket: contracts
+  - id: 9
+    name: employee_signature
+    type: signature
+    bucket: contracts
+  - id: 10
+    name: manager_signature
+    type: signature
+    bucket: contracts
+  # Written once both have signed: the signed PDF, and the proof file listing
+  # each signer, the document fingerprint and every event of the request.
+  - id: 11
+    name: signed_pdf
+    type: single-attachment
+    bucket: contracts
+  - id: 12
+    name: proof_pdf
+    type: single-attachment
+    bucket: contracts
+  # HR's own stage. Moving a draft to Ready to sign is what sends it: see
+  # config/automations/send-contract-for-signature.yaml.
+  - id: 13
+    name: stage
+    type: single-select
+    options:
+      - value: Draft
+        color: '#767178'
+      - value: Ready to sign
+        color: '#767178'
+    default: Draft
+  # Where the request stands, written by the engine. A status field must list
+  # every value the engine may write; colour goes to the outcomes only.
+  - id: 14
+    name: signing_status
+    type: status
+    options:
+      - value: sent
+        color: '#8A5700'
+      - value: in-progress
+        color: '#8A5700'
+      - value: sealing
+        color: '#8A5700'
+      - value: completed
+        color: '#187C49'
+      - value: declined
+        color: '#BA3535'
+      - value: cancelled
+        color: '#767178'
+      - value: expired
+        color: '#767178'
+  - id: 15
+    name: created_at
+    type: created-at
+
+# A contract carries a salary and personal terms: HR only.
+permissions:
+  read:
+    - admin
+  create:
+    - admin
+  update:
+    - admin
+  delete:
+    - admin

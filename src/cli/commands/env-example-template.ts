@@ -89,7 +89,7 @@ export const ENV_EXAMPLE_CONTENT = `# Sovrium environment variables
 # Generate both with: sovrium secret generate
 # AUTH_SECRET=
 # SOVRIUM_ENCRYPTION_KEY=
-# Bootstrap an admin on first start — or run: sovrium admin create <email>
+# Bootstrap an admin on first start, or run: sovrium admin create <email>
 # AUTH_ADMIN_EMAIL=admin@example.com
 # AUTH_ADMIN_PASSWORD=
 

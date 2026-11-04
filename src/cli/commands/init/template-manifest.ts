@@ -16,7 +16,8 @@
  * manifest itself into what it produces.
  *
  * Fields, in the order a template writes them: `title`, `tagline`, `intro`,
- * `glance[]` (markdown bullets), `glanceClose` (the sentence closing "This app
+ * `audience` (one or two sentences saying who the template is for, in plain
+ * present tense), `glance[]` (markdown bullets), `glanceClose` (the sentence closing "This app
  * at a glance"), optional `sections[]` (`CLAUDE.md` sections between the glance
  * and "Working on this app with an AI assistant"), `assistant`, `whatsInside`,
  * optional `readmeSections[]` (README sections after "What's inside"),
@@ -51,6 +52,7 @@ export const TemplateManifestSchema = Schema.Struct({
   title: Schema.String,
   tagline: Schema.String,
   intro: Schema.String,
+  audience: Schema.String,
   glance: Schema.Array(Schema.String),
   glanceClose: Schema.String,
   sections: Schema.optionalKey(Schema.Array(TemplateSectionSchema)),

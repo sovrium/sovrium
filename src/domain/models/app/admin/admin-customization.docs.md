@@ -76,7 +76,7 @@ That is the guarantee behind "never removed": you can replace every value, and t
 | Its identity          | Its logo, its voice, its zone map. You restyle the console; you do not rebrand it.                               |
 | Configuration editing | There is none, here or anywhere in the self-hosted product. Config is code; you change an app by editing a file. |
 
-The last row is the one worth stating twice, because the console being written as a config file makes the temptation structural rather than hypothetical. It does not make configuration editable. A visual config-editing plane exists. It is part of hosted Sovrium Cloud, and it is deliberately not in the binary you self-host.
+The last row is worth stating twice: the console is itself written as a config file, which invites the idea that it could edit one. It does not make configuration editable. A visual config-editing plane exists. It is part of hosted Sovrium Cloud, and it is deliberately not in the binary you self-host.
 
 ## Which pages the console serves
 

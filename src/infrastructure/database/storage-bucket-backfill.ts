@@ -133,15 +133,21 @@ const parseMaybeJson = (raw: string): unknown => {
   }
 }
 
-/** Every attachment column across the app's tables. */
-export const collectAttachmentColumns = (app: Readonly<App>): readonly AttachmentColumn[] =>
+/** The attachment field types: their cells hold a key, a metadata object, or a list of them. */
+const ATTACHMENT_TYPES: ReadonlySet<string> = new Set(['single-attachment', 'multiple-attachments'])
+
+/** Every column of `types` across the app's tables. */
+const collectColumnsOf = (
+  app: Readonly<App>,
+  types: ReadonlySet<string>
+): readonly AttachmentColumn[] =>
   (app.tables ?? []).flatMap((table: Readonly<Table>) => {
     const sanitized = sanitizeTableName(table.name)
     const relation = shouldUseView(table) ? getBaseTableName(sanitized) : sanitized
     const primaryKey = table.primaryKey?.field ?? 'id'
     return table.fields
       .filter(shouldCreateDatabaseColumn)
-      .filter((f) => f.type === 'single-attachment' || f.type === 'multiple-attachments')
+      .filter((f) => types.has(f.type))
       .map((f) => ({
         table: table.name,
         relation,
@@ -150,6 +156,17 @@ export const collectAttachmentColumns = (app: Readonly<App>): readonly Attachmen
         bucket: resolveFieldBucket(app, table.name, f.name) ?? SYSTEM_BUCKET_NAME,
       }))
   })
+
+/** Every attachment column across the app's tables. */
+export const collectAttachmentColumns = (app: Readonly<App>): readonly AttachmentColumn[] =>
+  collectColumnsOf(app, ATTACHMENT_TYPES)
+
+/**
+ * Every column whose cells may name a stored object: the attachment columns,
+ * and the signature columns, whose `image` is a key in the field's bucket.
+ */
+export const collectFileReferenceColumns = (app: Readonly<App>): readonly AttachmentColumn[] =>
+  collectColumnsOf(app, new Set([...ATTACHMENT_TYPES, 'signature']))
 
 /**
  * Attribute `key` to `bucket`, but only while it has no binding. The

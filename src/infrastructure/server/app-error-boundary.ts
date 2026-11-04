@@ -16,10 +16,10 @@
 
 import { HTTPException } from 'hono/http-exception'
 import { requestedPath } from '@/domain/kernel/url/requested-path'
-import { redactSecretPath } from '@/domain/kernel/url/secret-path-redaction'
 import { internalErrorLogSuffix } from '@/infrastructure/logging/internal-error-report'
 import { logError } from '@/infrastructure/logging/logger'
 import { reportRequestFailure } from '@/infrastructure/logging/request-failure-report'
+import { loggedRequestPath } from '@/infrastructure/logging/request-log-path'
 import {
   apiErrorCodeForStatus,
   apiErrorMessage,
@@ -97,7 +97,7 @@ export const attachErrorBoundary = (
         const internalRequestId = status === 500 ? requestIdOf(c.get('requestId')) : undefined
         const kept = internalErrorLogSuffix(error, internalRequestId)
         logError(
-          `[server] ${c.req.method} ${redactSecretPath(c.req.path)} → ${status}${kept}`,
+          `[server] ${c.req.method} ${loggedRequestPath(c.req.raw, c.req.path)} → ${status}${kept}`,
           error
         )
 

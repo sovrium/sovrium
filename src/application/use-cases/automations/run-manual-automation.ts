@@ -108,6 +108,10 @@ export interface RunManualAutomationOptions {
    * agent chat — is not judged by them.
    */
   readonly press?: PressReference
+  /** Told the run's id once its `'queued'` row lands (`ExecuteAutomationRunInput.onPersisted`). */
+  readonly onPersisted?: (runId: string) => void
+  /** Told the run's id once it holds a slot and runs (`ExecuteAutomationRunInput.onAdmitted`). */
+  readonly onAdmitted?: (runId: string) => void
 }
 
 /**
@@ -130,6 +134,8 @@ export const runManualAutomation = ({
   userId,
   byName = false,
   press,
+  onPersisted,
+  onAdmitted,
 }: RunManualAutomationOptions): Effect.Effect<
   RunAutomationResult,
   RunAutomationError,
@@ -168,5 +174,7 @@ export const runManualAutomation = ({
       userId,
       // A manual trigger is always a person's gesture: its record actions write as them.
       startedByHand: true,
+      ...(onPersisted === undefined ? {} : { onPersisted }),
+      ...(onAdmitted === undefined ? {} : { onAdmitted }),
     })
   }).pipe(Effect.withSpan('automations.run-manual-automation'))

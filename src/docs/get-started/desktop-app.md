@@ -55,7 +55,7 @@ There is a **Reveal project folder** action in the app for exactly this reason: 
 
 ## Editing the configuration
 
-The app does not edit your configuration, and that is deliberate. Its settings page holds settings for Sovrium **on this machine**: which project is open, the port, whether the app opens in your browser instead of its own window, whether it checks for updates, whether your AI assistant may edit the configuration through its connection, the undo and reset controls, and the log. Nothing from the app's own config appears there: no table, no page, no field, no automation, no theme control.
+The app does not edit your configuration, and that is deliberate. Its settings page holds settings for Sovrium **on this machine**: which project is open, the port, whether the app opens in your browser instead of its own window, whether it checks for updates, whether your AI assistant may edit the configuration through its connection, the undo and reset controls, and the log. Nothing from the app's own config appears there: no table, page, field, automation or theme control.
 
 You change the app by editing its configuration file (`app.yaml` in a project the app created) with whatever edits text: an editor, or the AI assistant you already use. Sovrium notices the save and reloads. Point an assistant at the folder once and it can read the configuration, check it, and look up what a setting accepts. Turn on **Let my AI edit** and it can also change the configuration through that connection, where Sovrium checks each edit before it is saved; the switch is off until you turn it on. For Claude Desktop, **Connect Claude Desktop** adds the project to that app's own settings file for you: it shows you the exact entry first, keeps a backup of the file, leaves every other server in it untouched, and asks again whenever the entry would change. Restart Claude Desktop afterwards. **Connect your AI to a project** is the walkthrough.
 
@@ -69,7 +69,7 @@ The app has its own updater, and because the engine ships inside it, the two are
 
 **The app updates itself.** Each release publishes an update for macOS (Apple silicon and Intel), Windows and Linux, signed with Sovrium's update key. The public half of that key is built into the app, and the app installs an update only when its signature matches; one that does not is refused, and the version you have keeps running.
 
-**The update check sends nothing about you.** It asks `sovrium.com/desktop/latest.json` for the current version number, which redirects to the update manifest attached to the latest release on GitHub; an update, when there is one, downloads from that same release. Nothing about you, your project or your configuration is sent. Switch the check off in settings and the app contacts nothing at all. The engine running your project makes no such request either way, with the check on or off.
+**The update check sends nothing about you, your project or your configuration.** It asks `sovrium.com/desktop/latest.json` for the current version number, which redirects to the update manifest attached to the latest release on GitHub; an update, when there is one, downloads from that same release. Switch the check off in settings and the app contacts nothing at all. The engine running your project makes no such request either way, with the check on or off.
 
 ## Next steps
 

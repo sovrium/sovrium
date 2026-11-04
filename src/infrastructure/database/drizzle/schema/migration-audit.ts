@@ -63,6 +63,14 @@ export const sovriumSchemaChecksum = systemSchema.table('schema_checksum', {
    * older than any binary, so the next boot recomputes every formula once.
    */
   formulaEngineVersion: integer('formula_engine_version').notNull().default(0),
+  /**
+   * The analytics profile the last start ran under, written once its start-up
+   * sweep is done. A start on `audience-only` sweeps the stored events only
+   * when this is not `audience-only` (null included), so an unchanged restart
+   * never scans them. Kept in the database, so a restored backup brings back
+   * the profile its events were stored under.
+   */
+  analyticsProfile: text('analytics_profile'),
 })
 
 // Type exports for consumers

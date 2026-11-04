@@ -5,13 +5,15 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
 import { substituteRecordVars } from '@/domain/models/app/pages/substitute-record-vars'
 import { dispatch as dispatchIslandEvent } from '../runtime/event-bus'
 import { followAddress } from '../runtime/follow-address'
 import { rowListWindow, siblingRowIds } from './row-identity'
 import { seekFromRow } from './row-seek'
 import type { DataRowContext } from './data-row-types'
-import type { DataTableRow } from './island/table-features'
+import type { DataTableCell, DataTableRow } from './island/table-features'
+import type { KeyboardEvent } from 'react'
 
 /** What a row's action reads off its grid: the declared action, the table, the selection mode. */
 export type RowActionContext = Pick<
@@ -55,4 +57,49 @@ export function performRowAction(row: DataTableRow, ctx: RowActionContext, targe
   if (ctx.selectionMode !== 'single') return
   // For single selection, deselect all others and toggle this row
   row.toggleSelected(!row.getIsSelected())
+}
+
+/** The link a navigating row holds: the address its click follows, and whether in a new tab. */
+export interface RowLink {
+  readonly href: string
+  readonly newTab: boolean
+}
+
+/**
+ * The link of a row whose `onRowClick` navigates: the same substituted address
+ * the click follows, through the same safe-address check, so a row whose
+ * address would be refused holds no link. Any other row action draws none.
+ */
+export function rowLinkOf(row: DataTableRow, ctx: RowActionContext): RowLink | undefined {
+  const action = ctx.onRowClickAction
+  if (action?.type !== 'navigate') return undefined
+  const href = toSafeAssetUrl(substituteRecordVars(action.path, row.original))
+  return href === undefined ? undefined : { href, newTab: action.openInNewTab === true }
+}
+
+/**
+ * R3: a row carrying a row action is focusable and answers Enter (a bare
+ * `<tr onClick>` has no keyboard route). The `target !== currentTarget` guard
+ * keeps an Enter inside a cell (or its open editor) from firing it too.
+ */
+export const rowEnterHandler =
+  (activate: (target?: Element) => void) =>
+  (e: KeyboardEvent<HTMLTableRowElement>): void => {
+    if (e.target !== e.currentTarget || e.key !== 'Enter') return
+    e.preventDefault()
+    activate(e.currentTarget)
+  }
+
+/**
+ * Where a navigating row's link goes: its first field column. That link is
+ * the row's one tab stop, so the row itself is then no longer focusable.
+ */
+export function rowLinkPlacement(
+  row: DataTableRow,
+  cells: readonly DataTableCell[],
+  ctx: DataRowContext
+): { readonly link?: RowLink; readonly linkCellId?: string } {
+  const link = rowLinkOf(row, ctx)
+  if (link === undefined) return {}
+  return { link, linkCellId: cells.find((cell) => cell.column.columnDef.meta?.field)?.column.id }
 }

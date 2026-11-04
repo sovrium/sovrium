@@ -22,6 +22,7 @@ import type { StepLogEntry } from '../action-handlers/shared'
 import type { TriggerData } from '../resolve-trigger-data'
 import type { StepMetadataMap } from './step-metadata'
 import type { MediaStepRequirements } from '../action-handlers/file/extract-audio'
+import type { SignatureStepRequirements } from '../action-handlers/signature'
 import type { AuditLogRepository } from '@/application/ports/repositories/admin/audit-log-repository'
 import type { AiComputeStatusRepository } from '@/application/ports/repositories/ai/ai-compute-status-repository'
 import type { AiEmbeddingRepository } from '@/application/ports/repositories/ai/ai-embedding-repository'
@@ -60,10 +61,10 @@ import type { RecordWebhookDispatcher } from '@/application/ports/services/recor
 import type { SentinelTokens } from '@/application/ports/services/sentinel-tokens'
 import type { ServerOrigin } from '@/application/ports/services/server-origin'
 import type { SpeechService } from '@/application/ports/services/speech-service'
-import type { StorageService } from '@/application/ports/services/storage-service'
 import type { SvgRasterizer } from '@/application/ports/services/svg-rasterizer'
 import type { TemplateEngine, TemplateRenderer } from '@/application/ports/services/template-engine'
 import type { AgentToolRequirements } from '@/application/use-cases/agents/agent-tool-call'
+import type { RecordEvidenceRequirements } from '@/application/use-cases/signatures/forget-record-signatures'
 import type { App } from '@/domain/models/app'
 import type { RunRelay } from '@/domain/models/app/automations/run-relay-service'
 import type { ResumeFrame } from '@/domain/models/app/automations/run-resume-cursor-service'
@@ -158,10 +159,7 @@ export interface RunAccumulator extends RunClientErrorField {
   readonly stopped?: boolean
 }
 
-/**
- * Per-step context passed to the run loop. Bundles the inputs that
- * stay constant across steps so the inner generator stays compact.
- */
+/** Per-step context passed to the run loop: the inputs constant across steps, bundled. */
 export interface StepContext {
   readonly app: App
   /**
@@ -247,7 +245,7 @@ export type StepRequirements =
   | AnalyticsRepository
   | AiService
   | AiEmbeddingRepository
-  | StorageService
+  | RecordEvidenceRequirements // the storage, and the evidence a record deleted for good takes
   | MediaStepRequirements // the image transform and the audio remux the `file` steps run
   | DocumentRenderer
   | SvgRasterizer
@@ -268,6 +266,7 @@ export type StepRequirements =
   | AppSelfSeeder // `app/seed`: the seeder `sovrium start` installs
   | BrowserStepRequirements
   | AgentToolRequirements // an `ai:agent` step's tool calls go through the agent's gates
+  | SignatureStepRequirements // `signature/send` and `signature/cancel`: requests, intake
 
 /** Combined service requirement for the run-loop entry points. */
 export type RunRequirements =
@@ -402,13 +401,10 @@ export interface ExecuteAutomationRunInput {
    * any step otherwise. Omitted: no check (a fresh run's caller holds a session).
    */
   readonly checkStarterStanding?: boolean
-  /**
-   * Invoked by the scheduler the moment the `'queued'` run row lands, so the
-   * async webhook dispatcher (`respondImmediately: true`) can answer 202 with
-   * the run id before the loop has finished (the cancel endpoint finds it by
-   * id). Omitted: the id surfaces only in the {@link RunAutomationResult}.
-   */
+  /** Told the run id when its `'queued'` row lands, so a caller can answer 202 before the run ends. */
   readonly onPersisted?: (runId: string) => void
+  /** Told the run id once it holds one of its automation's slots and its row turns `'running'`. */
+  readonly onAdmitted?: (runId: string) => void
   /** A called run's inheritance about write-only values (`automation-call-invoker.ts`). */
   readonly writeOnly?: WriteOnlyInheritance
   /**

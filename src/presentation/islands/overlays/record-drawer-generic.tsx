@@ -151,7 +151,6 @@ export function GenericSheetBody(props: GenericBodyProps): ReactElement {
     <SheetFooter
       record={creating ? NO_RECORD : content.record}
       stamps={generic.stamps}
-      signedIn={generic.tabs.activity}
       words={words}
       canEdit={content.canEdit}
       loading={content.loading === true}

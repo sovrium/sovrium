@@ -277,11 +277,15 @@ export function useRecordsQuery(
  * there is nothing left.
  *
  * A page that came back EMPTY ends the walk whatever the reported total claims:
- * an endpoint whose count disagrees with its rows must not spin forever.
+ * an endpoint whose count disagrees with its rows must not spin forever, and
+ * no page at all has no next one.
  */
-const nextPageIndex = (last: FetchResult, all: readonly FetchResult[]): number | undefined => {
+const nextPageIndex = (
+  last: FetchResult | undefined,
+  all: readonly FetchResult[]
+): number | undefined => {
   const loaded = all.reduce((sum, page) => sum + page.records.length, 0)
-  if (last.records.length === 0 || loaded >= last.total) return undefined
+  if (!last?.records.length || loaded >= last.total) return undefined
   return all.length
 }
 
@@ -303,12 +307,20 @@ export interface RecordsPages {
    * resolved, so `isLoading` is false and can never become true again. Reporting
    * progress from `isLoading` therefore yields a control that is permanently
    * idle no matter how long a page takes.
+   *
+   * It is also true while the rows on screen are still the page the server
+   * drew and the read behind them has not answered: no page is held yet to ask
+   * for the next of, so a press or a scroll made then would only read the first
+   * page again. Reporting it as loading keeps the control busy, and an infinite
+   * list asks again once the read lands.
    */
   readonly isLoadingMore: boolean
   /** Fetch the next page and APPEND it to the rows already rendered. */
   readonly loadMore: () => void
   /** Ask again after a failed read — what a rate-limited view's Retry spends. */
   readonly retry: () => void
+  /** The rows are still the first page the server drew: no read has answered yet. */
+  readonly showsDrawn: boolean
 }
 
 /**
@@ -330,7 +342,8 @@ export interface RecordsPages {
 export function useRecordsPagesQuery(
   keyPrefix: string,
   dataSource: RecordsDataSource | undefined,
-  shared: LazySharedRequest = unboundRequest(dataSource)
+  shared: LazySharedRequest = unboundRequest(dataSource),
+  drawn?: FetchResult
 ): RecordsPages {
   const request = buildPageRequest(dataSource, resolvePageSize(dataSource), shared)
 
@@ -341,8 +354,9 @@ export function useRecordsPagesQuery(
     initialPageParam: 0,
     queryFn: ({ pageParam }): Promise<FetchResult> => fetchRecordsPage(request, pageParam),
     getNextPageParam: nextPageIndex,
-    // Same as `useRecordsQuery`: a changed key keeps the rows already shown.
-    placeholderData: keepPreviousData,
+    // Same as `useRecordsQuery`: a changed key keeps the rows already shown;
+    // before any answer, the first page the server drew stands in for it.
+    placeholderData: (previous) => previous ?? (drawn && { pages: [drawn], pageParams: [0] }),
   })
 
   // `fetchNextPage` resolves with the whole query result; nothing here awaits
@@ -358,15 +372,22 @@ export function useRecordsPagesQuery(
   }, [refetch])
 
   const pages = query.data?.pages ?? []
+  const last = pages.at(-1)
+  // `drawn` cannot be `undefined` here while placeholder pages show: those
+  // pages are the drawn one or the last key's, never empty.
+  const showsDrawn = pages[0] === drawn && query.isPlaceholderData
   return {
     records: pages.flatMap((page) => page.records),
-    total: pages.at(-1)?.total ?? 0,
+    total: last?.total ?? 0,
     isLoading: query.isLoading,
     isError: query.isError,
     error: query.error,
-    hasMore: query.hasNextPage,
-    isLoadingMore: query.isFetchingNextPage,
+    // Read off the pages shown, placeholder ones included: `hasNextPage` reads
+    // only the cached pages, so it says "no more" over the page the server drew.
+    hasMore: nextPageIndex(last, pages) !== undefined,
+    isLoadingMore: query.isFetchingNextPage || showsDrawn,
     loadMore,
     retry,
+    showsDrawn,
   }
 }

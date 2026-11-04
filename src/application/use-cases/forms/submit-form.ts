@@ -259,10 +259,17 @@ const followUpSubmission = (
     })
 
     // [internal ref]: write the unified analytics_events row for
-    // every successful submission. Three-layer gate (env / app / form);
+    // every successful submission. Four-layer gate (env / app / form / the
+    // submitter's privacy signal);
     // emission failures are absorbed so a missing analytics row never
     // rolls back the committed submission.
-    yield* emitFormSubmissionAnalyticsEvent({ app, form, submissionId, submitterIpHash })
+    yield* emitFormSubmissionAnalyticsEvent({
+      app,
+      form,
+      submissionId,
+      submitterIpHash,
+      declinesTracking: config.declinesTracking === true,
+    })
 
     // Start form-triggered automations AFTER the bound-table + ledger rows
     // commit so action templates referencing `{{trigger.data.linkedRecord.id}}`

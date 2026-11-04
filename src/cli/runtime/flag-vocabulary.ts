@@ -118,7 +118,7 @@ export const FLAG_VALUE_OPTIONS = [
 ] as const
 
 /** Commands that use two-level noun-verb dispatch (verb in 2nd positional slot). */
-export const NOUN_VERB_COMMANDS = ['admin', 'secret'] as const
+export const NOUN_VERB_COMMANDS = ['admin', 'secret', 'signature'] as const
 
 /**
  * The set of flags the CLI recognizes. Anything else passed with a `--` or

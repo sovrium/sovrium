@@ -369,6 +369,55 @@ export const SYSTEM_INTERNAL_TABLES: ReadonlyArray<InternalTableEntry> = [
     description:
       'Boot ledger (ADR-022 A6): one row per server start whose app version or config hash changed, with the engine migrations applied since the previous row and the app-table DDL derived from the config diff. Append-only and system-written; the stored configuration snapshot is denylisted.',
   },
+  // Signature evidence. Read-only here like every internal table, and the
+  // database refuses the rewrites a flow never makes besides. What a raw read
+  // never returns: anything that verifies a secret offline (the link's token
+  // digest, the code's HMAC), the attempt count a guesser would pace itself
+  // by, and the personal data the chain only commits to.
+  {
+    schema: 'system',
+    name: 'signature_requests',
+    denylistFields: [],
+    description:
+      'Signing requests: the flow, table and record, status, signing order, the frozen statement, the document hash and the storage keys of the frozen document, sealed document and proof file, seal level, and the dates it was made, expires, completed and is kept until.',
+  },
+  {
+    schema: 'system',
+    name: 'signature_signers',
+    // The SHA-256 of the signing link's token: an offline verifier for a live
+    // link, the `design_system_shares` precedent.
+    denylistFields: ['tokenHash'],
+    description:
+      'The signers of each request: their name in the flow, position, status, how they prove who they are, the field they sign and when they were sent the link and signed. The link token digest is denylisted.',
+  },
+  {
+    schema: 'system',
+    name: 'signature_challenges',
+    // The HMAC verifies a code offline; the attempt count tells a guesser how
+    // many tries are left.
+    denylistFields: ['codeHmac', 'attempts'],
+    description:
+      'One-time codes sent to signers: channel, expiry, when consumed and the document hash they were bound to. The code HMAC and the attempt count are denylisted.',
+  },
+  {
+    schema: 'system',
+    name: 'signature_evidence',
+    // The event bytes as hashed. They commit to personal data rather than
+    // carry it, but a commitment over a guessable value is a confirmation
+    // oracle without its salt, and the bytes are not readable to an AI client.
+    denylistFields: ['canonicalBytes'],
+    description:
+      'The hash chain of each signing request, one row per event: sequence number, event type, previous hash, hash and time. The canonical event bytes are denylisted.',
+  },
+  {
+    schema: 'system',
+    name: 'signature_subjects',
+    // Everything that identifies the signer, and the salts that would open
+    // the chain's commitments to it.
+    denylistFields: ['name', 'email', 'phone', 'ipAddress', 'userAgent', 'salts'],
+    description:
+      'Which signer of which request a set of identifying data belongs to, and when it was recorded. The name, email, phone, IP address, user agent and commitment salts are denylisted.',
+  },
 ] as const
 
 // ---------------------------------------------------------------------------

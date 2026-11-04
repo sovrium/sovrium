@@ -336,7 +336,7 @@ export const handleInstanceRestore = instanceHandler('restore', (props, action, 
     const source = isRecord(props['source']) ? props['source'] : {}
     const objectKey = yield* textOf(source['objectKey'], 'source.objectKey')
     // Read as the starter may read it, before anything reaches the host.
-    const refused = yield* starterFileGate(app, automation)(objectKey)
+    const refused = yield* starterFileGate(app, automation, 'control-plane-objects')(objectKey)
     if (refused !== undefined) return yield* refuse(refused)
     const storage = yield* StorageService
     // Read up to the cap and no further: another app may have written the object.

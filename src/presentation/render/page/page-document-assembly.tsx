@@ -19,13 +19,13 @@
  */
 
 import { renderToString } from 'react-dom/server'
-import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
 import { isOperatorConsoleApp } from '@/domain/models/app/admin/admin-data-nav'
+import { isOutgoingEmailConfigured } from '@/domain/models/process-env/email-transport'
 import { getVersionedCssPath } from '@/infrastructure/css/versioned-css-path'
 import { logError } from '@/infrastructure/logging/logger'
 import {
   extractBeaconSettings,
-  shouldInjectAnalytics,
+  shouldInjectAnalyticsOnPage,
 } from '@/presentation/render/page/analytics-helpers'
 import { resolveBadge } from '@/presentation/render/page/badge-placement'
 import { ClientScriptPathsContext } from '@/presentation/render/page/client-script-paths'
@@ -351,20 +351,21 @@ export function renderPageHtml(input: RenderPageHtmlInput): string {
     appComponents,
   } = input
   const policyApp = input.hostApp ?? app
-  const injectAnalytics = shouldInjectAnalytics(app.analytics, primaryPagePath(page.path))
+  const injectAnalytics = shouldInjectAnalyticsOnPage(app, page.path, urlLanguage, routeParams)
   const beaconSettings = extractBeaconSettings(app.analytics, app.consent, app.languages)
   const head = input.headReferences ?? ((text: string) => text)
   const alternates = pageLanguageAlternatesFor(app, page, input)
+  const canSendMail = isOutgoingEmailConfigured(process.env)
   const html = renderToString(
     <ClientScriptPathsContext.Provider value={clientScriptPaths}>
       <HeadReferencesContext.Provider value={head}>
         <PageLanguageAlternatesContext.Provider value={alternates}>
           <ConsentPurposesContext.Provider value={app.consent?.purposes}>
             <DynamicPage
-              page={stampAuthFormFacts(page, policyApp, app)}
+              page={stampAuthFormFacts(page, policyApp, app, canSendMail)}
               badgePlacement={resolveBadge(app.badge)}
               devNoticeEnabled={input.devNotice !== false && !isOperatorConsoleApp(app)}
-              components={stampAuthFormFacts(appComponents, policyApp, app)}
+              components={stampAuthFormFacts(appComponents, policyApp, app, canSendMail)}
               // One position, `app.design`, with no fallback to an alias: the no-FOUC
               // colour-scheme bootstrap reads its tokens from here, and without them
               // the dark cascade — a class on `<html>`, not a media query — would be

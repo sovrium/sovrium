@@ -7,6 +7,10 @@ intro: |
   client opens in a drawer with its deals, projects and tickets; projects carry their tasks;
   tickets sit on a board by status; and the team page shows who is away and which time off waits
   on a decision.
+audience: >-
+  A small company that runs sales, delivery, support and its team in one app: the people on the
+  team, who create and edit records in every module, and whoever runs operations, who also deletes
+  them and decides on time off.
 glance:
   - |-
     **Tables** (9): companies, contacts, deals, projects, project_tasks, tickets, employees,

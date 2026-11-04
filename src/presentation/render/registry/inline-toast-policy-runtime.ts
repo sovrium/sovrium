@@ -60,7 +60,7 @@
  * timing and announcement are separate concerns that happen to agree today. A
  * toast carrying an action already persists without being urgent.
  *
- * ─── THE TWO THINGS THAT MUST MATCH THE ISLAND SPELLING EXACTLY ────────────
+ * ─── THE THINGS THAT MUST MATCH THE ISLAND SPELLING EXACTLY ────────────────
  *
  *  - `data-toast-escape-bound` on `<body>`. A page can carry three copies of
  *    this fragment (one palette plus one per reorderable list) AND the island
@@ -68,11 +68,14 @@
  *    install its own `keydown` handler, and `Escape` would clear as many
  *    toasts as there are copies — silently taking an unread failure with the
  *    read one. The DOM attribute is the only state they share.
- *  - `data-dismiss-label` on the container. The label is served by
- *    `PageToastContainer` and is localized; hard-coding English would announce
- *    the wrong word to the operator it matters most to. `'Dismiss'` is the
- *    fallback for a container this fragment built itself, which had nowhere to
- *    read one from.
+ *  - `data-dismiss-label` on the container, else `data-toast-dismiss-label` on
+ *    `<html>`. The label is served by `PageToastContainer` and by
+ *    `page-toast-attributes.ts`, localized and renamable under
+ *    `sovrium.toast.dismiss`; hard-coding English would announce the wrong word
+ *    on a French page. `'Dismiss'` is the fallback when neither was written.
+ *  - `data-toast-class` and `data-toast-class-<variant>` on `<html>`: the
+ *    classes `design.components.toast` puts on a toast, read the same way as
+ *    `applyToastDesign` in `islands/runtime/toast-accessibility.ts` reads them.
  *
  * ─── HOW TO USE IT ────────────────────────────────────────────────────────
  *
@@ -181,7 +184,8 @@ export const INLINE_TOAST_POLICY_RUNTIME = `
   }
 
   function appendToastDismissControl(toast, container) {
-    var declared = container.getAttribute('data-dismiss-label');
+    var declared = container.getAttribute('data-dismiss-label') ||
+      document.documentElement.getAttribute('data-toast-dismiss-label');
     var label = declared && declared.trim() !== '' ? declared : TOAST_DISMISS_LABEL_FALLBACK;
     var button = document.createElement('button');
     button.setAttribute('type', 'button');
@@ -199,6 +203,12 @@ export const INLINE_TOAST_POLICY_RUNTIME = `
     var toast = document.createElement('div');
     toast.setAttribute('data-toast', '');
     if (variant) toast.setAttribute('data-variant', variant);
+    // design.components.toast, written on <html> by the server: the variant's
+    // classes when it has some, else every toast's.
+    var root = document.documentElement;
+    var designed = (variant && root.getAttribute('data-toast-class-' + variant)) ||
+      root.getAttribute('data-toast-class');
+    if (designed) toast.setAttribute('class', designed);
     // Each toast is its own live region; the container is none, so a toast is
     // announced once. role="alert" and nothing else: its implicit aria-live is
     // already assertive, and pairing the two makes some readers announce

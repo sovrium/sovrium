@@ -54,6 +54,7 @@ import {
   type LabelReader,
   type RecordDisplayLabels,
   type RequestedLabel,
+  withAuthorshipStamps,
   withLabelLanguage,
 } from './relationship-display-fields'
 import { readManyToManyLinks, type ManyToManyLinkMap } from './to-many-link-reads'
@@ -345,7 +346,7 @@ const readUserLabels = (
       )
     return new Map(
       records.flatMap((record) => {
-        const display = buildUserDisplayLabels(fieldNames, record.fields, labels)
+        const display = buildUserDisplayLabels(fieldNames, withAuthorshipStamps(record), labels)
         return display ? [[String(record.id), display] as const] : []
       })
     )

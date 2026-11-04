@@ -8,10 +8,11 @@
 /**
  * Which format a source is, and the adapter that reads it.
  *
- * Detection reads the source's SHAPE, never its file extension (every format
+ * Detection reads the source's SHAPE, never its file extension (every JSON format
  * is `.json`): a `color.tokens` list is Claude Design, `$themes`/`$metadata`
- * is Tokens Studio, a `com.figma.*` extension is Figma, a resolver is DTCG.
- * Those four are decisive. Only when none applies does a weaker shape count: a
+ * is Tokens Studio, a `com.figma.*` extension is Figma, a resolver is DTCG,
+ * and a Markdown file whose front matter carries tokens is a DESIGN.md.
+ * Those five are decisive. Only when none applies does a weaker shape count: a
  * legacy `value`/`type` tree is Style Dictionary, `$value` leaves are DTCG,
  * and a `:root` / `.dark` / `@theme` block is CSS. A Figma or Style Dictionary
  * file in plain DTCG form is therefore DTCG, and reads the same either way.
@@ -46,6 +47,7 @@ import {
 } from './canonical-tokens-service'
 import { fromClaudeDesign, isClaudeDesignTokens } from './claude-design-import-service'
 import { fromCss, isTokenStylesheet } from './css-import-service'
+import { fromDesignMd, isDesignMdSource } from './design-md-import-service'
 import { fromDtcg, isDtcgResolver } from './dtcg-import-service'
 import { fromFigma, hasFigmaExtensions } from './figma-import-service'
 import { fromStyleDictionary } from './style-dictionary-import-service'
@@ -60,8 +62,13 @@ type Check = readonly [ImportFormat, boolean]
 const formatsWhere = (checks: readonly Check[]): readonly ImportFormat[] =>
   checks.filter(([, present]) => present).map(([format]) => format)
 
+/** Whether a file is Markdown, which is never a JSON document or a stylesheet. */
+const isMarkdown = (path: string): boolean => /\.md$/i.test(path)
+
 const documentsOf = (source: ImportSource): readonly unknown[] =>
-  source.files.filter((file) => !file.path.endsWith('.css')).map((file) => parseJson(file.text))
+  source.files
+    .filter((file) => !file.path.endsWith('.css') && !isMarkdown(file.path))
+    .map((file) => parseJson(file.text))
 
 /** The decisive shapes: each names its format outright. */
 const strongShapes = (
@@ -77,10 +84,13 @@ const strongShapes = (
     ],
     ['figma', documents.some(hasFigmaExtensions)],
     ['dtcg', documents.some(isDtcgResolver)],
+    ['design-md', isDesignMdSource(source)],
   ])
 
 const isStylesheet = (path: string, text: string): boolean =>
-  (path.endsWith('.css') || parseJson(text) === undefined) && isTokenStylesheet(text)
+  !isMarkdown(path) &&
+  (path.endsWith('.css') || parseJson(text) === undefined) &&
+  isTokenStylesheet(text)
 
 /** The shapes that count only when no decisive one applies. */
 const weakShapes = (source: ImportSource, documents: readonly unknown[]): readonly ImportFormat[] =>
@@ -107,6 +117,7 @@ const ADAPTERS: Readonly<Record<ImportFormat, (source: ImportSource) => AdapterR
   'style-dictionary': fromStyleDictionary,
   dtcg: fromDtcg,
   css: fromCss,
+  'design-md': fromDesignMd,
 }
 
 /** Read a source as one format, through that format's adapter. */

@@ -31,7 +31,7 @@ import {
   type PurgeOutcome,
 } from './account-purge-rail'
 import { collectErasedRecords } from './account-purge-runs'
-import { redactErasedSignatures } from './account-purge-signatures'
+import { settleErasedSignatures } from './account-purge-signatures'
 import {
   deleteAiActivityRows,
   deleteAiToolCallRows,
@@ -211,8 +211,14 @@ async function eraseAccountRows(
   // 4d'. The signatures she gave on records that STAY lose her name and image
   //      and keep the statement she agreed to (`account-purge-signatures.ts`).
   //      A signature is hers when its image is one of the objects the catalog
-  //      delete just returned, so this runs after 4d and in the same transaction.
-  await redactErasedSignatures({ tx, dialect }, appTables, erasedObjectKeys)
+  //      delete just returned, or when a version 2 value names her account, so
+  //      this runs after 4d and in the same transaction.
+  //      Her `signature_subjects` rows go too, each request's chain recording
+  //      an `erased` event, before the account row below clears her signer link.
+  await settleErasedSignatures({ tx, dialect }, appTables, {
+    uploadedKeys: erasedObjectKeys,
+    userId,
+  })
 
   // 4e. AI tool-call transcripts, whose predicate is compound (`caller_type`
   //     scopes the bare `caller_id`).

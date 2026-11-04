@@ -6,13 +6,9 @@
  */
 
 import { Menu } from '@base-ui/react/menu'
-import {
-  computeMenuItemClasses,
-  computeMenuLabelClasses,
-  computeMenuRadioIndicatorClasses,
-} from './menu-default-classes'
+import { computeMenuLabelClasses, computeMenuRadioIndicatorClasses } from './menu-default-classes'
 import { MenuItemBody } from './menu-popup-body'
-import { useMenuKind } from './menu-slot-context'
+import { useMenuItemClasses, useMenuKind } from './menu-slot-context'
 import type { MenuItem, MenuSurface } from './menu-item-types'
 import type { ReactElement, ReactNode } from 'react'
 
@@ -76,6 +72,7 @@ export function RadioMenuGroup({
   readonly surface: MenuSurface
 }): ReactElement {
   const kind = useMenuKind()
+  const rowClasses = `${useMenuItemClasses({ variant: 'default', surface })} pr-8`
   return (
     <Menu.RadioGroup defaultValue={initialValueOf(rows)}>
       {rows.map(({ item, index }) => (
@@ -86,7 +83,7 @@ export function RadioMenuGroup({
           {...(item.action?.type === 'theme' ? { 'data-theme-set': valueOf(item, index) } : {})}
           data-slot={`${kind}-radio-item`}
           disabled={item.disabled}
-          className={`${computeMenuItemClasses({ variant: 'default', surface })} pr-8`}
+          className={rowClasses}
         >
           <MenuItemBody item={item} />
           <span

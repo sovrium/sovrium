@@ -54,7 +54,7 @@ This makes restarts cheap when nothing changed, and guarantees the database matc
 
 ## Applying a schema change
 
-Edit the config file and restart the server, or re-deploy. On the next boot Sovrium diffs the new configuration against the database and applies the migration in a transaction **before the app starts serving traffic**, so a newly declared table or column exists by the time its record routes are registered, so routes never point at a table that does not yet exist. If the migration fails, the transaction rolls back and the server refuses to start on an inconsistent schema rather than serving a half-migrated database.
+Edit the config file and restart the server, or re-deploy. On the next boot Sovrium diffs the new configuration against the database and applies the migration in a transaction **before the app starts serving traffic**, so a newly declared table or column exists by the time its record routes are registered, and no route points at a table that does not yet exist. If the migration fails, the transaction rolls back and the server refuses to start on an inconsistent schema rather than serving a half-migrated database.
 
 **Schema changes are code-only.** There is no runtime publish that mutates a live server's schema, and `sovrium reload` does not apply schema changes; it only refreshes the running server's config identity. The change reaches the database through one of two paths, and never through a running server: the boot-time migration above, or an explicit `sovrium migrate` ahead of it.
 
@@ -78,7 +78,7 @@ This audit trail is the source of truth for "which schema produced this database
 
 ## Error handling
 
-Migrations fail loud and safe. Each of these aborts before or during execution and rolls back any partial work:
+Each of these failures aborts the migration before or during execution, reports it, and rolls back any partial work:
 
 - **Invalid schema**: validation errors surface before any migration starts.
 - **Migration failure**: a SQL execution error rolls back the transaction.

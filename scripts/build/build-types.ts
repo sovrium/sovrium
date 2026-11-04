@@ -119,6 +119,7 @@ const TYPE_EXPORTS = [
   { exported: 'AutomationConfig', source: 'AutomationConfig' },
   { exported: 'ConnectionConfig', source: 'ConnectionConfig' },
   { exported: 'FormConfig', source: 'FormConfig' },
+  { exported: 'SignatureConfig', source: 'SignatureConfig' },
   { exported: 'EnvConfig', source: 'EnvConfig' },
   { exported: 'StartOptions', source: 'StartOptions' },
   { exported: 'GenerateStaticOptions', source: 'GenerateStaticOptions' },

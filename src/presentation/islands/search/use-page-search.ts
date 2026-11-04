@@ -18,10 +18,10 @@
  * {@link ./page-search-index}.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { toSafeRedirectPath } from '@/domain/kernel/url/redirect-safety'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { warnInBrowser } from '../runtime/client-log'
 import { loadSearchIndex } from './page-search-index'
+import { navigateTo, useKeyDownHandler } from './page-search-keys'
 import { searchIndex, type SearchIndex, type SearchResult } from './page-search-matcher'
 import { querySessionIndex } from './page-search-session-query'
 import type { ChangeEvent, KeyboardEvent } from 'react'
@@ -36,19 +36,14 @@ const loadIndex = (): Promise<SearchIndex | undefined> =>
     return undefined
   })
 
-/**
- * Open a search result. Its address comes from the fetched search index, so it
- * is followed only when it is a page on this site; anything else is ignored.
- */
-export const navigateTo = (url: string): void => {
-  const target = toSafeRedirectPath(url)
-  if (target !== undefined) window.location.assign(target)
-}
-
 export interface PageSearchController {
   readonly query: string
   readonly results: ReadonlyArray<SearchResult>
   readonly isOpen: boolean
+  /** A session query is on its way: the panel says so and keeps the results it lists. */
+  readonly pending: boolean
+  /** The result the arrow keys highlight, or -1 for none. */
+  readonly active: number
   readonly containerRef: React.RefObject<HTMLDivElement | null>
   readonly onChange: (e: ChangeEvent<HTMLInputElement>) => void
   readonly onKeyDown: (e: KeyboardEvent<HTMLInputElement>) => void
@@ -81,20 +76,29 @@ function useDebounce(): DebounceController {
   return { schedule, cancel }
 }
 
-interface SearchState {
+export interface SearchState {
   readonly query: string
   readonly results: ReadonlyArray<SearchResult>
   readonly isOpen: boolean
+  readonly pending: boolean
+  readonly active: number
   readonly setQuery: (q: string) => void
   readonly setResults: (r: ReadonlyArray<SearchResult>) => void
   readonly setIsOpen: (open: boolean) => void
+  readonly setPending: (pending: boolean) => void
+  readonly setActive: (update: number | ((current: number) => number)) => void
 }
 
 function useSearchState(): SearchState {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<ReadonlyArray<SearchResult>>([])
   const [isOpen, setIsOpen] = useState(false)
-  return { query, results, isOpen, setQuery, setResults, setIsOpen }
+  const [pending, setPending] = useState(false)
+  const [active, setActive] = useState(-1)
+  return {
+    ...{ query, results, isOpen, pending, active },
+    ...{ setQuery, setResults, setIsOpen, setPending, setActive },
+  }
 }
 
 /** The static public index, loaded once and matched in the browser. */
@@ -106,12 +110,44 @@ const matchStaticIndex = async (
   return loaded ? searchIndex(loaded, q, maxResults) : []
 }
 
+interface QueryAbort {
+  /** Cancel the pending query, if any, and hand out the signal of the next one. */
+  readonly next: () => AbortSignal
+  /** Cancel the pending query, if any: the reader typed past it. */
+  readonly abort: () => void
+}
+
+/** At most one session query is pending: each new one, or a keystroke, cancels the last. */
+function useQueryAbort(): QueryAbort {
+  const controllerRef = useRef<AbortController | undefined>(undefined)
+  const abort = useCallback(() => {
+    controllerRef.current?.abort()
+    controllerRef.current = undefined
+  }, [])
+  const next = useCallback(() => {
+    abort()
+    const controller = new AbortController()
+    controllerRef.current = controller
+    return controller.signal
+  }, [abort])
+  useEffect(() => abort, [abort])
+  return useMemo(() => ({ next, abort }), [next, abort])
+}
+
+/** Which index the box reads: the static one, or the server per query — over one collection page, with `page`. */
+export interface PageSearchSource {
+  readonly maxResults: number
+  readonly sessionIndex: boolean
+  readonly page?: string | undefined
+}
+
 function useRunSearch(
   state: SearchState,
-  effectiveMaxResults: number,
-  sessionIndex: boolean
+  source: PageSearchSource,
+  queryAbort: QueryAbort
 ): (q: string) => Promise<void> {
-  const { setResults, setIsOpen } = state
+  const { setResults, setIsOpen, setPending, setActive } = state
+  const { maxResults: effectiveMaxResults, sessionIndex, page } = source
   // Only the latest query may paint: a slow answer to "EU" must not overwrite
   // the answer to "EUR" that arrived first.
   const latest = useRef('')
@@ -122,63 +158,68 @@ function useRunSearch(
       if (trimmed.length < MIN_QUERY_LENGTH) {
         setResults([])
         setIsOpen(false)
+        setPending(false)
         return
       }
+      // A session query takes a round trip: the panel opens on it at once,
+      // keeping the results it already lists until the answer replaces them.
+      if (sessionIndex) {
+        setPending(true)
+        setIsOpen(true)
+      }
       const matched = sessionIndex
-        ? await querySessionIndex(trimmed, effectiveMaxResults)
+        ? await querySessionIndex(trimmed, effectiveMaxResults, {
+            signal: queryAbort.next(),
+            page,
+          })
         : await matchStaticIndex(trimmed, effectiveMaxResults)
-      if (latest.current !== trimmed) return
+      if (matched === undefined || latest.current !== trimmed) return
       setResults(matched)
-      setIsOpen(matched.length > 0)
+      setActive(-1)
+      setPending(false)
+      // Open on no result too: the panel then says nothing matched the query.
+      setIsOpen(true)
     },
-    [effectiveMaxResults, sessionIndex, setResults, setIsOpen]
+    [
+      effectiveMaxResults,
+      sessionIndex,
+      page,
+      setResults,
+      setIsOpen,
+      setPending,
+      setActive,
+      queryAbort,
+    ]
   )
 }
 
 function useChangeHandler(
   state: SearchState,
   runSearch: (q: string) => Promise<void>,
-  debounce: DebounceController
+  debounce: DebounceController,
+  sessionIndex: { readonly enabled: boolean; readonly abort: QueryAbort }
 ): (e: ChangeEvent<HTMLInputElement>) => void {
-  const { setQuery, setResults, setIsOpen } = state
+  const { setQuery, setResults, setIsOpen, setActive } = state
+  const { enabled, abort } = sessionIndex
   return useCallback(
     (e: ChangeEvent<HTMLInputElement>): void => {
       const nextQuery = e.target.value
       setQuery(nextQuery)
-      // Invalidate stale results so users can't click a stale item between
-      // keystrokes. `runSearch` reopens once new matches land.
-      setResults([])
-      setIsOpen(false)
+      abort.abort()
+      setActive(-1)
+      // The static index answers within the debounce, so stale results go at
+      // once and cannot be clicked between keystrokes. A session query takes a
+      // round trip: its panel keeps the listed results, saying it is searching,
+      // until the answer replaces them — none of them highlighted meanwhile.
+      if (!enabled) {
+        setResults([])
+        setIsOpen(false)
+      }
       debounce.schedule(() => {
         void runSearch(nextQuery)
       })
     },
-    [runSearch, setQuery, setResults, setIsOpen, debounce]
-  )
-}
-
-function useKeyDownHandler(
-  state: SearchState,
-  debounce: DebounceController
-): (e: KeyboardEvent<HTMLInputElement>) => void {
-  const { setQuery, setResults, setIsOpen, isOpen, results } = state
-  return useCallback(
-    (e: KeyboardEvent<HTMLInputElement>): void => {
-      if (e.key === 'Escape') {
-        e.preventDefault()
-        setQuery('')
-        setResults([])
-        setIsOpen(false)
-        debounce.cancel()
-        return
-      }
-      if (e.key === 'Enter' && isOpen && results.length > 0) {
-        e.preventDefault()
-        const first = results[0]
-        if (first) navigateTo(first.url)
-      }
-    },
-    [isOpen, results, setQuery, setResults, setIsOpen, debounce]
+    [runSearch, setQuery, setResults, setIsOpen, setActive, debounce, enabled, abort]
   )
 }
 
@@ -208,23 +249,31 @@ function useLifecycleEffects(
   }, [containerRef])
 }
 
-export function usePageSearch(
-  effectiveMaxResults: number,
-  sessionIndex = false
-): PageSearchController {
+export function usePageSearch(source: PageSearchSource): PageSearchController {
   const state = useSearchState()
   const containerRef = useRef<HTMLDivElement | null>(null)
   const debounce = useDebounce()
 
-  const runSearch = useRunSearch(state, effectiveMaxResults, sessionIndex)
-  const onChange = useChangeHandler(state, runSearch, debounce)
-  const onKeyDown = useKeyDownHandler(state, debounce)
+  const queryAbort = useQueryAbort()
+  const runSearch = useRunSearch(state, source, queryAbort)
+  const onChange = useChangeHandler(state, runSearch, debounce, {
+    enabled: source.sessionIndex,
+    abort: queryAbort,
+  })
+  const { cancel } = debounce
+  const stopQuery = useCallback(() => {
+    cancel()
+    queryAbort.abort()
+  }, [cancel, queryAbort])
+  const onKeyDown = useKeyDownHandler(state, stopQuery)
   useLifecycleEffects(state.isOpen, state.setIsOpen, containerRef)
 
   return {
     query: state.query,
     results: state.results,
     isOpen: state.isOpen,
+    pending: state.pending,
+    active: state.active,
     containerRef,
     onChange,
     onKeyDown,

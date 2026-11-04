@@ -357,10 +357,11 @@ function RenderDirectComponent({
     mergedContent,
   } = mergeResponsiveProps(responsive, componentProps, children, content, 'mobile')
 
-  // `design.components[<type>]` under this node's `classes`, resolved ONCE (root+floor -> className)
+  // `design.components[<type>]` (the AUTHORED type, so a `formRef` form is a form) under this node's
+  // `classes`, resolved ONCE (root+floor -> className)
   const designStyles = resolveComponentStyle(
     props.design,
-    type,
+    (substitutedComponent as { authoredType?: string }).authoredType ?? type,
     (substitutedComponent as { variant?: string }).variant,
     (substitutedComponent as { classes?: ComponentStyle }).classes,
     drawnElementOf(type, substitutedComponent, mergedPropsWithVisibility)
@@ -496,9 +497,8 @@ function RenderDirectComponent({
     routeParams: props.routeParams,
     session: props.session,
     designStyles,
-    // The key itself, beside the resolution of it — see `ComponentDispatchConfig`
-    // for the two design-console components that need the unresolved form.
-    design: props.design,
+    nested: props.childIndex !== undefined, // drawn inside another component, not the page's own
+    design: props.design, // unresolved, for the design-console components (`ComponentDispatchConfig`)
   })
 
   if (hoverData) {

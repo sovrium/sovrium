@@ -7,7 +7,21 @@
 
 import { Effect, Layer } from 'effect'
 import { EmailSendError, EmailSender } from '@/application/ports/services/email-sender'
+import { redactEmailAddresses } from '@/domain/kernel/sanitize/email-redaction'
 import { sendEmail, sendEmailWithOptions } from './email-service'
+
+/**
+ * A refused send as the port's error. Its message is the transport's own text
+ * with every address in it masked (`550 5.1.1 <a•••@example.com>: Recipient
+ * address rejected`): it becomes the failed step's error and the run's failure
+ * reason, read by people with no business with the recipient's address. The
+ * status codes and the domain stay, which is what a failure is diagnosed from.
+ */
+export const emailSendFailure = (cause: unknown): EmailSendError =>
+  new EmailSendError({
+    cause,
+    message: redactEmailAddresses(cause instanceof Error ? cause.message : String(cause)),
+  })
 
 /**
  * Live `EmailSender` over the shared Nodemailer transport.
@@ -47,11 +61,7 @@ export const EmailSenderLive = Layer.succeed(
                 ...(fromName === undefined ? {} : { fromName }),
               })
         },
-        catch: (cause) =>
-          new EmailSendError({
-            cause,
-            message: cause instanceof Error ? cause.message : String(cause),
-          }),
+        catch: emailSendFailure,
       }).pipe(Effect.withSpan('email.send')),
   })
 )

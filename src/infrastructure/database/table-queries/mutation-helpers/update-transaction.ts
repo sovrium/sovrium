@@ -52,6 +52,12 @@ export interface UpdateRecordInput {
   readonly accounts?: readonly AccountReference[]
   /** The table's business rules, judged on the row as this transaction reads it. */
   readonly judge?: InTransactionRuleJudge
+  /**
+   * Columns written only while they are empty (a table's signature columns):
+   * the UPDATE of any it carries requires it still `NULL`, and a write that
+   * finds one filled is refused with a `ValidationError`.
+   */
+  readonly writeOnce?: readonly string[]
 }
 
 /** What the update transaction hands back to the logging that follows the commit. */
@@ -175,10 +181,11 @@ export async function runUpdateRecordTransaction(
     await resolveArrayColumnTypes({ tx, dialect }, tableName, [fields])
   )
   const expectedUpdatedAtMs = lockTokenToEnforce(input.expectedUpdatedAt, before)
+  const emptyColumns = (input.writeOnce ?? []).filter((column) => Object.hasOwn(fields, column))
   const updated = await executeRecordUpdateCRUD(
     tx,
     dialect,
-    { tableName, recordId, expectedUpdatedAtMs },
+    { tableName, recordId, expectedUpdatedAtMs, emptyColumns },
     setClause
   )
   const sourceId = updated['id'] as string | number

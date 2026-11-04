@@ -7,19 +7,22 @@
 
 import { Menu } from '@base-ui/react/menu'
 import { useCallback, type ReactElement, type ReactNode, type RefObject } from 'react'
+import { cn } from '@/presentation/design/class-merge'
 import { authClient } from '@/presentation/islands/runtime/auth-client'
 import { followAddress } from '@/presentation/islands/runtime/follow-address'
 import { modalPortalContainer } from '@/presentation/islands/runtime/modal-portal-container'
-import {
-  computeMenuItemClasses,
-  computeMenuPopupClasses,
-  computeMenuSeparatorClasses,
-} from './menu-default-classes'
+import { computeMenuPopupClasses, computeMenuSeparatorClasses } from './menu-default-classes'
 import { PlainMenuItem, NavigateMenuItem } from './menu-entries'
 import { MenuItemBody } from './menu-popup-body'
 import { MenuHeading, RadioMenuGroup } from './menu-radio-entries'
 import { gatherMenuEntries } from './menu-radio-runs'
-import { MenuKindProvider, useMenuKind, type MenuKind } from './menu-slot-context'
+import {
+  MenuItemClassProvider,
+  MenuKindProvider,
+  useMenuItemClasses,
+  useMenuKind,
+  type MenuKind,
+} from './menu-slot-context'
 import { ToggleMenuItem } from './menu-toggle-item'
 import type { MenuItem, MenuSurface } from './menu-item-types'
 
@@ -68,7 +71,7 @@ function LogoutMenuItem({
       data-variant={item.variant ?? 'default'}
       disabled={item.disabled}
       onClick={handleClick}
-      className={computeMenuItemClasses({ variant: item.variant ?? 'default', surface })}
+      className={useMenuItemClasses({ variant: item.variant ?? 'default', surface })}
     >
       <MenuItemBody item={item} />
     </Menu.Item>
@@ -146,6 +149,24 @@ function renderMenuEntry(
   )
 }
 
+/** The panel's rows, a run of radio rows drawn as one group. */
+const renderMenuEntries = (
+  menuItems: readonly MenuItem[],
+  surface: MenuSurface,
+  host: MenuHost
+): readonly ReactElement[] =>
+  gatherMenuEntries(menuItems).map((entry) =>
+    entry.kind === 'radio' ? (
+      <RadioMenuGroup
+        key={`radio-${entry.group}-${String(entry.rows[0]?.index)}`}
+        rows={entry.rows}
+        surface={surface}
+      />
+    ) : (
+      renderMenuEntry(entry.item, entry.index, surface, host)
+    )
+  )
+
 /** The floating panel: the items, plus whatever quiet line sits under them. */
 export function MenuPanel({
   menuItems,
@@ -157,8 +178,14 @@ export function MenuPanel({
   kind,
   sideOffset = 4,
   alignOffset,
+  contentClassName,
+  itemClassName,
 }: {
   readonly kind: MenuKind
+  /** The `content` part: the open panel, drawn outside the menu. */
+  readonly contentClassName?: string
+  /** The `item` part: each entry in the panel. */
+  readonly itemClassName?: string
   /** Gap from the anchor along `floatingSide`: 4 px under a button, 0 at a pointer. */
   readonly sideOffset?: number
   /** Shift along the anchor edge: shadcn's context menu nudges 4 px off the pointer. */
@@ -184,21 +211,13 @@ export function MenuPanel({
       >
         <Menu.Popup
           data-slot={`${kind}-content`}
-          className={computeMenuPopupClasses({ variant: popupVariant, kind })}
+          className={cn(computeMenuPopupClasses({ variant: popupVariant, kind }), contentClassName)}
         >
           <MenuKindProvider value={kind}>
-            {gatherMenuEntries(menuItems).map((entry) =>
-              entry.kind === 'radio' ? (
-                <RadioMenuGroup
-                  key={`radio-${entry.group}-${String(entry.rows[0]?.index)}`}
-                  rows={entry.rows}
-                  surface={popupVariant}
-                />
-              ) : (
-                renderMenuEntry(entry.item, entry.index, popupVariant, host)
-              )
-            )}
-            {footerContent}
+            <MenuItemClassProvider value={itemClassName}>
+              {renderMenuEntries(menuItems, popupVariant, host)}
+              {footerContent}
+            </MenuItemClassProvider>
           </MenuKindProvider>
         </Menu.Popup>
       </Menu.Positioner>

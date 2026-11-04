@@ -22,6 +22,7 @@ import type {
 } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { ViewGroupBy } from '@/domain/models/app/tables/views/group-by'
+import type { DrawnGridPage } from '@/presentation/design/drawn-grid'
 
 /** The props the data-table island is mounted with, as the SSR host serialises them. */
 export interface DataTableIslandProps {
@@ -199,6 +200,13 @@ export interface DataTableIslandProps {
    */
   readonly rowExpandPanel?: true
   /**
+   * The grid is drawn inside another component (a section of a longer page)
+   * rather than being the page itself: while it has no row at all it draws one
+   * compact empty state on its left edge and no header row. Absent on a grid
+   * that is a top-level page component.
+   */
+  readonly embedded?: true
+  /**
    * Interpreter-provided commit / dismiss labels, resolved server-side the same
    * way. They label the inline select-editor's commit + cancel pair (an `editSelect.saveLabel` still wins
    * for that one button). Default to the English strings when absent.
@@ -244,4 +252,6 @@ export interface DataTableIslandProps {
         readonly play?: boolean
       }
     | undefined
+  /** The first page the server drew for this reader, as text, shown until the first read answers. */
+  readonly drawn?: DrawnGridPage
 }

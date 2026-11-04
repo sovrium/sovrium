@@ -17,7 +17,7 @@
  * on the page can show them again.
  */
 
-import { useMemo, useState, type FormEvent, type ReactElement } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactElement } from 'react'
 import { encodeQrMatrix } from '@/domain/models/app/links/qr-code-service'
 import { computeButtonDefaultClasses } from '@/presentation/design/button-default-classes'
 import { computeFormLayoutClasses } from '@/presentation/design/form-layout-classes'
@@ -32,6 +32,11 @@ import { AuthFieldRow } from './auth-form-fields'
  * only the strings that differ from the English below are sent.
  */
 export type EnrolmentStrings = Readonly<Record<string, string>> | undefined
+
+/** A refusal about one field, by the server's error code, worded by the server in the page language. */
+export type FieldRefusals = Readonly<
+  Record<string, { readonly field: string; readonly message: string }>
+>
 
 const ENGLISH: Readonly<Record<string, string>> = {
   'twoFactor.qrTitle': 'QR code for your authenticator app',
@@ -110,6 +115,40 @@ function QrCode({
   )
 }
 
+/**
+ * The first code of an enrolment: sent, and a wrong one said on the code field
+ * in the page language, the keyboard handed back to it; any other refusal in
+ * the step's alert.
+ */
+function useFirstCode({
+  refusals,
+  setError,
+  onVerified,
+}: {
+  readonly refusals: FieldRefusals | undefined
+  readonly setError: (error: string | undefined) => void
+  readonly onVerified: () => void
+}) {
+  const [pending, setPending] = useState(false)
+  const [codeError, setCodeError] = useState<string | undefined>(undefined)
+  const submit = (event: FormEvent<HTMLFormElement>): void => {
+    if (pressWhilePending(event)) return
+    event.preventDefault()
+    const input = event.currentTarget.querySelector<HTMLInputElement>('input[name="code"]')
+    const code = String(new FormData(event.currentTarget).get('code') ?? '').trim()
+    setPending(true)
+    void postAccount('/two-factor/verify-totp', { code }).then((outcome) => {
+      setPending(false)
+      const refusal = outcome.code === undefined ? undefined : refusals?.[outcome.code]
+      setCodeError(refusal?.message)
+      setError(refusal === undefined ? outcome.error : undefined)
+      if (refusal !== undefined) input?.focus()
+      if (outcome.error === undefined) onVerified()
+    })
+  }
+  return { pending, codeError, submit }
+}
+
 /** The scan screen: the QR code, the secret, and the first code that turns two-step on. */
 export function ScanStep({
   totpURI,
@@ -117,26 +156,17 @@ export function ScanStep({
   error,
   setError,
   strings,
+  refusals,
 }: {
   readonly totpURI: string
   readonly onVerified: () => void
   readonly error: string | undefined
   readonly setError: (error: string | undefined) => void
   readonly strings?: EnrolmentStrings
+  readonly refusals?: FieldRefusals
 }): ReactElement {
-  const [pending, setPending] = useState(false)
+  const { pending, codeError, submit } = useFirstCode({ refusals, setError, onVerified })
   const field = useMemo(() => codeField(strings), [strings])
-  const submit = (event: FormEvent<HTMLFormElement>): void => {
-    if (pressWhilePending(event)) return
-    event.preventDefault()
-    const code = String(new FormData(event.currentTarget).get('code') ?? '').trim()
-    setPending(true)
-    void postAccount('/two-factor/verify-totp', { code }).then((outcome) => {
-      setPending(false)
-      setError(outcome.error)
-      if (outcome.error === undefined) onVerified()
-    })
-  }
   return (
     <form
       onSubmit={submit}
@@ -147,6 +177,7 @@ export function ScanStep({
         value={totpURI}
         title={say(strings, 'twoFactor.qrTitle')}
       />
+      <p>{say(strings, 'twoFactor.scanHint')}</p>
       <p>
         {say(strings, 'twoFactor.keyHint')}{' '}
         <code data-testid="totp-secret">{secretOf(totpURI)}</code>
@@ -154,8 +185,11 @@ export function ScanStep({
       <AuthFieldRow
         field={field}
         defaultValue=""
-        error={undefined}
+        error={codeError}
+        announce
         onBlur={noop}
+        // The step replaced the password form under the reader's focus.
+        autoFocus
       />
       {error === undefined ? undefined : <div role="alert">{error}</div>}
       <button
@@ -181,8 +215,17 @@ export function RecoveryCodesStep({
   readonly strings?: EnrolmentStrings
 }): ReactElement {
   const [saved, setSaved] = useState(false)
+  // The step replaced the scan screen under the reader's focus: it opens on its hint.
+  const hint = useRef<HTMLParagraphElement>(null)
+  useEffect(() => hint.current?.focus(), [])
   return (
     <div className={computeFormLayoutClasses()}>
+      <p
+        ref={hint}
+        tabIndex={-1}
+      >
+        {say(strings, 'twoFactor.codesHint')}
+      </p>
       <ul
         aria-label={say(strings, 'twoFactor.recoveryCodes')}
         className="grid grid-cols-2 gap-1 font-mono"

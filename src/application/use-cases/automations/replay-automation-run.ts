@@ -17,11 +17,16 @@ import {
   handStarterOfStoredRun,
   type StoredRunStarter,
 } from '@/domain/models/app/automations/run-starter-service'
-import { keepsMinimalHistory } from '@/domain/models/app/automations/trigger/trigger-history-service'
+import {
+  hasRunEnded,
+  isRunPaused,
+  keepsMinimalHistory,
+} from '@/domain/models/app/automations/trigger/trigger-history-service'
 import { redactRunTriggerData } from '@/domain/models/app/automations/trigger/webhook-credential-headers-service'
 import { triggerNamedOrFirst } from '@/domain/models/app/automations/trigger-entries-service'
 import { defaultActionHandlers, type ActionHandler, type ActionKey } from './action-handlers'
 import { loadPausedAutomationNames } from './paused-automation-names'
+import { outputsOfRows, toleratedInRows } from './run/resume-plan'
 import {
   executeAutomationRun,
   resolveAutomationId,
@@ -31,7 +36,10 @@ import {
 } from './run-automation'
 import type { TriggerData } from './resolve-trigger-data'
 import type { AutomationPauseRepository } from '@/application/ports/repositories/automations/automation-pause-repository'
-import type { AutomationRunDatabaseError } from '@/application/ports/repositories/automations/automation-run-repository'
+import type {
+  AutomationRunDatabaseError,
+  PersistedStep,
+} from '@/application/ports/repositories/automations/automation-run-repository'
 import type { App } from '@/domain/models/app'
 
 /**
@@ -99,30 +107,60 @@ const resolveReplayTarget = (
   return Effect.succeed(automation)
 }
 
+/** Where a replay of a run picks up, read from the run's stored steps. */
+interface ReplayPlan {
+  /** The actions recorded `'skipped'` without running: the ones before the resume point. */
+  readonly skipActionNames: ReadonlySet<string>
+  /** What those actions produced in the replayed run, so later steps read the same values. */
+  readonly seedOutputs: Readonly<Record<string, Record<string, unknown>>>
+  /** Failures `continueOnError` let those actions go past: the replay still owes them. */
+  readonly priorTolerated: number
+}
+
 /**
- * The actions a replay records as `'skipped'` without running: every action of
- * the automation EXCEPT those the original run recorded `'skipped'` — the tail
- * a failure cut off (an automation retry spec records it so). The replay runs
- * that tail and nothing else.
+ * The stored row a replay resumes at: the first step the run recorded
+ * `'failed'`. A run that timed out records the step it interrupted, and every
+ * one after it, `'skipped'`: it resumes at the first of those trailing rows.
  *
- * The complement, rather than "everything that ran", because what a run did
- * NOT record matters as much as what it did. A filter that stopped the run, an
- * approval it waits on or was refused, an early `return` — each leaves the
- * actions after it unrecorded ON PURPOSE. Running "whatever did not execute"
- * ran exactly those: a replay of a run held for approval executed the actions
- * the approval guards, the request still pending. Under the complement such a
- * run has no tail to resume, and its replay runs no step.
+ * Any other run has no resume point, on purpose. A filter that stopped the
+ * run, an approval it waits on or was refused, an early `return`: each leaves
+ * the actions after it unrecorded or unrun ON PURPOSE, and a replay that ran
+ * them would execute what the filter or the approval guards. Such a run
+ * replays no step.
  */
-const collectSkipActionNames = (
+const resumeRowOf = (steps: readonly PersistedStep[], runStatus: string): number | undefined => {
+  const failed = steps.findIndex((row) => row.status === 'failed')
+  if (failed !== -1) return failed
+  if (runStatus !== 'timed-out') return undefined
+  const cut = steps.findLastIndex((row) => row.status !== 'skipped') + 1
+  return cut < steps.length ? cut : undefined
+}
+
+/**
+ * Plan a replay: the actions before the resume point are recorded `'skipped'`
+ * and do not run again (their side effects fire once), their stored outputs
+ * are handed to the replay, and the step that failed runs again with every
+ * one after it. A run with no resume point, or one whose resume step the
+ * current configuration no longer declares, skips every action.
+ */
+const planReplay = (
   actions: ReadonlyArray<{ readonly name?: unknown }>,
-  steps: ReadonlyArray<{ readonly actionName: string; readonly status: string }>
-): ReadonlySet<string> => {
-  const resumable = new Set(steps.filter((s) => s.status === 'skipped').map((s) => s.actionName))
-  return new Set(
-    actions
-      .map((action) => String(action.name ?? ''))
-      .filter((name) => name !== '' && !resumable.has(name))
-  )
+  steps: readonly PersistedStep[],
+  runStatus: string
+): ReplayPlan => {
+  const names = actions.map((action) => String(action.name ?? '')).filter((name) => name !== '')
+  const resumeRow = resumeRowOf(steps, runStatus)
+  const resumeName = resumeRow === undefined ? undefined : steps[resumeRow]?.actionName
+  const position = resumeName === undefined ? -1 : names.indexOf(resumeName)
+  if (resumeRow === undefined || position === -1) {
+    return { skipActionNames: new Set(names), seedOutputs: {}, priorTolerated: 0 }
+  }
+  const before = steps.slice(0, resumeRow)
+  return {
+    skipActionNames: new Set(names.slice(0, position)),
+    seedOutputs: outputsOfRows(before),
+    priorTolerated: toleratedInRows(before),
+  }
 }
 
 /** Who a replay runs as — see the call site. A starter banned since is not run as. */
@@ -146,23 +184,13 @@ const coerceTriggerData = (raw: unknown): TriggerData => {
 }
 
 /**
- * Replay an automation run from its previously-failed step. The semantics:
- *
- *   1. Load the original run + its steps from `system.automation_runs` /
- *      `system.automation_run_steps`.
- *   2. Collect the set of action names that previously executed (status
- *      `completed` or `failed`) — these will be marked `'skipped'` in the
- *      new run so their side-effects fire ONCE only.
- *   3. Trigger a fresh `executeAutomationRun` against the same automation,
- *      passing the executed-action set as `skipActionNames`. The new run
- *      records the skipped steps in its `steps[]` array and executes only
- *      the previously-untouched (skipped) actions.
- *   4. The new run is persisted as a separate row in `system.automation_runs`
- *      — replay never mutates the original run's row.
- *
- * The original run's trigger data is reused unless the caller supplied an
- * override via the POST body.
+ * Whether a minimal or none run's row still holds the trigger data it started
+ * on: one paused, which stores it for its resume, or one that ended before its
+ * level dropped it. Under way, its row holds it without the body.
  */
+const keptWhole = (run: { readonly status: string; readonly triggerData: unknown }): boolean =>
+  run.triggerData !== null && (isRunPaused(run.status) || hasRunEnded(run.status))
+
 /** The relay a replay records: the replayed run's own, or `outside` for new trigger data. */
 const replayRelayOf = (relay: unknown, supplied: boolean): { readonly relay?: RunRelay } => {
   if (supplied) return { relay: OUTSIDE_RELAY }
@@ -170,6 +198,24 @@ const replayRelayOf = (relay: unknown, supplied: boolean): { readonly relay?: Ru
   return kept === undefined ? {} : { relay: kept }
 }
 
+/**
+ * Replay an automation run from the step that failed. The semantics:
+ *
+ *   1. Load the original run and its steps from `system.automation_runs` /
+ *      `system.automation_run_steps`.
+ *   2. Find the resume point: the first step the run recorded `failed` (for
+ *      a run that timed out, the step the timeout interrupted).
+ *   3. Run a fresh `executeAutomationRun` against the same automation: the
+ *      actions before the resume point are recorded `'skipped'` and do not
+ *      run again, so their side effects fire once, and their stored outputs
+ *      seed the run, so a later step's `{{<earlier step>.…}}` reads what the
+ *      original produced. The failed step runs again, and every step after it.
+ *   4. The new run is persisted as a separate row in `system.automation_runs`:
+ *      replay never mutates the original run's row.
+ *
+ * A full rerun is not a replay: it is the automation triggered again. The
+ * original run's trigger data is reused unless the caller supplied new data.
+ */
 export const replayAutomationRun = (
   options: ReplayAutomationRunOptions
 ): Effect.Effect<
@@ -195,15 +241,17 @@ export const replayAutomationRun = (
     const pausedNames = yield* loadPausedAutomationNames
     const automation = yield* resolveReplayTarget(app, name, pausedNames)
     // A run of a `history: 'minimal'` trigger keeps no trigger data once it
-    // ended: replaying it needs new trigger data, or there is nothing to replay.
+    // ended, and no body while it is under way: replaying it needs new trigger
+    // data, or there is nothing (or only part of it) to replay.
     const trigger = triggerNamedOrFirst(automation, run.triggerName)
-    if (triggerData === undefined && run.triggerData === null && keepsMinimalHistory(trigger)) {
+    if (triggerData === undefined && keepsMinimalHistory(trigger) && !keptWhole(run)) {
       return yield* Effect.fail({ _tag: 'AutomationRunHistoryNotKept' as const, runId })
     }
     const steps = yield* repo.findStepsByRunId(runId)
-    const skipActionNames = collectSkipActionNames(
+    const plan = planReplay(
       automation.actions as ReadonlyArray<{ readonly name?: unknown }>,
-      steps
+      steps,
+      run.status
     )
 
     const automationId = yield* resolveAutomationId(name, automation)
@@ -227,7 +275,9 @@ export const replayAutomationRun = (
       // resume does, and any other replays system-side. Never the replayer: an
       // approver replaying someone's run does not borrow, nor become, its starter.
       ...replayActorOf(run, options.userId),
-      skipActionNames,
+      skipActionNames: plan.skipActionNames,
+      seedOutputs: plan.seedOutputs,
+      priorTolerated: plan.priorTolerated,
       // A replay keeps the relay of the run it replays; new trigger data an
       // admin supplied came from outside the app.
       ...replayRelayOf(run.relay, triggerData !== undefined),

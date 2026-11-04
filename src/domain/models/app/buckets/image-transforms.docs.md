@@ -22,7 +22,7 @@ Give one dimension and the other follows from the aspect ratio. An integer outsi
 
 **Sources above 50 million pixels are not transformed.** What an image costs to transform is the buffer its decoder allocates from the dimensions in its header, not its size on disk: a file of a few hundred bytes can declare 16000 by 16000 pixels, about a gigabyte once decoded. The header is read first, and a source declaring more than 50,000,000 pixels answers `422` with a message naming its dimensions, before anything is decoded. The original still downloads untouched without transform parameters. The same limit applies to the `file` automation action's `transformImage`, which fails instead.
 
-**A non-numeric dimension is ignored, not rejected.** A width of `abc` produces the untransformed image rather than an error. Only an out-of-range **integer** is a `400`. If you build URLs from user input, validate before you interpolate: a silently ignored parameter is easy to miss in review.
+**A non-numeric dimension is ignored, not rejected.** A width of `abc` produces the untransformed image and no error. Only an out-of-range **integer** is a `400`. If you build URLs from user input, validate before you interpolate: a silently ignored parameter is easy to miss in review.
 
 ## Fit modes
 
@@ -55,4 +55,4 @@ This is also a correction: an unrecognised fit value used to fall back to a cove
 
 ### Migrating
 
-Delete the crop parameter from your URLs and your presets, and replace a covering fit with `inside`, sizing the layout for the box rather than the image. A CSS object-fit rule on the image element reproduces the old framing in the browser, at the cost of transferring the uncropped pixels.
+Delete the crop parameter from your URLs and your presets, and replace a covering fit with `inside`, sizing the layout for the box instead of the image. A CSS object-fit rule on the image element reproduces the old framing in the browser, at the cost of transferring the uncropped pixels.

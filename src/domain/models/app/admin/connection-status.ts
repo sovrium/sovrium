@@ -28,11 +28,17 @@
  *   - `reconnect-needed` — a token the provider issued no refresh token for,
  *     whose expiry is past or within the same 7-day window: nothing renews it,
  *     so only a new authorization restores it. Takes precedence over the two
- *     above, which describe tokens the runtime can refresh on its own.
+ *     above.
+ *
+ * A token that carries a refresh token renews itself: the console reads it
+ * `active` whatever its access token's expiry, since the next call refreshes
+ * it and nobody has to act. So does a connection using the `clientCredentials`
+ * grant, which asks its token endpoint again whenever its token lapses.
  */
 
 import {
   CONNECTION_EXPIRING_SOON_WINDOW_MS,
+  type ConnectionRenewal,
   type ConnectionRowAction,
   type ConnectionStatus,
 } from '@/domain/models/api/admin/connections/connections'
@@ -95,16 +101,23 @@ export const needsReconnect = (token: TokenHealthInput, now: number): boolean =>
 }
 
 /**
- * Derive one token's health, `reconnect-needed` included — the per-token
- * counterpart of {@link deriveConnectionStatus}.
+ * Derive one token's health as the console reads it — the per-token
+ * counterpart of {@link deriveConnectionStatus}. A token carrying a refresh
+ * token is `active` whatever its expiry: the app renews it on its own. One
+ * without is `reconnect-needed` once its expiry is past or within 7 days.
  */
-export const deriveTokenStatus = (token: TokenHealthInput, now: number): ConnectionStatus =>
-  needsReconnect(token, now) ? 'reconnect-needed' : deriveConnectionStatus(token.expiresAt, now)
+export const deriveTokenStatus = (token: TokenHealthInput, now: number): ConnectionStatus => {
+  if (token.hasRefreshToken) return 'active'
+  return needsReconnect(token, now)
+    ? 'reconnect-needed'
+    : deriveConnectionStatus(token.expiresAt, now)
+}
 
 /**
  * Derive a connection's health from all its tokens: `reconnect-needed` when
  * any of them needs a new authorization, otherwise the status of the soonest
- * expiry.
+ * expiry among the tokens nothing renews — the ones carrying a refresh token
+ * renew themselves and never lower it.
  */
 export const deriveConnectionHealth = (
   tokens: readonly TokenHealthInput[],
@@ -112,26 +125,72 @@ export const deriveConnectionHealth = (
 ): ConnectionStatus =>
   tokens.some((token) => needsReconnect(token, now))
     ? 'reconnect-needed'
-    : deriveConnectionStatus(soonestExpiryMs(tokens.map((token) => token.expiresAt)), now)
+    : deriveConnectionStatus(
+        soonestExpiryMs(
+          tokens.filter((token) => !token.hasRefreshToken).map((token) => token.expiresAt)
+        ),
+        now
+      )
+
+/**
+ * What the console knows of a connection beyond its type and its tokens:
+ * whether it uses the `clientCredentials` grant (read from its declaration),
+ * and whether its static credential reads a `$env.` variable that is not set.
+ */
+export interface ConnectionTraits {
+  readonly clientCredentials?: boolean
+  readonly credentialUnset?: boolean
+}
 
 /**
  * The connection-level status the console lists: {@link deriveConnectionHealth}
- * of its tokens, except that an `oauth2` connection holding no token at all is
- * `not-connected` — nobody has authorized it, so nothing can call the provider
- * yet. A static-secret connection (apiKey, basic, bearer) never holds a token:
- * it is `active` when its credential resolves, and `not-configured` when
- * `credentialUnset` says it reads a `$env.` variable that is not set on this
- * instance — every run that needs it is skipped until it is.
+ * of its tokens, except that:
+ *
+ *   - an `oauth2` connection using the `clientCredentials` grant is always
+ *     `active`, before its first call too: the app requests and re-requests its
+ *     token itself, so nobody ever has to connect it;
+ *   - any other `oauth2` connection holding no token at all is
+ *     `not-connected` — nobody has authorized it, so nothing can call the
+ *     provider yet;
+ *   - a static-secret connection (apiKey, basic, bearer) never holds a token:
+ *     it is `active` when its credential resolves, and `not-configured` when
+ *     `credentialUnset` says it reads a `$env.` variable that is not set on
+ *     this instance — every run that needs it is skipped until it is.
  */
 export const deriveConnectionListStatus = (
   type: string,
   tokens: readonly TokenHealthInput[],
   now: number,
-  credentialUnset = false
+  traits: ConnectionTraits = {}
 ): ConnectionStatus => {
+  if (type === 'oauth2' && traits.clientCredentials === true) return 'active'
   if (type === 'oauth2' && tokens.length === 0) return 'not-connected'
-  if (type !== 'oauth2' && tokens.length === 0 && credentialUnset) return 'not-configured'
+  if (type !== 'oauth2' && tokens.length === 0 && traits.credentialUnset === true) {
+    return 'not-configured'
+  }
   return deriveConnectionHealth(tokens, now)
+}
+
+/**
+ * Who renews a connection's token when it expires:
+ *
+ *   - `automatic` — a `clientCredentials` connection (it simply asks again,
+ *     and holds no token before its first call), or an `oauth2` connection
+ *     every token of which carries a refresh token;
+ *   - `manual`    — at least one token carries no refresh token: only a new
+ *     authorization replaces it;
+ *   - `none`      — nothing to renew: a static-secret connection, or an
+ *     authorization-code connection holding no token yet.
+ */
+export const deriveConnectionRenewal = (
+  type: string,
+  tokens: readonly Pick<TokenHealthInput, 'hasRefreshToken'>[],
+  traits: Pick<ConnectionTraits, 'clientCredentials'> = {}
+): ConnectionRenewal => {
+  if (type !== 'oauth2') return 'none'
+  if (traits.clientCredentials === true) return 'automatic'
+  if (tokens.length === 0) return 'none'
+  return tokens.every((token) => token.hasRefreshToken) ? 'automatic' : 'manual'
 }
 
 /**
@@ -158,7 +217,8 @@ export const soonestExpiryMs = (
  * connections-directory island's `deriveRowAction` it replaces:
  *
  *   - non-oauth2 (apiKey / basic / bearer) → `none` (a static secret has nothing
- *     to connect);
+ *     to connect), and so is an oauth2 connection using the `clientCredentials`
+ *     grant, which nobody authorizes;
  *   - oauth2 with no tokens (`tokenCount === 0`)        → `connect`;
  *   - oauth2 with `expiring-soon` / `expired` / `reconnect-needed` tokens → `reconnect`;
  *   - oauth2 with healthy (`active`) tokens             → `disconnect`.
@@ -166,9 +226,10 @@ export const soonestExpiryMs = (
 export const deriveConnectionRowAction = (
   type: string,
   tokenCount: number,
-  status: ConnectionStatus
+  status: ConnectionStatus,
+  traits: Pick<ConnectionTraits, 'clientCredentials'> = {}
 ): ConnectionRowAction => {
-  if (type !== 'oauth2') return 'none'
+  if (type !== 'oauth2' || traits.clientCredentials === true) return 'none'
   if (tokenCount === 0) return 'connect'
   if (status === 'expired' || status === 'expiring-soon' || status === 'reconnect-needed') {
     return 'reconnect'

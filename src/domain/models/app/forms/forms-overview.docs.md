@@ -47,7 +47,7 @@ A question left empty is stored empty, never as an empty string a relationship, 
 
 ## Routes
 
-Every form is reachable at `/forms/{name}` whatever else is configured. A form with no `path` is not private, it is simply only reachable there. Setting `path` serves the form at that custom path **as well as** the canonical one, with no redirect; both URLs render the same form.
+Every form is reachable at `/forms/{name}` whatever else is configured. A form with no `path` is not private; it is reachable only there. Setting `path` serves the form at that custom path **as well as** the canonical one, with no redirect; both URLs render the same form.
 
 | Rule              | Detail                                                                       |
 | ----------------- | ---------------------------------------------------------------------------- |

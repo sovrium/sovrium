@@ -95,7 +95,7 @@ const HELP_TEXT = [
   "  sovrium skills                Write this version's agent skills into .claude/skills/",
   '  sovrium validate <config>     Validate a config file against AppSchema',
   '  sovrium render <asset>        Render a template asset offline, with its sample data or yours',
-  '  sovrium design-system         Export the design system as a brief, DTCG JSON or a bundle (--pages)',
+  '  sovrium design-system         Export the design system as a brief, DTCG JSON, a DESIGN.md or a bundle',
   '  sovrium import <file|dir>     Migrate tables, records and automations from another tool',
   '  sovrium docs [address]        Read the platform manual out of this binary',
   '  sovrium changelog [version]   Read the release notes this binary carries',
@@ -112,6 +112,7 @@ const HELP_TEXT = [
   '  sovrium admin create <email>  Create an admin user',
   '  sovrium secret generate       Print fresh secrets as .env lines',
   '  sovrium secret adopt          Persist $SOVRIUM_ENCRYPTION_KEY to the data dir',
+  '  sovrium signature <verb>      Check a signing evidence export offline (verify)',
   '  sovrium backup [config]       Write database, key, config and uploads to one archive',
   '  sovrium restore <file>        Put a backup back (never over a running server)',
   '  sovrium usage [config]        Print how many bytes the database and stored files hold',
@@ -127,7 +128,7 @@ const HELP_TEXT = [
   '  --watch, -w                   Watch config file and hot reload (start)',
   '  --output <path>               Write to a file (schema, design-system, backup, bundle, client) or dir (types, skills)',
   '  --typescript                  Scaffold a typed app.ts instead of app.yaml (init)',
-  '  --format <format>             md (default), json, llms or bundle (design-system, docs, changelog, licenses)',
+  '  --format <format>             md (default), json, design-md, llms or bundle (design-system, docs, changelog, licenses)',
   '  --full                        Print the whole manual (docs)',
   '  --list-sections               Print the section slugs and exit (docs)',
   '  --lang <code>                 Manual locale — `en` only (docs)',
@@ -191,7 +192,7 @@ const HELP_TEXT = [
   '  sovrium start app.yaml --watch                     # Hot reload on changes',
   '  sovrium build app.json                             # Build static site',
   '  sovrium schema --output app.schema.json            # Write JSON Schema',
-  '  sovrium design-system app.ts --output DESIGN.md    # Brief an agent can read',
+  '  sovrium design-system app.ts --format design-md --output DESIGN.md  # For design agents',
   '  sovrium docs search llms                           # Find the article for a topic',
   '  sovrium docs config tables[].fields[].type         # Look one option up',
   '  sovrium changelog --since 0.26.0                   # What changed since an upgrade',
@@ -236,6 +237,12 @@ const exitCommands: Readonly<Record<string, CommandHandler>> = {
   admin: lazyProgram(
     () => import('@/cli/commands/admin'),
     (module, args) => module.handleAdminCommand(args)
+  ),
+  // An EXIT command: it reads one export file, prints the report and stops —
+  // no server, no database.
+  signature: lazyProgram(
+    () => import('@/cli/commands/signature'),
+    (module, args) => module.handleSignatureCommand(args)
   ),
   secret: lazy(async (args) =>
     (await import('@/cli/commands/secret')).handleSecretCommand(args.subcommand, args.positionalArg)

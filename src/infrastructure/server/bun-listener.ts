@@ -18,11 +18,13 @@ import { websocket } from 'hono/bun'
 import { ServerCreationError } from '@/domain/errors/server-creation-error'
 import { ServerStopError } from '@/domain/errors/server-stop-error'
 import { confineHost } from '@/domain/kernel/url/request-base-url'
+import { resolveRequestIdleTimeoutSeconds } from '@/domain/models/process-env/server-lifecycle'
 import { drainBackgroundRuns } from '@/infrastructure/automations/background-runs'
 import { logDebug, logError, logInfo, logWarning } from '@/infrastructure/logging/logger'
 import { disposeDomainRuntime } from '@/infrastructure/server/domain-runtime'
 import { trackRequest } from '@/infrastructure/server/idle-exit'
 import { isAddressInUse, portInUseRefusal } from '@/infrastructure/server/port-availability'
+import { withIdleCutWatch } from '@/infrastructure/server/request-idle-guard'
 import { shutdownTelemetry } from '@/infrastructure/telemetry/telemetry-sink'
 import type { DomainRuntime } from '@/infrastructure/server/domain-runtime'
 import type { Hono } from 'hono'
@@ -266,26 +268,36 @@ const malformedHostResponse = (): Response =>
  *
  * `maxRequestBodySize` is `resolveMaxRequestBodySize` (`request-body-ceiling.ts`): a body above it is
  * refused with `413` by Bun itself.
+ *
+ * `idleTimeout` is `SOVRIUM_REQUEST_IDLE_TIMEOUT_S` (10 s, Bun's own default,
+ * unless an operator widens it): a request still unanswered past it has its
+ * connection closed by Bun, and `withIdleCutWatch` leaves one warning per cut.
  */
 export const buildBunServeOptions = (
   honoApp: Readonly<Hono>,
   port: number,
   hostname: string,
   maxRequestBodySize: number
-) => ({
-  port,
-  hostname,
-  maxRequestBodySize,
-  fetch: (request: Request, server: unknown): Response | Promise<Response> =>
-    trackRequest(() =>
-      hasMalformedHost(request)
-        ? malformedHostResponse()
-        : honoApp.fetch(withBindAddressUrl(request, boundAddress(server, { hostname, port })), {
-            server,
-          })
-    ),
-  websocket,
-})
+) => {
+  const idleTimeout = resolveRequestIdleTimeoutSeconds(process.env)
+  return {
+    port,
+    hostname,
+    maxRequestBodySize,
+    idleTimeout,
+    fetch: (request: Request, server: unknown): Response | Promise<Response> =>
+      trackRequest(() =>
+        withIdleCutWatch(request, idleTimeout, () =>
+          hasMalformedHost(request)
+            ? malformedHostResponse()
+            : honoApp.fetch(withBindAddressUrl(request, boundAddress(server, { hostname, port })), {
+                server,
+              })
+        )
+      ),
+    websocket,
+  }
+}
 
 /**
  * Replace a LIVE listener's request handler, keeping the socket bound.

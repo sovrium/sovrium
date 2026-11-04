@@ -33,23 +33,6 @@ import {
 } from '@/domain/models/process-env/server-lifecycle'
 import { Database } from '@/infrastructure/database/drizzle/layer'
 import { logInfo, logWarning } from '@/infrastructure/logging/logger'
-import { registerAccountPurgeScheduler } from '@/infrastructure/scheduling/register-account-purge'
-import { registerActivityLogRetentionScheduler } from '@/infrastructure/scheduling/register-activity-log-retention'
-import { registerApprovalExpiryScheduler } from '@/infrastructure/scheduling/register-approval-expiry'
-import { registerAuthExpiredRowsSweepScheduler } from '@/infrastructure/scheduling/register-auth-expired-rows-sweep'
-import { registerAutomationRunRetentionScheduler } from '@/infrastructure/scheduling/register-automation-run-retention'
-import { registerBrowserArtifactSweepScheduler } from '@/infrastructure/scheduling/register-browser-artifact-sweep'
-import { registerCronAutomations } from '@/infrastructure/scheduling/register-cron-automations'
-import { registerDelayedRunResumeScheduler } from '@/infrastructure/scheduling/register-delayed-run-resume'
-import { registerFailureRollupScheduler } from '@/infrastructure/scheduling/register-failure-rollup'
-import { registerFormDraftExpiryScheduler } from '@/infrastructure/scheduling/register-form-draft-expiry'
-import { registerStuckRunSweepScheduler } from '@/infrastructure/scheduling/register-stuck-run-sweep'
-import { registerTableRetentionScheduler } from '@/infrastructure/scheduling/register-table-retention'
-import { registerWebhookOutboxScheduler } from '@/infrastructure/scheduling/register-webhook-outbox'
-import {
-  registerWeeklyDigestScheduler,
-  runWeeklyDigestCatchUp,
-} from '@/infrastructure/scheduling/register-weekly-digest'
 import {
   buildDomainRuntimeAndApp,
   buildHonoAppFromConfig,
@@ -60,12 +43,11 @@ import {
   reloadBunServer,
   startBunServer,
 } from '@/infrastructure/server/bun-listener'
-import { fireAgentSchedule } from '@/infrastructure/server/compose-hono-app'
 import { countRunningAutomations } from '@/infrastructure/server/idle-exit'
 import { writeLockFile as writeLockFileToDisk } from '@/infrastructure/server/lock-file'
 import { registerLockFileCleanup } from '@/infrastructure/server/lock-file-cleanup'
 import { LockFileWriteError } from '@/infrastructure/server/lock-file-write-error'
-import { registerAgentSchedules } from '@/infrastructure/server/register-agent-schedules'
+import { registerPostBindSchedulers } from '@/infrastructure/server/register-post-bind-schedulers'
 import { resolveMaxRequestBodySize } from '@/infrastructure/server/request-body-ceiling'
 import { publishBoundOrigin } from '@/infrastructure/server/server-origin-live'
 import { createServerReload } from '@/infrastructure/server/server-reload'
@@ -138,10 +120,17 @@ const writeLockFile = (
 const writeSidecarFiles = (
   listen: ListenAddress,
   configHash: string,
-  configPath: string
+  configPath: string,
+  reload: boolean
 ): Effect.Effect<void, never> =>
   Effect.gen(function* () {
     yield* writeLockFile(listen, configHash, configPath)
+    // A `--watch` reload boot leaves the status file to the watcher, which
+    // publishes the save's verdict (`lastReload`) once the boot is done. A
+    // `serving` document published HERE would bump `seq` while still carrying
+    // the previous save's verdict, so a poller waiting for "seq moved and
+    // serving" would read the one before.
+    if (reload) return
     // effect-promise: total -- publishServerStatus catches its own write failures and resolves
     yield* Effect.promise(() =>
       publishServerStatus({ state: 'serving', ...listenFields(listen), configHash, configPath })
@@ -269,52 +258,9 @@ export const createServer = (
     // this is the only place it can learn where it lives.
     publishBoundOrigin(origin)
 
-    // Post-bind arm-ups: cron-triggered automations, scheduled agents, and the GDPR Art. 17
-    // erasure sweep (hourly; without it, scheduled account erasures would never complete in
-    // production — see register-account-purge.ts). Agent schedules were decoded and echoed back
-    // for as long as agents have shipped but never armed; without this line `agent.schedule.cron`
-    // is a promise the binary does not keep — see register-agent-schedules.ts.
-    //
-    // Every registrar arms its jobs on the ONE `CronScheduler` the domain runtime carries.
-    // None may `Effect.provide(CronSchedulerLive)` for itself, because the scheduler is scoped:
-    // one provide each would be one registry per scope, each closing (and interrupting its
-    // jobs) the instant its own registration returned. Providing the resolved domain context
-    // instead is one build, one registry, one scope — the server's.
-    yield* Effect.provide(
-      Effect.all([
-        registerCronAutomations(config.app),
-        registerAgentSchedules(config.app, fireAgentSchedule),
-        registerAccountPurgeScheduler(config.app),
-        registerActivityLogRetentionScheduler,
-        registerTableRetentionScheduler(config.app),
-        registerAutomationRunRetentionScheduler,
-        registerAuthExpiredRowsSweepScheduler,
-        registerFailureRollupScheduler(config.app),
-        registerStuckRunSweepScheduler(config.app),
-        registerWebhookOutboxScheduler(config.app),
-        // Approval timeouts: a boot sweep for the requests that expired while
-        // the server was stopped — forked on the scheduler's scope, since a
-        // resumed run's tail can take minutes and must not hold the banner —
-        // then one every minute. Post-bind, because an `onTimeout: approve`
-        // resumes its run through this runtime.
-        registerApprovalExpiryScheduler(config.app),
-        // Runs parked on a long wait: at boot for those due, then every minute.
-        registerDelayedRunResumeScheduler(config.app),
-        // Browser screenshots past BROWSER_ARTIFACT_RETENTION_DAYS: at boot, then daily.
-        registerBrowserArtifactSweepScheduler(config.app),
-        // Saved form drafts past their resume link's life: at boot, then hourly.
-        registerFormDraftExpiryScheduler(config.app),
-        registerWeeklyDigestScheduler(config.app),
-        // The weekly summary's boot catch-up: one summary for a week missed
-        // while the server was down. Post-bind, because it reads every domain
-        // the summary covers — the app's own tables included — through this
-        // runtime; awaited (the list runs in sequence), so a summary it sends
-        // has gone out by the time the banner says the boot is complete. It
-        // cannot fail the boot.
-        runWeeklyDigestCatchUp(config.app),
-      ]),
-      domain.context
-    )
+    // Post-bind arm-ups (crons, agent schedules, sweeps, retention), all on the
+    // ONE scheduler the domain runtime carries — see register-post-bind-schedulers.ts.
+    yield* Effect.provide(registerPostBindSchedulers(config.app), domain.context)
 
     // AWAITED, not forked. The port is already bound above, so a health check
     // sees the process live while this runs. What must NOT move ahead of it is
@@ -340,7 +286,12 @@ export const createServer = (
     })
 
     if (!config.silent) {
-      yield* writeSidecarFiles({ port: server.port, socketPath }, configHash, configPath)
+      yield* writeSidecarFiles(
+        { port: server.port, socketPath },
+        configHash,
+        configPath,
+        config.reload === true
+      )
       registerLockFileCleanup()
       // A `--watch` reload skips the banner and nothing else. Reprinting the
       // version header, the phase list and `Server ready in …` on every save

@@ -239,11 +239,21 @@ export function liveRefreshOf(
  *
  * Whatever its mode, a bound component also re-reads when a sibling's
  * `onSuccess.refetch` names it by the `props.id` on its island host.
+ *
+ * `poll`, when given, is what the interval calls instead of `reread`: a reader
+ * sharing one cached answer with its siblings skips a tick the group already
+ * read, while a named refetch still always re-reads.
  */
-export function useLiveRefresh(source: LiveRefreshSource | undefined, reread: () => unknown): void {
+export function useLiveRefresh(
+  source: LiveRefreshSource | undefined,
+  reread: () => unknown,
+  poll: () => unknown = reread
+): void {
   const { mode, every: pollIntervalMs } = liveRefreshOf(source)
   const rereadRef = useRef(reread)
   rereadRef.current = reread
+  const pollRef = useRef(poll)
+  pollRef.current = poll
   const hostId = useContext(IslandHostIdContext)
   const named = useCallback(() => void rereadRef.current(), [])
   useRefetchChannel(source === undefined ? undefined : hostId, undefined, named)
@@ -256,7 +266,7 @@ export function useLiveRefresh(source: LiveRefreshSource | undefined, reread: ()
   useEffect(() => {
     if (every === false) return undefined
     const timer = setInterval(() => {
-      if (!document.hidden) void rereadRef.current()
+      if (!document.hidden) void pollRef.current()
     }, every)
     return () => clearInterval(timer)
   }, [every])

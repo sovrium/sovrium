@@ -23,14 +23,18 @@ import { formatLikePattern } from '../sql/sql-utils'
  * aggregate, batch).
  */
 
-/** The SQL text of a `notContains` condition on `field`; `undefined` for any other operator. */
+/**
+ * The SQL text of a `notContains` condition on `field`; `undefined` for any
+ * other operator. The column is cast to text before it is folded, as in the
+ * bound fragment below, because PostgreSQL has no `lower()` for a non-text type.
+ */
 export const notContainsSqlCondition = (
   field: string,
   operator: string,
   value: unknown
 ): string | undefined =>
   operator === 'notContains'
-    ? `(${field} IS NULL OR LOWER(${field}) NOT LIKE LOWER(${formatLikePattern(value, 'contains')}) ${LIKE_ESCAPE_CLAUSE})`
+    ? `(${field} IS NULL OR LOWER(CAST(${field} AS TEXT)) NOT LIKE LOWER(${formatLikePattern(value, 'contains')}) ${LIKE_ESCAPE_CLAUSE})`
     : undefined
 
 /** The bound fragment of a `notContains` condition on `column`; `undefined` for any other operator. */
@@ -42,5 +46,5 @@ export const notContainsFragment = (
   if (operator !== 'notContains') return undefined
   const pattern = likePatternOf('contains', typeof value === 'string' ? value : String(value))
   // sql-literal: keyword -- the escape character is a module constant
-  return sql`(${column} IS NULL OR lower(${column}) NOT LIKE lower(${pattern}) ESCAPE ${sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)})`
+  return sql`(${column} IS NULL OR lower(CAST(${column} AS TEXT)) NOT LIKE lower(${pattern}) ESCAPE ${sql.raw(`'${LIKE_ESCAPE_CHARACTER}'`)})`
 }

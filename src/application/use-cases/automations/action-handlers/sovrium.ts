@@ -387,7 +387,10 @@ export const handleSovriumValidateBundle: ActionHandler = (action, app, automati
       error: 'sovrium.validateBundle requires an objectKey prop',
     })
   }
-  return readStoredArchive(objectKey, starterFileGate(app, automation)).pipe(
+  return readStoredArchive(
+    objectKey,
+    starterFileGate(app, automation, 'control-plane-objects')
+  ).pipe(
     Effect.flatMap((bytes) => readBundleArchive(bytes)),
     Effect.map((reading): ActionOutcome => ok({ ...judgeBundleEntries(objectKey, reading) })),
     Effect.catch((error: string) => Effect.succeed<ActionOutcome>({ status: 'failure', error })),

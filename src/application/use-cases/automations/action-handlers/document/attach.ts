@@ -10,6 +10,7 @@ import { TableRepository } from '@/application/ports/repositories/tables/table-r
 import { StorageService } from '@/application/ports/services/storage-service'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
+import { isSignatureNamespaceKey } from '@/domain/models/app/signatures/signature-capture-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { validateAttachmentConstraints } from '../../../buckets/validate-attachment-constraints'
 import { buildSyntheticSession } from '../../build-guest-session'
@@ -144,7 +145,9 @@ const writeField = (input: {
  * Delete the files a `replace` swapped out, keeping any a record still names.
  * The record just written no longer holds them in this field, so ANY cell that
  * names one — another table, a list, another field of this record — keeps it;
- * a check that cannot answer keeps it too.
+ * a check that cannot answer keeps it too. A file under the signature
+ * namespace (a request's evidence, or a record's signature mark) is kept: it
+ * leaves only with its own retention, record or signer.
  */
 const deleteReplaced = (input: {
   readonly keys: readonly string[]
@@ -154,7 +157,7 @@ const deleteReplaced = (input: {
   const { target, app } = input
   const bucket = resolveFieldBucket(app, target.table, target.field) ?? SYSTEM_BUCKET_NAME
   return Effect.forEach(
-    input.keys,
+    input.keys.filter((key) => !isSignatureNamespaceKey(key)),
     (key) =>
       Effect.gen(function* () {
         const named = yield* (yield* TableRepository).isFileNamedByAnyRecord(app, key).pipe(

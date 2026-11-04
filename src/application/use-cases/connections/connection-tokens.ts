@@ -162,6 +162,34 @@ export const readConnectionStatus = (input: {
   }).pipe(Effect.withSpan('connections.read-status'))
 
 /**
+ * The state of a connection using the `clientCredentials` grant. It is always
+ * connected: the app requests its token itself, before the first call that
+ * needs one and again whenever it lapses, so nobody has to authorize it. The
+ * expiry reported is the stored shared token's, or none before the first call.
+ */
+export const readClientCredentialsStatus = (input: {
+  readonly name: string
+}): Effect.Effect<
+  { readonly expiresAt: Date | undefined },
+  ConnectionStoreError,
+  ConnectionRepository | ConnectionTokenRepository
+> =>
+  Effect.gen(function* () {
+    const row = yield* (yield* ConnectionRepository)
+      .findByName(input.name)
+      .pipe(
+        Effect.mapError((cause) => new ConnectionStoreError({ operation: 'findByName', cause }))
+      )
+    if (row === undefined) return { expiresAt: undefined }
+    const summary = yield* (yield* ConnectionTokenRepository)
+      .findAppSummary({ connectionId: String(row['id']) })
+      .pipe(
+        Effect.mapError((cause) => new ConnectionStoreError({ operation: 'findAppSummary', cause }))
+      )
+    return { expiresAt: summary?.expiresAt }
+  }).pipe(Effect.withSpan('connections.read-client-credentials-status'))
+
+/**
  * Map a status onto the textual state the API reports.
  *
  * `expired` means a token row exists but its `expiresAt` has passed — the

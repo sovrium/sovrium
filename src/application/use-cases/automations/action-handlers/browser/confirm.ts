@@ -10,6 +10,7 @@ import { AutomationApprovalRepository } from '@/application/ports/repositories/a
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { BrowserDriver } from '@/application/ports/services/browser-driver'
 import { parseDuration } from '@/domain/kernel/time/parse-duration'
+import { hasRunEnded } from '@/domain/models/app/automations/trigger/trigger-history-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { dropEndedRunHistory } from '../../run/run-history-drop'
 import { insertApprovalRequest, pinRequestApprovers } from '../approval'
@@ -43,7 +44,7 @@ export const holdMsOf = (confirm: Pick<Confirmation, 'timeout'>, holdMaxMs: numb
 /**
  * End a run nobody confirmed in time: its request closed, the run failed with
  * the reason, keeping what `trigger`'s history level keeps. The browser was
- * already closed by the hold.
+ * already closed by the hold. A run answered or ended meanwhile is left as it is.
  */
 export const abandon = (
   runId: string,
@@ -61,6 +62,9 @@ export const abandon = (
         : yield* approvals.resolvePending({ id: pending, status: 'rejected' })
     // Somebody answered first: their answer decides, not the timer.
     if (pending !== undefined && claimed === undefined) return
+    // A run that already ended (cancelled meanwhile) keeps the status it ended on.
+    const run = yield* runs.findById(runId)
+    if (run !== undefined && hasRunEnded(run.status)) return
     yield* runs.finaliseRun({
       id: runId,
       status: 'failed',

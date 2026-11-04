@@ -23,7 +23,7 @@ Every component type a page can place (113), by category, with what it is for. R
 
 ## Interactive
 
-Read: `sovrium docs components/interactive-components`
+Read: `sovrium docs components-presentation/interactive-components`
 
 | Type | What it is for |
 | --- | --- |
@@ -104,7 +104,7 @@ Read: `sovrium docs components/layout-components`
 
 ## Content
 
-Read: `sovrium docs components/content-components`
+Read: `sovrium docs components-presentation/content-components`
 
 | Type | What it is for |
 | --- | --- |
@@ -124,7 +124,7 @@ Read: `sovrium docs components/content-components`
 
 ## Display
 
-Read: `sovrium docs components/display-components`
+Read: `sovrium docs components-presentation/display-components`
 
 | Type | What it is for |
 | --- | --- |
@@ -147,7 +147,7 @@ Read: `sovrium docs components/display-components`
 
 ## Navigation
 
-Read: `sovrium docs components/navigation-components`
+Read: `sovrium docs components-presentation/navigation-components`
 
 | Type | What it is for |
 | --- | --- |
@@ -162,7 +162,7 @@ Read: `sovrium docs components/navigation-components`
 
 ## Overlays
 
-Read: `sovrium docs components/overlay-components`
+Read: `sovrium docs components-presentation/overlay-components`
 
 | Type | What it is for |
 | --- | --- |
@@ -177,7 +177,7 @@ Read: `sovrium docs components/overlay-components`
 
 ## Feedback
 
-Read: `sovrium docs components/feedback-components`
+Read: `sovrium docs components-presentation/feedback-components`
 
 | Type | What it is for |
 | --- | --- |
@@ -212,7 +212,7 @@ Read: `sovrium docs form-controls/specialty-components`
 
 ## AI
 
-Read: `sovrium docs components/ai-chat-component`
+Read: `sovrium docs components-more/ai-chat-component`
 
 | Type | What it is for |
 | --- | --- |

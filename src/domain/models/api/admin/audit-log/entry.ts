@@ -171,6 +171,12 @@ export const auditLogQuerySchema = Schema.Struct({
         'End of the period on `timestamp`: a calendar day or an ISO 8601 date-time. A day is INCLUDED, through its last instant in the operator timezone, so `?from=2026-09-01&to=2026-09-01` reads that one day. A date-time is EXCLUSIVE. Returns 400 when the period ends before it starts.',
     })
   ),
+  format: optionalField(
+    Schema.Literals(['csv']).annotate({
+      description:
+        '`csv` answers the selected entries as a CSV download (`text/csv`, one header row, then one row per entry: time, actor email, action, resource type, resource id, result, transport) instead of the JSON page. Every entry the other filters select is written, newest first, so `cursor` and `limit` do not apply. A cell that starts with `=`, `+`, `-` or `@` is written so a spreadsheet reads it as text. The download is itself recorded as a read of the trail.',
+    })
+  ),
   cursor: optionalField(Schema.String),
   limit: coercedNumber.pipe(
     Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(200)),

@@ -83,3 +83,18 @@ export const ssoSignUpAllowed = (
   provider: Pick<SsoProvider, 'allowSignUp'>,
   appAllowSignUp: boolean | undefined
 ): boolean => resolveSignUpAllowed(provider.allowSignUp, appAllowSignUp)
+
+/**
+ * Whether a sign-in identity from `providerId` may NOT be added to an account
+ * holding `email`: the address is on a domain a provider owns (subdomains and
+ * letter case included, as {@link ssoProviderForEmail} reads it), and the
+ * identity is neither the password (`credential`) nor one of the identity
+ * providers. People on an owned domain add sign-ins through their provider.
+ */
+export const refusesIdentityOnOwnedDomain = (
+  providers: readonly { readonly id: string; readonly domains?: readonly string[] }[],
+  identity: { readonly providerId: string; readonly email: string }
+): boolean =>
+  identity.providerId !== 'credential' &&
+  !providers.some((provider) => provider.id === identity.providerId) &&
+  ssoProviderForEmail(providers, identity.email) !== undefined

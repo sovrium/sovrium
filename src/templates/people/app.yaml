@@ -34,30 +34,45 @@ env:
     required: false
     secret: false
 
+# Contract PDFs, signatures and the signed files live here, private to the app.
+buckets:
+  - name: contracts
+
 tables:
   - $ref: ./config/tables/employees.yaml
   - $ref: ./config/tables/time_off_requests.yaml
+  - $ref: ./config/tables/contracts.yaml
+
+# Signing flows: who signs a record's PDF, in what order, how each signer is
+# verified, and how long the evidence is kept.
+signatures:
+  - $ref: ./config/signatures/employment-contract.yaml
 
 # Automations run on the server, with their history kept in your own database.
 automations:
   - $ref: ./config/automations/approve-time-off.yaml
   - $ref: ./config/automations/join-new-account-to-directory.yaml
   - $ref: ./config/automations/nightly-reset.yaml
+  - $ref: ./config/automations/send-contract-for-signature.yaml
   - $ref: ./library/recipe/record-to-google-doc.yaml
 
 # The forms the app's "Add" dialogs open, each placed with `formRef`.
 forms:
   - $ref: ./config/forms/add-person.yaml
   - $ref: ./config/forms/request-time-off.yaml
+  - $ref: ./config/forms/add-contract.yaml
 
 # Listed in the order of the sidebar: the directory first, then time off, then
-# the two pages only an admin opens.
+# the three pages only an admin opens. The signing page is last: it is never in
+# the sidebar, only reached from a signer's email.
 pages:
   - $ref: ./config/pages/directory.yaml
   - $ref: ./config/pages/time-off.yaml
   - $ref: ./config/pages/requests.yaml
   - $ref: ./config/pages/overview.yaml
+  - $ref: ./config/pages/contracts.yaml
   - $ref: ./config/pages/sign-in.yaml
+  - $ref: ./config/pages/contract-signing.yaml
 
 # A small "Built with Sovrium" line after each page's content rather than a
 # floating pill, so it never sits over the calendar or the last row of a grid.

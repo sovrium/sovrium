@@ -10,6 +10,7 @@ import type {
   PageExportStamp,
 } from '@/domain/models/api/admin/design-system/page-design-tree'
 import type {
+  DrawnAs,
   DrawnConflict,
   DrawnPage,
   DrawnPaint,
@@ -69,6 +70,8 @@ export interface ParsedPageDrawing {
   readonly paints?: Readonly<Record<string, DrawnPaint>> | undefined
   /** What each node does, as the board carries it, by node id. */
   readonly rules?: Readonly<Record<string, DrawnRules>> | undefined
+  /** How each node the designer added was drawn, by node id. */
+  readonly drawnAs?: Readonly<Record<string, DrawnAs>> | undefined
   /** What the board's root says of a page the config may not declare: its path, the page it is like. */
   readonly declares?: DrawnPage['declares']
 }

@@ -8,6 +8,7 @@
 import { Fragment, type ReactElement } from 'react'
 import {
   computeTableBodyClasses,
+  computeTableCompactEmptyStateClasses,
   computeTableEmptyStateClasses,
 } from '@/presentation/design/table-default-classes'
 import { AddRow } from './add-row'
@@ -85,6 +86,7 @@ export function TableBodyRows({
   groupCounts,
   groupSummary,
   addRow,
+  compactEmpty = false,
 }: TableBodyRowsProps): ReactElement {
   if (isLoading) {
     return (
@@ -154,7 +156,11 @@ export function TableBodyRows({
           <td
             data-slot="table-cell"
             colSpan={allColumns.length}
-            className={computeTableEmptyStateClasses()}
+            className={
+              compactEmpty
+                ? computeTableCompactEmptyStateClasses()
+                : computeTableEmptyStateClasses()
+            }
           >
             <div style={HELD_TO_VIEW}>
               <EmptyCopy

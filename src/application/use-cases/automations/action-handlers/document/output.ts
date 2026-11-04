@@ -25,6 +25,7 @@ import { runMayRetakeKey, starterOverwriteVerdict } from '../starter-overwrite-g
 import { builtFromStepRunBytes } from '../step-file-inputs'
 import { attachGeneratedFile, attachReusedFile, guardStarterAttach } from './attach'
 import { GeneratedFileWriteError } from './output-error'
+import { authoredKeyRefusal } from './output-key-refusal'
 import { firstFreeSuffix } from './output-suffix'
 import type { StepRequirements } from '../../run/types'
 import type { ActionRunContext, AutomationContext } from '../shared'
@@ -160,9 +161,8 @@ const placementOf = (
   filename: string
 ): Effect.Effect<Placement, GeneratedFileWriteError> => {
   const authoredKey = nonEmpty(output.key)
-  if (authoredKey !== undefined && !isPlainKey(authoredKey)) {
-    return refuse(`output key "${authoredKey}" must be a relative key with no "." or ".." segment`)
-  }
+  const keyRefusal = authoredKey === undefined ? undefined : authoredKeyRefusal(authoredKey)
+  if (keyRefusal !== undefined) return refuse(keyRefusal)
   const target = targetBucket(output, app)
   if ('refusal' in target) return refuse(target.refusal)
   const { bucket } = target

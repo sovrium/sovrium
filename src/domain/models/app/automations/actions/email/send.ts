@@ -22,6 +22,42 @@ import {
   EmailHeadersSchema,
 } from './send-headers'
 
+/** Schemes that run code where a link is followed: never kept, whatever the list says. */
+const SCRIPTING_LINK_SCHEMES: ReadonlySet<string> = new Set(['javascript', 'data', 'vbscript'])
+
+/**
+ * Link schemes a message keeps beside `http`, `https` and `mailto`. Each name
+ * is a URI scheme without its colon (`sovrium`, `zoommtg`). The scripting
+ * schemes are refused here and stay refused by the cleaner whatever the list
+ * says, so neither layer alone opens them.
+ */
+const AllowedLinkSchemesSchema = Schema.Array(
+  Schema.String.pipe(
+    Schema.annotate({
+      description:
+        'A URI scheme, without its colon: lowercase letters, then letters, digits, `+`, `-` or `.`',
+      examples: ['sovrium', 'zoommtg'],
+    }),
+    Schema.check(Schema.isPattern(/^[a-z][a-z0-9+.-]*$/))
+  )
+).pipe(
+  Schema.annotate({
+    description:
+      "Link schemes this message keeps beside http, https and mailto, such as `sovrium` for a link that opens the desktop app. A link whose scheme is on neither list loses its address, and the step's log names it. `javascript`, `data` and `vbscript` are refused: a link with one of them never keeps its address.",
+    defaultNote: 'none: only http, https and mailto links keep their address',
+    examples: [['sovrium']],
+  }),
+  Schema.check(
+    Schema.isMinLength(1),
+    Schema.makeFilter((schemes: readonly string[]) => {
+      const scripting = schemes.find((scheme) => SCRIPTING_LINK_SCHEMES.has(scheme))
+      return scripting === undefined
+        ? true
+        : `allowedLinkSchemes cannot name "${scripting}": a ${scripting}: link runs code where it is followed, so javascript, data and vbscript are never kept`
+    })
+  )
+)
+
 /**
  * Email Action (type: email, operator: send)
  *
@@ -137,6 +173,7 @@ export const EmailSendActionSchema = Schema.Struct({
       )
     ),
     locale: Schema.optional(TemplateLocaleSchema),
+    allowedLinkSchemes: Schema.optional(AllowedLinkSchemesSchema),
     attachments: Schema.optional(
       fileRefListSchema(FileRefSchema).pipe(
         Schema.annotate({

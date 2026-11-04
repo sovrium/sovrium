@@ -114,6 +114,7 @@ The last row is the other one you do not declare. Each admin read tool runs the 
 | `{app}_admin_report_run_read`              | `GET /api/admin/reports/runs/:runId`                       | `runId`                                                                                                 |
 | `{app}_admin_report_installation_read`     | `GET /api/admin/reports/installation`                      | none                                                                                                    |
 | `{app}_admin_report_latest_read`           | `GET /api/admin/reports/latest`                            | none                                                                                                    |
+| `{app}_admin_signature_requests_list`      | `GET /api/admin/signatures`                                | `q`                                                                                                     |
 
 The configuration, console and design-system tools answer exactly what their endpoints answer, redaction included: the configuration reads never carry a credential the config holds, and the environment read says whether a variable is set and where from, never its value. The markdown tool answers the export's text byte for byte rather than JSON. The share list names each live public share of the design system by its id and creation time and never its link: the link is the token, handed out once when the share is minted.
 
@@ -167,7 +168,7 @@ Automations and action templates accept the same block but ignore `operations`: 
 
 Every caller is shown the same tool schema. The catalogue is compiled once from the config, so the per-connection step decides _which_ tools a role sees, not what shape each one has.
 
-That is why `permissioned` names no fields and why it is the default: it is the one mode that reveals nothing about your columns to a role that could not use them. Enforcement lands at call time instead: a read omits fields the caller may not read, and a write to a field it may not write is refused. Reach for `all` or `whitelist` when a real argument hint is worth more than the reticence, and for `whitelist` in particular when a table holds columns a role may read but that are simply not the model's business.
+That is why `permissioned` names no fields and why it is the default: it is the one mode that reveals nothing about your columns to a role that could not use them. Enforcement lands at call time instead: a read omits fields the caller may not read, and a write to a field it may not write is refused. Reach for `all` or `whitelist` when a real argument hint is worth more than the reticence, and for `whitelist` in particular when a table holds columns a role may read but that are none of the model's business.
 
 With `whitelist`, each record's `fields` carries exactly the whitelisted fields; its timestamps appear at the record's top level as `createdAt` and `updatedAt`.
 

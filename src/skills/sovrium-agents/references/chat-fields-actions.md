@@ -10,7 +10,7 @@
 - AI automation actions
 - Checks
 
-Manual: `sovrium docs components/ai-chat-component`, `sovrium docs ai/ai-chat`, `sovrium docs fields/ai-fields`, `sovrium docs automation-integrations/automation-ai-actions`, `sovrium docs components/message-component`, `sovrium docs components/attachment-component`, `sovrium docs components/questionnaire-component`.
+Manual: `sovrium docs components-more/ai-chat-component`, `sovrium docs ai/ai-chat`, `sovrium docs fields/ai-fields`, `sovrium docs automation-integrations/automation-ai-actions`, `sovrium docs components-more/message-component`, `sovrium docs components-more/attachment-component`, `sovrium docs components-more/questionnaire-component`.
 
 ## The `ai-chat` component
 

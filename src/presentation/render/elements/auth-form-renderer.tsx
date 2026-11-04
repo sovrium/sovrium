@@ -8,13 +8,11 @@
 import { type ReactElement } from 'react'
 import {
   resolveInterpreterString,
-  resolveInterpreterStringOverrides,
   resolveTranslationPattern,
 } from '@/domain/models/app/languages/translation-resolver'
 import { DEFAULT_PASSWORD_RESET_LANDING_PATH } from '@/domain/models/app/pages/page-requires'
 import {
   authFieldErrorId,
-  authFormStringPrefixes,
   authPendingLabel,
   authPendingLabelKey,
   authSubmitLabel,
@@ -37,6 +35,7 @@ import {
   type AuthFormRenderContext,
 } from './auth-form-action'
 import { localizeCredentialError } from './auth-form-credential-error'
+import { authFormExtras, authFormUiStrings } from './auth-form-extras'
 import { boundTableOf, resolveAuthFormFields } from './auth-form-fields'
 import { authFieldControlId, withRecoveryLink } from './auth-form-recovery-link'
 import { passwordRuleText, renderAuthFieldRule, withPasswordRule } from './password-rule'
@@ -162,9 +161,11 @@ function buildIslandPropsJson(config: {
     successPage: successPageOf(config.action),
     errorToast: config.action.onError?.toast,
     credentialError: localizeCredentialError(config.action._credentialError, config.context),
+    ...authFormExtras(config.method, config.props, config.context),
     'data-testid': config.props['data-testid'],
     id: config.props.id,
     className: config.props.className,
+    summaryClassName: config.context.summaryClassName,
   })
 }
 
@@ -368,7 +369,7 @@ export function renderAuthForm(
     pendingLabel,
     props,
     redirectUrl,
-    uiStrings: resolveInterpreterStringOverrides(authFormStringPrefixes(method), lang, languages),
+    uiStrings: authFormUiStrings(method, lang, languages),
     twoFactorNotice,
     context,
   })

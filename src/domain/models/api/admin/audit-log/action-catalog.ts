@@ -91,6 +91,11 @@ export const ACTION_CATALOG: Readonly<Record<string, string>> = {
   // must be answerable afterwards. `config` is the resource — the export
   // describes the running configuration, it is not an entity of its own.
   'config.design.queried': 'config',
+  // The audit log's own CSV export (`GET /api/admin/audit-log?format=csv`). A
+  // page of the trail records nothing, or reading it would grow it; a download
+  // is a copy that leaves the console, so who took it, and when, is kept. A
+  // read (`.queried`), so `reads=false` leaves it out like the others.
+  'audit.export.queried': 'audit',
   // Admin tables overview readback. `table` singular because the action
   // TARGETS the table itself — a naive derivation from the action prefix would
   // produce `table.overview`, which names no entity. This entry is the override.
@@ -314,6 +319,7 @@ export const AUDIT_ACTIONS = {
   CONFIG_SCHEMA_QUERIED: 'config.schema.queried',
   CONFIG_ENV_QUERIED: 'config.env.queried',
   CONFIG_DESIGN_QUERIED: 'config.design.queried',
+  AUDIT_EXPORT_QUERIED: 'audit.export.queried',
   TABLE_OVERVIEW_QUERIED: 'table.overview.queried',
   TABLE_RECORD_BUTTON_INVOKED: 'table.record.button.invoked',
   BUCKET_LIST_QUERIED: 'bucket.list.queried',

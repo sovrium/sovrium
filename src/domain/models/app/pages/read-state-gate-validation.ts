@@ -12,7 +12,8 @@ import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
  * `disabledWhenRead`): the source a gate follows must exist on the page.
  *
  * A `component` must be the `props.id` of a data component that announces its
- * reads — a `table` or a `kanban` — and a `channel` must be one such
+ * reads — a `table`, `kanban`, `list`, `kpi`, `chart` or `message-scroller` —
+ * and a `channel` must be one such
  * component's `dataSource.bindTo` (or its system source's). Either typo would
  * leave the gate following nothing, so a button hidden on `loading` would never
  * show: refused at startup, naming the gate and the name.
@@ -33,7 +34,14 @@ import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 type Node = Readonly<Record<string, unknown>>
 
 /** The data component types that announce the state of their reads. */
-const ANNOUNCING_TYPES: ReadonlySet<unknown> = new Set(['table', 'kanban'])
+const ANNOUNCING_TYPES: ReadonlySet<unknown> = new Set([
+  'table',
+  'kanban',
+  'list',
+  'kpi',
+  'chart',
+  'message-scroller',
+])
 
 const GATE_KEYS = ['hiddenWhenRead', 'disabledWhenRead'] as const
 
@@ -76,12 +84,12 @@ const gateViolation = (
   const component = text(gate['component'])
   if (component !== undefined && !sources.ids.has(component))
     return [
-      `${label} declares a button whose ${key} names component '${component}', but no table or kanban on the page has that props.id — give the data component props: { id: ${component} }, or name one that exists`,
+      `${label} declares a button whose ${key} names component '${component}', but no data component on the page has that props.id — give the data component props: { id: ${component} }, or name one that exists`,
     ]
   const channel = text(gate['channel'])
   if (channel !== undefined && !sources.channels.has(channel))
     return [
-      `${label} declares a button whose ${key} names channel '${channel}', but no table or kanban on the page subscribes to it — give the data component dataSource.bindTo: ${channel}, or name a channel one subscribes to`,
+      `${label} declares a button whose ${key} names channel '${channel}', but no data component on the page subscribes to it — give the data component dataSource.bindTo: ${channel}, or name a channel one subscribes to`,
     ]
   return []
 }

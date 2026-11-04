@@ -207,9 +207,9 @@ export const agentConversationMessageSchema = Schema.Struct({
     description:
       'Message body (`ai_messages.content`). The raw chat text, surfaced verbatim to the operator reviewing the transcript. May be empty for a pure tool-call turn.',
   }),
-  status: Schema.Literals(['complete', 'incomplete']).annotate({
+  status: Schema.Literals(['complete', 'incomplete', 'unknown']).annotate({
     description:
-      'Delivery status (`ai_messages.status`): `complete` for buffered/fully-streamed turns; `incomplete` when a streamed assistant response was interrupted before the terminal marker. User messages are always `complete`.',
+      'Delivery status (`ai_messages.status`): `complete` for buffered/fully-streamed turns; `incomplete` when a streamed assistant response was interrupted before the terminal marker; `unknown` when the stored status is neither, so one unexpected row reads as a neutral message rather than failing the whole transcript. User messages are always `complete`.',
   }),
   model: Schema.NullOr(
     Schema.String.annotate({

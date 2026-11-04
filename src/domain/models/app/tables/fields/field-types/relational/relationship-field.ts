@@ -48,6 +48,38 @@ const columnReference = (description: string) =>
  */
 
 /**
+ * `maxPerTarget` caps the INCOMING side of a link: how many records of this
+ * table may link to one record of the related table (registrations to an
+ * event). `maxLinked` caps the outgoing side, how many records one value may
+ * hold, so the two are separate keys rather than two meanings of one.
+ *
+ * The limit is a positive integer, or `{ field }` naming a number field of the
+ * related table, read on the related record when a link is written. Whether the
+ * named field exists and holds a number needs the other table, so that check is
+ * an app-level rule, not this schema's.
+ */
+const MaxPerTargetFieldReferenceSchema = Schema.Struct({
+  field: columnReference(
+    "Name of a number or integer field of the related table holding each related record's own limit. An empty value means no limit for that record"
+  ),
+})
+
+const MaxPerTargetSchema = Schema.Union([
+  Schema.Int.pipe(
+    Schema.annotate({
+      description: 'The same limit for every related record',
+    }),
+    Schema.check(Schema.isGreaterThan(0))
+  ),
+  MaxPerTargetFieldReferenceSchema,
+]).pipe(
+  Schema.annotate({
+    description:
+      'Maximum number of records of this table that may link to the same related record (an event capacity, for instance): a positive integer, or { field } naming a number field of the related table. A write that would pass it is refused, two concurrent writes for the last place included; raising the limit admits new links at once, and lowering it keeps the existing ones. Not allowed on one-to-one or one-to-many relationships (default: unbounded)',
+  })
+)
+
+/**
  * `readState` keeps, per reader and per PARENT record, the last child she has
  * read. It is declared on the link field of the CHILD table (a message's
  * `channel`), because the relationship that makes a record a child already
@@ -185,6 +217,7 @@ export const RelationshipFieldSchema = BaseFieldSchema.pipe(
         Schema.check(Schema.isGreaterThan(0))
       )
     ),
+    maxPerTarget: Schema.optional(MaxPerTargetSchema),
     readState: Schema.optional(RelationshipReadStateSchema),
   }),
   Schema.annotate({

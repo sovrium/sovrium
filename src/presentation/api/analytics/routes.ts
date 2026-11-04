@@ -15,7 +15,6 @@ import { queryPages } from '@/application/use-cases/analytics/query-pages'
 import { queryReferrers } from '@/application/use-cases/analytics/query-referrers'
 import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { decodeSafe } from '@/domain/kernel/config-parsing/decode'
-import { matchesAnyGlobPattern } from '@/domain/kernel/matching/glob-matcher'
 import {
   analyticsCampaignsResponseSchema,
   analyticsClickSchema,
@@ -27,6 +26,7 @@ import {
   analyticsTopReferrersResponseSchema,
 } from '@/domain/models/api/analytics/analytics'
 import { listEventsResponseSchema } from '@/domain/models/api/analytics/analytics-events'
+import { isPathExcludedFromAnalytics } from '@/domain/models/app/analytics/excluded-paths-service'
 import { requestDeclinesTracking } from '@/domain/models/app/analytics/privacy-signals-service'
 import { isAdminEquivalent } from '@/domain/models/app/auth/roles'
 import { logError } from '@/infrastructure/logging/logger'
@@ -115,9 +115,13 @@ interface AnalyticsRouteConfig {
   readonly appName: string
   readonly retentionDays?: number
   readonly excludedPaths?: readonly string[]
+  /** The app's language codes: an excluded path naming none matches in every language. */
+  readonly languages: readonly string[]
   readonly respectDoNotTrack: boolean
   readonly respectGlobalPrivacyControl: boolean
   readonly profile: AnalyticsProfile
+  /** `analytics.sessionTimeout`, resolved to its 30-minute default. */
+  readonly sessionTimeout: number
   /**
    * The link table as the config declares it, for naming the destination
    * each recorded `targetIndex` resolves to.
@@ -150,13 +154,12 @@ async function handleCollect(c: CollectContext, config: AnalyticsRouteConfig): P
 
   // An excluded path, or a `DNT: 1` / `Sec-GPC: 1` visitor: answered alike, nothing stored
   if (
-    matchesAnyGlobPattern(excludedPaths, pagePath) ||
+    isPathExcludedFromAnalytics(excludedPaths, pagePath, config.languages) ||
     requestDeclinesTracking(config, (name) => c.req.header(name))
   ) {
     return c.body(null, 204)
   }
 
-  const ip = getRequestClientIp(c)
   const userAgent = c.req.header('user-agent') ?? ''
   const acceptLanguage = c.req.header('accept-language') ?? ''
 
@@ -171,7 +174,7 @@ async function handleCollect(c: CollectContext, config: AnalyticsRouteConfig): P
             pagePath,
             pageTitle: body.t,
             referrerUrl: body.r,
-            ip,
+            ip: getRequestClientIp(c),
             userAgent,
             timeZone: resolveOperatorTimezone(process.env),
             acceptLanguage,
@@ -183,6 +186,7 @@ async function handleCollect(c: CollectContext, config: AnalyticsRouteConfig): P
             utmContent: body.ux,
             utmTerm: body.ut,
             profile: config.profile,
+            sessionTimeoutMinutes: config.sessionTimeout,
           }),
           purgeOldAnalyticsData(appName, retentionDays, resolveOperatorTimezone(process.env)),
         ],

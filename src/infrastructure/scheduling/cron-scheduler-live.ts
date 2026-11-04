@@ -95,6 +95,8 @@ const runCallbackSafely = (
 
 /**
  * The scheduling loop for one job: sleep until the next fire, run, repeat.
+ * `callback` is called afresh at each fire, so the Effect it returns is built
+ * at that fire.
  *
  * Built on `Schedule.toStepWithSleep` rather than `Effect.repeat`, because
  * `repeat` runs its effect FIRST and delays afterwards — which would fire every
@@ -114,8 +116,11 @@ export const cronJobLoop = (
     // timezone baked into the parsed `Cron` is honoured and a tick missed while
     // the process was suspended is skipped rather than replayed.
     const step = yield* Schedule.toStepWithSleep(Schedule.cron(cron))
+    // `suspend`: `callback()` is called on EVERY tick. Built once, outside it,
+    // each fire would re-run the Effect of the first call, and with it every
+    // instant, window or state that call captured when it built its Effect.
     return yield* Effect.forever(
-      step(undefined).pipe(Effect.andThen(runCallbackSafely(jobId, callback)))
+      step(undefined).pipe(Effect.andThen(Effect.suspend(() => runCallbackSafely(jobId, callback))))
     )
   }).pipe(
     // The schedule's declared `CronParseError` is unreachable here (the `Cron`

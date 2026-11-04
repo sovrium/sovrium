@@ -87,8 +87,8 @@ const isOwnOrigin = (c: Context, origin: string): boolean => {
   )
 }
 
-/** Did another site send this request? */
-const isCrossSite = (c: Context, trustedOrigins: readonly string[]): boolean => {
+/** Did another site send this request? Also judged by the signing routes on every posture. */
+export const isCrossSite = (c: Context, trustedOrigins: readonly string[]): boolean => {
   const origin = c.req.header('origin')
   const fetchSite = c.req.header('sec-fetch-site')
   if (origin === undefined) return fetchSite === 'cross-site'

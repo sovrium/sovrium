@@ -15,7 +15,9 @@ import { runErrorOutcome } from './action-outcome'
 import { bindActionButtons, parseActionInput } from './client-event-delegate'
 import { showToast } from './client-toast'
 import { fetchSuccessLeaves } from './fetch-action-effects'
+import { substituteResponse } from './fetch-action-substitution'
 import { withPending } from './pending-control'
+import { releaseHeldRegions } from './refetch-server-rendered-region'
 import { reloadOnceForStaleChunk } from './stale-chunk-reload'
 import type { FetchAction } from '@/domain/models/app/pages/components/action'
 
@@ -38,13 +40,19 @@ type FetchToastResponse = {
   loadingMessage?: string
 }
 
+/**
+ * Raise a fetch toast. A failure's carries the `body` that failed, which its
+ * message may quote (`$response.message`); without one, or for an absent path,
+ * it reads empty.
+ */
 export function dispatchToastResponse(
   response: FetchToastResponse | undefined,
   replacing?: Element,
-  retry?: () => void
+  retry?: () => void,
+  body?: unknown
 ): void {
   if (response?.message === undefined) return
-  showToast(response.message, {
+  showToast(substituteResponse(response.message, body), {
     variant: response.variant,
     duration: response.duration,
     actionLabel: response.actionLabel,
@@ -116,7 +124,7 @@ function openFetchConfirmGate(
   trigger: HTMLButtonElement,
   message: string,
   labels: { readonly confirm: string; readonly cancel: string },
-  onConfirm: () => void
+  onConfirm: () => unknown
 ): void {
   const { confirm: confirmLabel, cancel: cancelLabel } = labels
   // Guard against stacking a second gate when the trigger is clicked twice.
@@ -144,7 +152,10 @@ function openFetchConfirmGate(
       ariaLabel: cancelLabel,
       className:
         'border-border text-foreground-subtle hover:bg-muted rounded-md border px-2 py-1 text-sm transition-colors',
-      onClick: () => dialog.remove(),
+      onClick: () => {
+        dialog.remove()
+        releaseHeldRegions()
+      },
     })
   )
   dialog.appendChild(
@@ -154,7 +165,7 @@ function openFetchConfirmGate(
         'bg-error-bg text-error-fg rounded-md px-2 py-1 text-sm font-medium transition-opacity hover:opacity-90',
       onClick: () => {
         dialog.remove()
-        onConfirm()
+        releaseHeldRegions(onConfirm())
       },
     })
   )
@@ -214,6 +225,8 @@ export function setupFetchButtonHandlers(): void {
     // `record`: a picker's pick, in place of its field (`edit-select-menu.ts`).
     const dispatch = async (retrying = false, record?: Record<string, unknown>): Promise<void> => {
       const loading = showLoadingToast(config)
+      const failureToast = (body: unknown) =>
+        dispatchToastResponse(config.onError, loading, () => void dispatch(true, record), body)
       const send = () =>
         executeFetchAction(config, {
           origin: button,
@@ -226,10 +239,7 @@ export function setupFetchButtonHandlers(): void {
         fetchSuccessLeaves(sent, config.onSuccess)
       const result =
         label === null ? await send() : await withPending(button, { label, keepPending }, send)
-      if (result && !result.ok)
-        runErrorOutcome(button, () =>
-          dispatchToastResponse(config.onError, loading, () => void dispatch(true, record))
-        )
+      if (result && !result.ok) runErrorOutcome(button, () => failureToast(result.body))
       // An outcome with no toast of its own still ends the loading one.
       loading?.remove()
     }
@@ -246,7 +256,7 @@ export function setupFetchButtonHandlers(): void {
     // the action's own `confirm` flag, so it opens the inline gate before dispatch.
     const confirmObject = parseConfirmObjectConfig(button.getAttribute('data-confirm-config'))
     if (confirmObject) {
-      openFetchConfirmObjectGate(button, confirmObject, () => void dispatch())
+      openFetchConfirmObjectGate(button, confirmObject, () => dispatch())
       return
     }
     const confirmMessage = button.getAttribute('data-confirm')
@@ -259,7 +269,7 @@ export function setupFetchButtonHandlers(): void {
       const labels = resolveGateLabels(button, {
         confirmLabel: button.getAttribute('data-confirm-label'),
       })
-      openFetchConfirmGate(button, confirmMessage, labels, () => void dispatch())
+      openFetchConfirmGate(button, confirmMessage, labels, () => dispatch())
       return
     }
 

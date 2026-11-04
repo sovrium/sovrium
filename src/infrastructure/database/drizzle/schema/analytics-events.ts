@@ -17,7 +17,10 @@ import { systemSchema } from './migration-audit'
  *
  * Key design decisions:
  * - eventType: 'page_view' | 'track' — distinguishes page views from custom events
- * - eventName: user-supplied name for 'track' events (null for page views)
+ * - eventName: what names the event — the path for a page view (as stored in
+ *   `properties.path`), the destination host for an outbound click, the
+ *   user-supplied name for a 'track' event; null on page views stored before
+ *   page views carried one
  * - properties: JSONB column stores event-specific data (page info, device info, UTM, etc.)
  * - visitorHash / sessionHash: promoted to top-level columns for efficient aggregation
  * - orgId: optional organization ID for multi-tenant tracking
@@ -43,7 +46,8 @@ export const analyticsEvents = systemSchema.table(
     // Event type discriminator
     eventType: text('event_type').notNull(),
 
-    // User-supplied event name for 'track' events (null for page_view)
+    // What names the event: a page view's path, an outbound click's host, a
+    // 'track' event's own name (null on page views stored before they had one)
     eventName: text('event_name'),
 
     // Optional organization ID for multi-tenant tracking

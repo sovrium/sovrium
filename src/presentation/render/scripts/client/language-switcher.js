@@ -224,13 +224,13 @@
    */
   function normalizeLanguageCode(lang, translations) {
     // Try exact match first
-    if (translations[lang]) {
+    if (translations[lang] !== undefined) {
       return lang
     }
 
     // Try base language code (e.g., 'fr-FR' → 'fr')
     const baseLang = lang.split('-')[0]
-    if (baseLang && translations[baseLang]) {
+    if (baseLang && translations[baseLang] !== undefined) {
       return baseLang
     }
 
@@ -264,19 +264,19 @@
           let translation = translations[normalizedLang]
 
           // Try fallback language if missing
-          if (!translation && languagesConfig.fallback) {
+          if (translation === undefined && languagesConfig.fallback) {
             const normalizedFallback = normalizeLanguageCode(languagesConfig.fallback, translations)
             translation = translations[normalizedFallback]
           }
 
           // Try default language if still missing
-          if (!translation) {
+          if (translation === undefined) {
             const normalizedDefault = normalizeLanguageCode(languagesConfig.default, translations)
             translation = translations[normalizedDefault]
           }
 
           // Use translation or key as final fallback
-          setWords(element, translation || key)
+          setWords(element, translation ?? key)
         } catch (error) {
           console.error('Failed to parse translations for key:', key, error)
           // Fallback to key if JSON parsing fails

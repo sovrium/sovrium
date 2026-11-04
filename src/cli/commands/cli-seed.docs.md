@@ -81,7 +81,7 @@ An empty or blank string for a date, datetime or time column seeds as no value. 
 
 - **`if-empty`**: the default. Seeds a table only when it has no rows, so it is safe to run repeatedly. It counts soft-deleted rows as present, so a table you emptied through the app is not silently refilled underneath you.
 - **`upsert`**: matches existing rows on a natural key and updates them; creates the rest. A row that already holds every value is left alone and counted as unchanged, so a replay changes nothing. Rows it creates are recorded as written by the system, like every seeded row. A row's many-to-many links become exactly the ones its seed record lists: a link the file no longer lists is removed (the linked row is kept), a link it lists is added, and links that already match are left alone.
-- **`replace`**: deletes the table's rows, then inserts. For demo environments that reset.
+- **`replace`**: deletes the table's rows, then inserts, which suits a demo environment that resets.
 
 ### Choosing what `upsert` matches on
 

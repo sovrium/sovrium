@@ -94,6 +94,7 @@ export function AuthFieldRow({
   error,
   onBlur,
   autoFocus = false,
+  announce,
 }: {
   readonly field: AuthFormField
   readonly defaultValue: string
@@ -101,6 +102,8 @@ export function AuthFieldRow({
   readonly onBlur: (name: string, value: string) => void
   /** Take focus as the form mounts — the code field of a page of its own. */
   readonly autoFocus?: boolean
+  /** A refusal the server answered is said as an alert, on the field it is about. */
+  readonly announce?: boolean
 }) {
   // The server scopes it per form; a payload without one keeps the bare id.
   const errorId = field.errorId ?? `${field.name}-error`
@@ -137,14 +140,34 @@ export function AuthFieldRow({
           {field.rule}
         </small>
       )}
-      <div
+      <FieldError
         id={errorId}
-        className={computeFormFieldErrorClasses()}
-        style={INLINE_ERROR_STYLE}
-        {...(error ? {} : { 'data-error-empty': '' })}
-      >
-        {error}
-      </div>
+        error={error}
+        announce={announce}
+      />
+    </div>
+  )
+}
+
+/** The field's error slot, held open at rest; an alert when it says a server's refusal. */
+function FieldError({
+  id,
+  error,
+  announce,
+}: {
+  readonly id: string
+  readonly error: string | undefined
+  readonly announce: boolean | undefined
+}) {
+  return (
+    <div
+      id={id}
+      role={announce && error ? 'alert' : undefined}
+      className={computeFormFieldErrorClasses()}
+      style={INLINE_ERROR_STYLE}
+      {...(error ? {} : { 'data-error-empty': '' })}
+    >
+      {error}
     </div>
   )
 }
@@ -164,11 +187,14 @@ export function AuthErrorSummary({
   fields,
   errors,
   sentence,
+  className,
 }: {
   readonly fields: readonly AuthFormField[]
   readonly errors: FieldErrors
   /** `auth.fixErrors` in the page language; English when absent. */
   readonly sentence?: string
+  /** The `summary` part's classes (`design.components.form.parts.summary`). */
+  readonly className?: string
 }) {
   const items = fields
     .filter((field) => errors[field.name])
@@ -188,6 +214,7 @@ export function AuthErrorSummary({
       data-error-summary=""
       data-testid="error-summary"
       role="alert"
+      className={className}
     >
       <p>{sentence ?? 'Please fix the following errors:'}</p>
       <ul>

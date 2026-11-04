@@ -148,6 +148,7 @@ import {
 } from './record/record'
 import { handleRecordUpsert } from './record/upsert'
 import { actionKey } from './shared'
+import { handleSignatureCancel, handleSignatureSend } from './signature'
 import { handleSovriumValidateBundle, handleSovriumValidateConfig } from './sovrium'
 import { gatedFileList } from './starter-file-list'
 import {
@@ -275,6 +276,10 @@ export const defaultActionHandlers: ReadonlyMap<ActionKey, ActionHandler> = new 
   ['pdf/fillForm', handlePdfFillForm],
   ['pdf/inspect', handlePdfInspect],
   ['pdf/fromImages', handlePdfFromImages],
+  // The signing flow: send starts a signing request on the record, cancel
+  // withdraws its open one; both write the status through the run's channel.
+  ['signature/send', handleSignatureSend],
+  ['signature/cancel', handleSignatureCancel],
   ['http/request', handleHttpRequest],
   ['http/get', handleHttpGet],
   ['http/post', handleHttpPost],

@@ -31,6 +31,7 @@ No request body, query or path parameters: the user id comes only from the sessi
 - **AI activity** (`aiActivity`): every AI activity-feed entry that names the caller, newest first: their own chat turns, and each action an agent recorded as done for them, with the agent's name and, when the feed recorded it, where the agent ran (a chat, an automation or a schedule).
 - **AI tool calls** (`aiToolCalls`): every tool call the caller made through an AI client, newest first: the tool, the role it ran as, the transport and session, whether it succeeded, its error code and its latency.
 - **Favourites** (`favorites`): every record or page the caller keeps among her favourites and has not removed, newest first: what it is (`record` or `page`), the table of a record (`null` for a page), its id, and when she kept it.
+- **Signatures** (`signatures`): every signature the caller gave from her account, oldest first: the signing request, the flow and her role in it (absent for a signature given on a record outside any flow), the table, the record and the field, when she signed, how (`drawn` or `typed`), the statement she agreed to, how she was identified, and the contact details the evidence keeps of her, in clear. Nothing of another signer of the same request is listed.
 - **Mailing-list suppressions** (`emailSuppressions`): every category the caller's address no longer receives (`null` when it receives none), why (`unsubscribe`, `bounce` or `complaint`), and since when, newest first.
 - **Recent items** (`recentItems`): every record or page kept as recently opened for the caller, most recent first, with the same three values and when she last opened it. Neither list copies the record itself: it stays reachable, under today's permissions, through the records API.
 
@@ -38,7 +39,7 @@ No request body, query or path parameters: the user id comes only from the sessi
 
 **Authorship is matched by field type, not by column name.** A `created-by` field may carry whatever column name your config gives it: `author`, `submitted_by`, or the literal `created_by`. The export resolves the column from the declared field **type**, so a table naming its authorship field `author` is scanned like any other. Earlier releases matched the literal name only, and returned an empty list with a `200` for such tables, a subject-access response that denied the caller's own records existed.
 
-**Secrets are never exported.** Password hashes, OAuth tokens, second-factor secrets and API keys are stripped from the export. That is a deliberate withholding rather than an oversight: a live bearer token in a JSON download is a security defect, not a data-subject right.
+**Secrets are never exported.** Password hashes, OAuth tokens, second-factor secrets and API keys are stripped from the export. The withholding is deliberate: a live bearer token in a JSON download is a security defect, not a data-subject right.
 
 **What the AI sections leave out, and why.** The arguments of a tool call, and the input, output and error text a tool call recorded, are withheld: they hold the records the tool read or wrote, which describe other people, and a copy frozen at call time could hand the caller records their role no longer lets them read. The records themselves stay reachable, under today's permissions, through the records API. The bookkeeping metadata stored on conversations and facts is left out too, and so are the caller's own id and address, which every listed AI entry would only repeat.
 
@@ -62,11 +63,11 @@ Content-Type: application/json
 
 1. **Schedule**: `{ "confirm": true }` marks the erasure seven days out, revokes all of the caller's sessions so they are logged out everywhere, writes a `account.deletion.scheduled` audit event, and returns `202 Accepted`. Nothing is deleted yet. The last admin who can still sign in is refused with `409`, and nothing is scheduled.
 2. **Cancel**: during the window the user signs back in and sends `{ "cancel": true }`, which clears the schedule and returns `200 OK`.
-3. **Purge**: automatically, after the window, a job **hard-deletes** the caller's identity, credentials, authored records and every other row the erasure census classifies as theirs; sheds their identifier from rows belonging to other people; then writes an `account.deletion.purged` audit event.
+3. **Purge**: automatically, after the window, a job that runs once an hour (at a minute fixed per instance, derived from the app name and printed when the server starts) **hard-deletes** the caller's identity, credentials, authored records and every other row the erasure census classifies as theirs; sheds their identifier from rows belonging to other people; then writes an `account.deletion.purged` audit event.
 
 If the account due for erasure is the last one that can administer the app, the sweep leaves it in place and tries again every hour; it is erased by the first sweep after someone else holds the admin role. The pending erasure stays visible to its owner, who can still cancel it, and the audit trail records `account.deletion.deferred` once.
 
-A bare `POST` with neither flag is rejected with `400`, against a fat finger.
+A bare `POST` with neither flag is rejected with `400`, so a request sent by mistake schedules nothing.
 
 ### Immediate deletion by mailed link
 
@@ -80,7 +81,7 @@ The last admin who can sign in is refused on both doors, with `409`. The trail r
 
 The purge is not limited to the auth tables. It sweeps a **census** of every table that references a user, and each table carries one of three explicit verdicts. The census lives in `src/infrastructure/database/account-purge-coverage.ts` and is checked mechanically against the live database schema: adding a user-referencing table without classifying it fails the build, so the list below cannot quietly fall behind the code.
 
-**Deleted**: the rows are the user's own content and are physically removed. Identity and credentials, including sessions, linked accounts, verifications, second factors and API keys; the whole OAuth family, **access tokens included**; organization, team and invitation rows; authored table records; records the config deletes with their authored records (`onDelete: 'cascade'`); form submissions; comments and read state; row-level grants held by the user; AI conversations, derived facts, tool calls and activity rows, an agent's recorded action done for the user included; favourites, recent items; the mailing-list suppressions of the user's address, so an erased person is no longer remembered as having left a list; third-party connection tokens; every file the user uploaded (through a bucket, a signed upload URL, a record attachment, a form she submitted while signed in, or the avatar), with its bytes, on every storage provider; the activity feed; the operator search-index projection; the webhook deliveries about the user or her records, owed or already sent, with their delivery-log entries.
+**Deleted**: the rows are the user's own content and are physically removed. Identity and credentials, including sessions, linked accounts, verifications, second factors and API keys; the whole OAuth family, **access tokens included**; organization, team and invitation rows; authored table records; records the config deletes with their authored records (`onDelete: 'cascade'`); form submissions, with the analytics events that name them under `analytics.profile: full`; comments and read state; row-level grants held by the user; AI conversations, derived facts, tool calls and activity rows, an agent's recorded action done for the user included; favourites, recent items; the mailing-list suppressions of the user's address, so an erased person is no longer remembered as having left a list; third-party connection tokens; every file the user uploaded (through a bucket, a signed upload URL, a record attachment, a form she submitted while signed in, or the avatar), with its bytes, on every storage provider; the activity feed; the operator search-index projection; the webhook deliveries about the user or her records, owed or already sent, with their delivery-log entries.
 
 **Shed**: the row belongs to somebody else, so the identifier is removed and the row stands. Grants the user **issued** to other people; published short links they created; shared workspace connections; automation pauses and approval decisions, and the account that started a run; every field naming the user in a record somebody else wrote (a user field, a last-editor or deleted-by stamp), with the lookups and formulas reading it; the moderator stamp on other people's comments; the audit trail's actor reference and actor email address.
 
@@ -94,7 +95,7 @@ Over-deletion is a failure mode too. Deleting a grant because its _issuer_ close
 
 ### Known residuals
 
-Erasure is thorough inside the database transaction, and the boundaries of that transaction are worth stating plainly rather than papering over:
+Erasure is thorough inside the database transaction. These are the boundaries of that transaction:
 
 - **Files that name no uploader.** Erasure finds a person's files by the uploader the storage catalog records. A file stored before uploaders were recorded, or through a road with no signed-in person behind it (an anonymous form, an automation, `sovrium seed`) names nobody. Those files survive erasure; find them by key in the operator console and delete them there. A form stores a file only under a field it declares that takes a file, so every file an anonymous form stored is listed, with its key, under that field of the submission that carried it.
 - **An object store that refuses the delete.** On the local filesystem and an object store the bytes are deleted after the database transaction commits, so a rolled-back erasure never destroys a file. A store that refuses that delete leaves an object nothing references any more; the server log names its key (`[account-purge] object <key> survived erasure`), and it is yours to remove.
@@ -112,11 +113,11 @@ What erasure does **not** claim is that every trace of the person is gone from e
 
 ## Privacy by design
 
-Beyond the self-service rights, privacy is built into the platform defaults:
+Beyond the self-service rights, privacy is built into the platform defaults.
 
-- **Analytics without cookies**: the tracker sets no cookie and stores nothing in the browser, and Do Not Track and Global Privacy Control are respected. What it records depends on `analytics.profile`. Under `audience-only`, the default, it records page paths without their query string, the referring host, device, browser, operating system and language, and a server-computed visitor identifier rotated daily; short-link clicks, QR scans and form submissions share one identifier. Under `full` it also records page titles, full referrers, UTM values, screen size, and per-visitor identifiers on short-link clicks, QR scans and form submissions. Declaring an `analytics` consent purpose holds the tracker until a visitor accepts; the events the server records itself stay outside that hold. Whether your visitors must consent before it runs is yours to assess: see **Set up analytics and visitor consent**.
-- **Erasure means erasure**: an erasure request hard-deletes the row rather than flagging it. Soft-deleted rows, by contrast, stay recoverable and are not purged on a timer; when they go is your decision, not a platform default.
-- **No external services**: all personal data stays on your server; nothing is shipped to a third party.
+The analytics tracker sets no cookie and stores nothing in the browser, and Do Not Track and Global Privacy Control are respected. What it records depends on `analytics.profile`. Under `audience-only`, the default, it records page paths without their query string, the referring host, device, browser, operating system and language, and a server-computed visitor identifier rotated daily; short-link clicks, QR scans and form submissions share one identifier. Under `full` it also records page titles, full referrers, UTM values, screen size, and per-visitor identifiers on short-link clicks, QR scans and form submissions. Declaring an `analytics` consent purpose holds the tracker until a visitor accepts; the events the server records itself stay outside that hold. Whether your visitors must consent before it runs is yours to assess: see **Set up analytics and visitor consent**.
+
+An erasure request hard-deletes the row instead of flagging it. Soft-deleted rows, by contrast, stay recoverable and are not purged on a timer; when they go is your decision, not a platform default. All personal data stays on your server, and nothing is shipped to a third party.
 
 ## Related reading
 

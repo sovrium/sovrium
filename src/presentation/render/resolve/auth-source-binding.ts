@@ -40,6 +40,7 @@ import {
 import { isDroppedWithheld, withheldComponent } from './withheld-component'
 import type { App } from '@/domain/models/app'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
+import type { ViewerIdentity } from '@/domain/models/app/pages/component-session-visibility-service'
 import type { Component } from '@/domain/models/app/pages/components'
 
 /** The lists that range over the whole app, read only by an administrator. */
@@ -72,11 +73,21 @@ const authMethodOf = (component: Component): string | undefined => {
   return keyOf(action, 'type') === 'auth' && typeof method === 'string' ? method : undefined
 }
 
-/** Whether the reader may run an account method at all. */
-const mayRun = (method: string, app: App, session: SessionInfo | undefined): boolean => {
+/**
+ * Whether the reader may run an account method at all. A page rendered without
+ * a session for a signed-in reader (a mounted operator console, which carries
+ * her {@link ViewerIdentity} instead) still offers her the methods acting on her
+ * OWN account; the administrator's methods and the lists keep asking the session.
+ */
+const mayRun = (
+  method: string,
+  app: App,
+  session: SessionInfo | undefined,
+  viewer: ViewerIdentity | undefined
+): boolean => {
   if (ADMIN_METHODS.has(method))
     return session !== undefined && isAdminEquivalent(session.role, app)
-  return !SIGNED_IN_METHODS.has(method) || session !== undefined
+  return !SIGNED_IN_METHODS.has(method) || session !== undefined || viewer !== undefined
 }
 
 /** The endpoint an account list is read from. */
@@ -90,10 +101,12 @@ export const isAccountSessionsSource = (dataSource: unknown): boolean =>
 export function bindAuthSource(
   component: Component,
   app: App,
-  session: SessionInfo | undefined
+  session: SessionInfo | undefined,
+  viewer?: ViewerIdentity
 ): Component {
   const method = authMethodOf(component)
-  if (method !== undefined && !mayRun(method, app, session)) return withheldComponent(component)
+  if (method !== undefined && !mayRun(method, app, session, viewer))
+    return withheldComponent(component)
   const list = keyOf(componentField(component, 'dataSource'), 'auth')
   if (typeof list !== 'string') return component
   const readable =
@@ -110,9 +123,10 @@ export function bindAuthSource(
 function bindList(
   nodes: readonly unknown[],
   app: App,
-  session: SessionInfo | undefined
+  session: SessionInfo | undefined,
+  viewer: ViewerIdentity | undefined
 ): readonly unknown[] {
-  const bound = nodes.map((node) => bindNode(node, app, session))
+  const bound = nodes.map((node) => bindNode(node, app, session, viewer))
   if (!bound.some((node, index) => node !== nodes[index])) return nodes
   return bound.filter((node) => !isDroppedWithheld(node))
 }
@@ -121,7 +135,8 @@ function bindList(
 function bindResponsive(
   responsive: unknown,
   app: App,
-  session: SessionInfo | undefined
+  session: SessionInfo | undefined,
+  viewer: ViewerIdentity | undefined
 ): Record<string, unknown> | undefined {
   if (typeof responsive !== 'object' || responsive === null) return undefined
   const entries: readonly (readonly [string, unknown])[] = Object.entries(responsive)
@@ -129,7 +144,7 @@ function bindResponsive(
     if (typeof variant !== 'object' || variant === null) return variant
     const { children } = componentFields(variant)
     if (!Array.isArray(children)) return variant
-    const bound = bindList(children, app, session)
+    const bound = bindList(children, app, session, viewer)
     return bound === children ? variant : { ...variant, children: bound }
   })
   if (variants.every((variant, index) => variant === entries[index]?.[1])) return undefined
@@ -137,17 +152,26 @@ function bindResponsive(
 }
 
 /** A node's `children`, bound when it has a list of them. */
-const bindChildren = (children: unknown, app: App, session: SessionInfo | undefined): unknown =>
-  Array.isArray(children) ? bindList(children, app, session) : children
+const bindChildren = (
+  children: unknown,
+  app: App,
+  session: SessionInfo | undefined,
+  viewer: ViewerIdentity | undefined
+): unknown => (Array.isArray(children) ? bindList(children, app, session, viewer) : children)
 
 /** One node and everything below it. A reference names a template and is left alone. */
-function bindNode(node: unknown, app: App, session: SessionInfo | undefined): unknown {
+function bindNode(
+  node: unknown,
+  app: App,
+  session: SessionInfo | undefined,
+  viewer: ViewerIdentity | undefined
+): unknown {
   if (typeof node !== 'object' || node === null || isComponentReferenceNode(node)) return node
-  const own = bindAuthSource(entryAsComponent(node as ComponentNode), app, session)
+  const own = bindAuthSource(entryAsComponent(node as ComponentNode), app, session, viewer)
   if (isDroppedWithheld(own)) return own
   const { children, responsive } = componentFields(own)
-  const nextChildren = bindChildren(children, app, session)
-  const nextResponsive = bindResponsive(responsive, app, session)
+  const nextChildren = bindChildren(children, app, session, viewer)
+  const nextResponsive = bindResponsive(responsive, app, session, viewer)
   if (own === node && nextChildren === children && nextResponsive === undefined) return node
   return rewriteComponent(own, {
     ...(nextChildren === children ? {} : { children: nextChildren }),
@@ -166,7 +190,8 @@ function bindNode(node: unknown, app: App, session: SessionInfo | undefined): un
 export function bindAuthSourcesInTree<T>(
   components: readonly T[],
   app: App,
-  session: SessionInfo | undefined
+  session: SessionInfo | undefined,
+  viewer?: ViewerIdentity
 ): readonly T[] {
-  return bindList(components, app, session) as readonly T[]
+  return bindList(components, app, session, viewer) as readonly T[]
 }

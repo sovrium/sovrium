@@ -13,6 +13,7 @@ import {
 import { coerceScalarsForArrayColumns } from '@/application/use-cases/forms/coerce-array-columns'
 import { coerceEmptySelectToNull } from '@/application/use-cases/forms/coerce-empty-select'
 import { reserveLedgerSlot, writeLedgerRow } from '@/application/use-cases/forms/submit-form-ledger'
+import { withBoundSignatureColumns } from '@/application/use-cases/signatures/form-signature-columns'
 import { storedRowOf } from '@/application/use-cases/tables/record-stored-row'
 import { createRecordWithSideEffects } from '@/application/use-cases/tables/record-write-roads'
 import { SYSTEM_USER_ID } from '@/domain/models/app/auth/guest-session'
@@ -77,6 +78,7 @@ const writeBoundTableRecord = (input: {
   readonly submitterUserId: string | undefined
   /** The language the visitor answered in: a translatable field's answer is filed under it. */
   readonly language: string | undefined
+  readonly userAgent: string | undefined
 }) =>
   Effect.gen(function* () {
     const { app, form, mapped, submitterUserId } = input
@@ -87,37 +89,47 @@ const writeBoundTableRecord = (input: {
     // also who its record automations run for.
     const session =
       submitterUserId !== undefined ? buildSyntheticSession(submitterUserId) : buildSystemSession()
-    return yield* createRecordWithSideEffects({
-      // `app` resolves the bound table's many-to-many fields, split out of the
-      // base insert and written as junction rows against the resolved id —
-      // otherwise a form filing an m2m field fails with `column ... does not
-      // exist`, on plain AND view-backed tables.
-      app,
-      session,
-      tableName,
-      // As before the form took this road: no SQLite AI baseline merge here.
-      isSqlite: false,
-      // A record automation reads the answers no column stores, beneath the
-      // row as stored — the stamps and the defaults included.
-      triggerValues: mapped,
-      fields: {
-        // Order matters: `''` becomes `null` FIRST, so the array coercion
-        // below sees an absent value and passes it through rather than
-        // wrapping it into `['']` — which the option CHECK constraint would
-        // reject just as surely as the bare `''`.
-        ...inWriteLanguage(
-          app,
-          tableName,
-          coerceScalarsForArrayColumns(
-            coerceEmptySelectToNull(filterTableBoundFields(mapped, form), app, tableName),
+    // A signature field bound to a column signs the row as it is created, its evidence
+    // recorded in the row's own transaction.
+    const signing = { form, tableName, answers: mapped, submitterUserId }
+    return yield* withBoundSignatureColumns({ ...signing, userAgent: input.userAgent }, (signed) =>
+      createRecordWithSideEffects({
+        // `app` resolves the bound table's many-to-many fields, split out of the
+        // base insert and written as junction rows against the resolved id —
+        // otherwise a form filing an m2m field fails with `column ... does not
+        // exist`, on plain AND view-backed tables.
+        app,
+        session,
+        tableName,
+        // As before the form took this road: no SQLite AI baseline merge here.
+        isSqlite: false,
+        // A record automation reads the answers no column stores, beneath the
+        // row as stored — the stamps and the defaults included.
+        triggerValues: mapped,
+        fields: {
+          // Order matters: `''` becomes `null` FIRST, so the array coercion
+          // below sees an absent value and passes it through rather than
+          // wrapping it into `['']` — which the option CHECK constraint would
+          // reject just as surely as the bare `''`.
+          ...inWriteLanguage(
             app,
-            tableName
+            tableName,
+            coerceScalarsForArrayColumns(
+              coerceEmptySelectToNull(filterTableBoundFields(mapped, form), app, tableName),
+              app,
+              tableName
+            ),
+            input.language
           ),
-          input.language
-        ),
-        ...buildCreateAuthorshipOverrides(app.tables, tableName, submitterUserId ?? SYSTEM_USER_ID),
-      },
-    })
+          ...buildCreateAuthorshipOverrides(
+            app.tables,
+            tableName,
+            submitterUserId ?? SYSTEM_USER_ID
+          ),
+          ...signed,
+        },
+      })
+    )
   })
 
 export const persistSubmission = (input: {
@@ -151,7 +163,7 @@ export const persistSubmission = (input: {
         : undefined
 
     const linkedRecord = yield* writeBoundTableRecord({
-      ...{ app, form, mapped, submitterUserId },
+      ...{ app, form, mapped, submitterUserId, userAgent },
       language: input.language,
     })
     const linkedRecordId = coerceLinkedRecordId(linkedRecord)

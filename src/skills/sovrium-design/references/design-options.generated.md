@@ -197,7 +197,7 @@ One row per component type. Every type takes the options listed for `design.comp
 
 | Option | Kind | What it does |
 | --- | --- | --- |
-| `sovrium docs config design.components` | object | Per-engine-type styling: the classes an operator adds to the components Sovrium draws. Keys are component types (`button`, `table`), not the app's own `components[]` names, which carry their styling on the template; `markdown` styles every markdown article, under a page's own `markdown.classes`. |
+| `sovrium docs config design.components` | object | Per-engine-type styling: the classes an operator adds to the components Sovrium draws. Keys are component types (`button`, `table`), not the app's own `components[]` names, which carry their styling on the template; `markdown` styles every markdown article, under a page's own `markdown.classes`; `consent-banner` styles the consent banner. |
 | `sovrium docs config design.components.container` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.resizable` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.flex` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
@@ -311,6 +311,7 @@ One row per component type. Every type takes the options listed for `design.comp
 | `sovrium docs config design.components.spacer` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.ai-chat` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 | `sovrium docs config design.components.markdown` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
+| `sovrium docs config design.components.consent-banner` | object | Classes an operator adds to one engine component type: per part, per variant, per state, and whether to replace Sovrium's recipe or layer over it |
 
 ## `design.components.button`
 
@@ -328,6 +329,6 @@ One row per component type. Every type takes the options listed for `design.comp
 | `sovrium docs config design.components.button.states.open` | object | Classes applied while the component is expanded, such as an open menu or dialog trigger. |
 | `sovrium docs config design.components.button.states.selected` | object | Classes applied while the component is the chosen one among its siblings. |
 | `sovrium docs config design.components.button.states.checked` | object | Classes applied while a checkbox, radio or switch is on. |
-| `sovrium docs config design.components.button.states.invalid` | object | Classes applied while the value the component holds has been refused. |
+| `sovrium docs config design.components.button.states.invalid` | object | Classes applied while the form reports the value as refused (aria-invalid="true"). An empty required field is not invalid until a submission is refused. |
 | `sovrium docs config design.components.button.states.current` | object | Classes applied to the entry that points at the page being read — the current link of a sidebar, a navigation menu or a breadcrumb. |
 | `sovrium docs config design.components.button.replace` | boolean | Drop Sovrium's recipe for this type rather than layering on top of it. The accessibility floor still applies. |

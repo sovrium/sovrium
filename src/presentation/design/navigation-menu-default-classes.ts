@@ -80,3 +80,18 @@ export const computeNavMenuPopupClasses = (): string =>
  */
 export const computeNavMenuChildLinkClasses = (): string =>
   'hover:bg-muted focus:bg-muted flex flex-col gap-1 rounded-md p-2 text-sm transition-all outline-none'
+
+/**
+ * The id of the panel a navigation-menu entry opens before its island mounts,
+ * the same on the server and in the island: the served trigger opens it natively
+ * (`popovertarget`), and the island reads it to carry a panel the reader opened
+ * over to the menu it mounts.
+ */
+export const navPanelId = (
+  item: { readonly label: string; readonly children?: readonly unknown[] },
+  index: number
+): string => {
+  const text = JSON.stringify([item.label, item.children])
+  const hash = Array.from(text).reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) | 0, 7)
+  return `nav-panel-${(hash >>> 0).toString(36)}-${index}`
+}

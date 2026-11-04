@@ -50,7 +50,12 @@ import {
   type AuthFormField,
   type FieldErrors,
 } from './auth-form-validation'
-import { RecoveryCodesStep, ScanStep, type EnrolmentStrings } from './two-factor-enrolment'
+import {
+  RecoveryCodesStep,
+  ScanStep,
+  type EnrolmentStrings,
+  type FieldRefusals,
+} from './two-factor-enrolment'
 import { TwoFactorNoticeView, type TwoFactorNotice } from './two-factor-notice'
 
 export { AccountLinkControl } from './account-link-control'
@@ -77,6 +82,10 @@ export interface AccountMethodFormProps {
   readonly 'data-testid'?: string
   /** What the reader typed before this form loaded, by field name. */
   readonly initialValues?: Readonly<Record<string, string>>
+  /** The form's accessible name (`props['aria-label']`), in the page language. */
+  readonly ariaLabel?: string
+  /** A refusal about one field, by the server's error code: said on that field. */
+  readonly fieldRefusals?: FieldRefusals
 }
 
 /** The screen the form is on. */
@@ -139,6 +148,29 @@ function nextStage(method: string, data: Readonly<Record<string, unknown>> | und
   return FORM_STAGE
 }
 
+/**
+ * The refusal an answer carries about one of `fields`, or `undefined`: a wrong
+ * password or code is said on the field, not in the alert.
+ */
+const fieldRefusalOf = (
+  props: AccountMethodFormProps,
+  code: string | undefined
+): FieldErrors | undefined => {
+  const refusal = code === undefined ? undefined : props.fieldRefusals?.[code]
+  if (refusal === undefined || !props.fields.some((f) => f.name === refusal.field)) return undefined
+  return { [refusal.field]: refusal.message }
+}
+
+/** A field's error: the form's own check first, else the server's refusal of it, announced. */
+const fieldErrorProps = (errors: FieldErrors, refused: FieldErrors | undefined, name: string) => ({
+  error: errors[name] ?? refused?.[name],
+  announce: refused?.[name] !== undefined,
+})
+
+/** Hand the keyboard back to the field `name` of `form`. */
+const focusField = (form: HTMLFormElement, name: string): void =>
+  form.querySelector<HTMLInputElement>(`input[name="${CSS.escape(name)}"]`)?.focus()
+
 /** The status and alert slots, as the credential form draws them. */
 function Feedback({
   error,
@@ -159,6 +191,16 @@ function Feedback({
   )
 }
 
+/**
+ * What a submit answered: the alert, the status, or a refusal about one field,
+ * said on that field rather than in the alert.
+ */
+interface SubmitResult {
+  readonly error?: string
+  readonly success?: string
+  readonly refused?: FieldErrors
+}
+
 /** The form's submit and what it leads to: its screen, its errors, its result. */
 function useAccountSubmit(props: AccountMethodFormProps) {
   const { method, fields } = props
@@ -166,7 +208,7 @@ function useAccountSubmit(props: AccountMethodFormProps) {
     props.twoFactorNotice?.shown === true ? EXPIRED_STAGE : FORM_STAGE
   )
   const [errors, setErrors] = useState<FieldErrors>({})
-  const [result, setResult] = useState<{ error?: string; success?: string }>({})
+  const [result, setResult] = useState<SubmitResult>({})
   const [pending, setPending] = useState(false)
 
   const succeed = (data: Readonly<Record<string, unknown>> | undefined): void => {
@@ -184,7 +226,8 @@ function useAccountSubmit(props: AccountMethodFormProps) {
   const submit = (event: FormEvent<HTMLFormElement>): void => {
     if (pressWhilePending(event)) return
     event.preventDefault()
-    const form = new FormData(event.currentTarget)
+    const element = event.currentTarget
+    const form = new FormData(element)
     const values = Object.fromEntries(fields.map((f) => [f.name, String(form.get(f.name) ?? '')]))
     const invalid = validateAllFields(fields, values, props.uiStrings)
     setErrors(invalid)
@@ -198,6 +241,11 @@ function useAccountSubmit(props: AccountMethodFormProps) {
     void postAccount(request.path, request.body).then((outcome) => {
       setPending(false)
       if (isLapsedAttempt(method, outcome.code)) return setStage(EXPIRED_STAGE)
+      const onField = fieldRefusalOf(props, outcome.code)
+      if (onField !== undefined) {
+        setResult({ refused: onField })
+        return Object.keys(onField).forEach((name) => focusField(element, name))
+      }
       if (outcome.error !== undefined) return setResult({ error: outcome.error })
       return succeed(outcome.data)
     })
@@ -240,6 +288,7 @@ function NextScreen({
         setError={(error) => setResult({ error })}
         onVerified={() => setStage({ kind: 'codes', codes: stage.codes })}
         strings={strings}
+        refusals={form.fieldRefusals}
       />
     )
   if (stage.kind === 'codes')
@@ -283,6 +332,7 @@ export function AccountMethodForm(props: AccountMethodFormProps): ReactElement {
       data-testid={props['data-testid']}
       data-action-type="auth"
       data-action-method={method}
+      aria-label={props.ariaLabel}
       noValidate
     >
       <AuthErrorSummary
@@ -295,7 +345,7 @@ export function AccountMethodForm(props: AccountMethodFormProps): ReactElement {
           key={field.name}
           field={field}
           defaultValue={props.initialValues?.[field.name] ?? ''}
-          error={errors[field.name]}
+          {...fieldErrorProps(errors, result.refused, field.name)}
           onBlur={noop}
           autoFocus={takesCodeFocus(field, props.twoFactorNotice)}
         />

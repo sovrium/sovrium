@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef } from 'react'
 import { useMarkRead, type MarkReadTarget } from './hooks/use-mark-read'
 import { joinFeed, useLiveRefresh, type LiveRefreshSource } from './hooks/use-realtime-subscription'
+import { useThreadReadState } from './hooks/use-thread-read-state'
 import { useTypingNames } from './hooks/use-typing-frames'
 import type { ReactElement } from 'react'
 
@@ -191,6 +192,7 @@ export default function MessageScrollerIsland({
   const anchor = useRef<HTMLSpanElement>(null)
   const redraw = useFrameRedraw(anchor, openedPositionOf(readState))
   useMarkRead(readState, anchor)
+  useThreadReadState(anchor)
   useLiveRefresh(source, redraw)
   const table = source?.table
   // The server buffers no change: one written between the page being drawn and

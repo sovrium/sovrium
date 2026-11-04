@@ -527,6 +527,129 @@
                 },
                 {
                   "type": "container",
+                  "key": "profile-two-factor",
+                  "element": "div",
+                  "visibility": {
+                    "declares": "auth.twoFactor"
+                  },
+                  "props": {
+                    "className": "grid grid-cols-1 gap-y-2.5 border-b border-border py-4 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-6 sm:gap-y-0",
+                    "data-testid": "profile-two-factor"
+                  },
+                  "children": [
+                    {
+                      "type": "text",
+                      "element": "h2",
+                      "props": {
+                        "className": "text-foreground block text-base font-medium sm:leading-8"
+                      },
+                      "content": "$t:admin.profile.twoFactor.label"
+                    },
+                    {
+                      "type": "container",
+                      "key": "profile-two-factor-2",
+                      "element": "div",
+                      "props": {
+                        "className": "flex min-w-0 flex-col gap-2"
+                      },
+                      "children": [
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "visibility": {
+                            "condition": {
+                              "field": "$user.twoFactorEnabled",
+                              "operator": "eq",
+                              "value": true
+                            }
+                          },
+                          "props": {
+                            "className": "text-foreground text-sm",
+                            "data-testid": "profile-two-factor-on"
+                          },
+                          "content": "$t:admin.profile.twoFactor.on"
+                        },
+                        {
+                          "type": "form",
+                          "visibility": {
+                            "condition": {
+                              "field": "$user.twoFactorEnabled",
+                              "operator": "eq",
+                              "value": false
+                            }
+                          },
+                          "props": {
+                            "id": "profile-two-factor-enable",
+                            "className": "grid grid-cols-1 items-start gap-x-6 border-0 bg-transparent p-0 rounded-none sm:grid-cols-[minmax(0,26rem)_max-content]",
+                            "aria-label": "$t:admin.profile.twoFactor.enableRegion"
+                          },
+                          "action": {
+                            "type": "auth",
+                            "method": "enableTwoFactor",
+                            "submitLabel": "$t:admin.profile.twoFactor.enable",
+                            "submitVariant": "outline",
+                            "fields": [
+                              {
+                                "name": "password",
+                                "label": "$t:admin.field.password"
+                              }
+                            ],
+                            "onSuccess": {
+                              "navigate": "/profile"
+                            }
+                          }
+                        },
+                        {
+                          "type": "form",
+                          "visibility": {
+                            "condition": {
+                              "field": "$user.twoFactorEnabled",
+                              "operator": "eq",
+                              "value": true
+                            }
+                          },
+                          "props": {
+                            "id": "profile-two-factor-disable",
+                            "className": "grid grid-cols-1 items-start gap-x-6 border-0 bg-transparent p-0 rounded-none sm:grid-cols-[minmax(0,26rem)_max-content]",
+                            "aria-label": "$t:admin.profile.twoFactor.disableRegion"
+                          },
+                          "action": {
+                            "type": "auth",
+                            "method": "disableTwoFactor",
+                            "submitLabel": "$t:admin.profile.twoFactor.disable",
+                            "submitVariant": "outline",
+                            "fields": [
+                              {
+                                "name": "password",
+                                "label": "$t:admin.field.password"
+                              }
+                            ],
+                            "onSuccess": {
+                              "navigate": "/profile"
+                            }
+                          }
+                        },
+                        {
+                          "type": "text",
+                          "element": "p",
+                          "visibility": {
+                            "condition": {
+                              "field": "$user.twoFactorEnabled",
+                              "operator": "eq",
+                              "value": false
+                            }
+                          },
+                          "props": {
+                            "className": "text-foreground-subtle text-sm"
+                          },
+                          "content": "$t:admin.profile.twoFactor.hint"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "container",
                   "key": "profile-rows-5",
                   "element": "div",
                   "props": {

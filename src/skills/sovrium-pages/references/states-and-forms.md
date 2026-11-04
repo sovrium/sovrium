@@ -35,7 +35,7 @@ Name which of the four empty cases applies, because each needs different words:
 - Every empty state carries exactly one next action. A bare "No data" is a dead end.
 - Keep no-results distinct from first-use: telling a searcher "create your first record" misreads what happened. Tables separate the two (`emptyMessage` and `noMatchMessage`): `sovrium docs data-components/data-components`.
 - A permission-denied area that may reveal existence says "restricted", never "empty"; where existence itself is sensitive, the page is not shown at all.
-- Use the `empty` component for standalone empty areas; its keys carry an `empty` prefix, and a misspelled key is dropped silently: `sovrium docs components/display-components`.
+- Use the `empty` component for standalone empty areas; its keys carry an `empty` prefix, and a misspelled key is dropped silently: `sovrium docs components-presentation/display-components`.
 - An illustration is optional and never replaces the sentence and the action.
 - First-use empty states may teach one thing (what an item is), never a tour.
 - The words follow `design.voice.tone.empty` when the app declares it (see `copy.md`).
@@ -57,7 +57,7 @@ Choose the indicator by how long the wait usually is, measured, not guessed.
 - Reserve the space of content that loads late (images, embeds) so the layout does not shift.
 - A long task says how long it will take and, if the work continues without the visitor, that they may leave.
 - Disable a submit control while its request is in flight, and keep its label; do not replace the label with a spinner alone.
-- Feedback components: `sovrium docs components/feedback-components`.
+- Feedback components: `sovrium docs components-presentation/feedback-components`.
 - The words follow `design.voice.tone.loading`.
 
 ## Errors
@@ -79,7 +79,7 @@ Choose the indicator by how long the wait usually is, measured, not guessed.
 - Destructive actions confirm first in an `alert-dialog`. The confirmation names what will be lost, how many, and whether it can be undone; the confirm button repeats the verb ("Delete 12 records"), never "OK".
 - Prefer undo over confirmation for actions that can be reversed.
 - The words follow `design.voice.tone.success` and `design.voice.tone.destructive`.
-- Overlay components: `sovrium docs components/overlay-components`.
+- Overlay components: `sovrium docs components-presentation/overlay-components`.
 
 ## Forms: layout
 

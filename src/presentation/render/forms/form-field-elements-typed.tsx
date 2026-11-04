@@ -44,7 +44,12 @@ import {
 } from '@/presentation/design/forms-default-classes'
 import { RatingGlyph } from '@/presentation/design/rating-glyph'
 import { toLocalInputValue } from '@/presentation/design/zoned-datetime'
-import { ariaRequired, FIELD_LABEL_CLASS, fieldWrapperAttributes } from './form-field-chrome'
+import {
+  ariaRequired,
+  describedByHelpOf,
+  FIELD_LABEL_CLASS,
+  fieldWrapperAttributes,
+} from './form-field-chrome'
 import { DescriptionText, HelpText } from './form-help-text'
 import type { ResolvedFormField } from './form-resolved-field'
 
@@ -97,6 +102,7 @@ export function CheckboxInput({
         value="true"
         required={field.required}
         {...ariaRequired(field.required)}
+        {...describedByHelpOf(field)}
         disabled={field.conditionHidden}
         defaultChecked={defaultValue === 'true'}
         className={CHECKBOX_CLASS}
@@ -109,7 +115,7 @@ export function CheckboxInput({
           {field.label}
           <RequiredMark required={field.required} />
         </label>
-        <HelpText html={field.helpTextHtml} />
+        <HelpText field={field} />
       </div>
     </div>
   )
@@ -190,6 +196,7 @@ export function RatingInput({
         role="radiogroup"
         aria-labelledby={legendId}
         {...ariaRequired(field.required)}
+        {...describedByHelpOf(field)}
         data-rating-scale="true"
         data-rating-filled-class={RATING_GLYPH_CLASS.filled}
         data-rating-hollow-class={RATING_GLYPH_CLASS.hollow}
@@ -206,7 +213,7 @@ export function RatingInput({
           />
         ))}
       </span>
-      <HelpText html={field.helpTextHtml} />
+      <HelpText field={field} />
     </div>
   )
 }

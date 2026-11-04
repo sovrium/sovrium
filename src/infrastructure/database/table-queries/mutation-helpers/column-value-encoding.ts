@@ -6,6 +6,7 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
+import { DatabaseError } from '@/domain/errors'
 import { isLanguageMerge } from '@/domain/models/app/tables/translatable-write-service'
 import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { languageMergeInsertSql } from '@/infrastructure/database/sql/sql-translatable-writes'
@@ -35,6 +36,22 @@ import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
  */
 
 /**
+ * The entries of `fields` whose value is given, in their order.
+ *
+ * An `undefined` value (a template that rendered nothing as a whole value, a
+ * key spread from an optional property) is not a value: drizzle binds no
+ * parameter for it and emits nothing at all, so `col = ${undefined}` becomes
+ * the empty fragment `col = ` and the statement fails to parse. Every write
+ * path therefore treats such a key as absent, exactly as if it had not been
+ * sent: an INSERT gives the column its default, an UPDATE leaves it as stored.
+ * Clearing a field is spelt `null`, which binds.
+ */
+export const givenEntries = (
+  fields: Readonly<Record<string, unknown>>
+): readonly (readonly [string, unknown])[] =>
+  Object.entries(fields).filter(([, value]) => value !== undefined)
+
+/**
  * Encode one field value into the SQL fragment that carries it.
  *
  * `columnType` is the column's `data_type` as `information_schema` reports it.
@@ -52,12 +69,19 @@ import type { TransactionOn } from '@/infrastructure/database/drizzle/layer'
  * Every branch BINDS its value (standing rule S3). Arrays and objects go
  * through `bindJsonb` and `bindTextArray`, which own the casts bun:sql needs
  * for a `jsonb` or `text[]` parameter to land as structure, not as a string.
+ *
+ * `undefined` is refused rather than encoded: it would bind nothing and leave
+ * an empty fragment in the statement. Callers drop such keys first with
+ * {@link givenEntries}; reaching this guard means a write path forgot to.
  */
 export const encodeColumnValue = (
   dialect: DatabaseDialect,
   value: unknown,
   columnType: string | undefined
 ): Readonly<SQL> => {
+  if (value === undefined) {
+    throw new DatabaseError('Cannot write an undefined value: drop the key instead', undefined)
+  }
   // A write to a translatable field inserts the languages it sets; an UPDATE
   // merges them instead (`buildUpdateSetClauseCRUD`).
   if (isLanguageMerge(value)) return languageMergeInsertSql(dialect, value)

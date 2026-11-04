@@ -1,0 +1,436 @@
+{
+  "id": "dashboard-data-signature-request",
+  "name": "dashboard-data-signature-request",
+  "path": "/signatures/:id",
+  "meta": {
+    "title": "$t:admin.meta.signatureRequest"
+  },
+  "requires": ["signatures"],
+  "dataSource": {
+    "system": {
+      "endpoint": "/api/signatures/requests/:id",
+      "param": "id"
+    }
+  },
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "signatures": "$t:admin.crumb.signatures"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "container",
+              "element": "div",
+              "props": {
+                "className": "flex flex-wrap items-center gap-2"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h1",
+                  "props": {
+                    "className": "text-foreground text-2xl font-semibold tracking-tight"
+                  },
+                  "content": "$record.flow"
+                },
+                {
+                  "type": "badge",
+                  "badgeVariant": "outline",
+                  "visibility": {
+                    "record": {
+                      "field": "status",
+                      "eq": "sent"
+                    }
+                  },
+                  "content": "$t:admin.signatures.status.sent"
+                },
+                {
+                  "type": "badge",
+                  "badgeVariant": "warning",
+                  "visibility": {
+                    "record": {
+                      "field": "status",
+                      "eq": "in-progress"
+                    }
+                  },
+                  "content": "$t:admin.signatures.status.inProgress"
+                },
+                {
+                  "type": "badge",
+                  "badgeVariant": "warning",
+                  "visibility": {
+                    "record": {
+                      "field": "status",
+                      "eq": "sealing"
+                    }
+                  },
+                  "content": "$t:admin.signatures.status.sealing"
+                },
+                {
+                  "type": "badge",
+                  "badgeVariant": "success",
+                  "visibility": {
+                    "record": {
+                      "field": "status",
+                      "eq": "completed"
+                    }
+                  },
+                  "content": "$t:admin.signatures.status.completed"
+                },
+                {
+                  "type": "badge",
+                  "badgeVariant": "destructive",
+                  "visibility": {
+                    "record": {
+                      "field": "status",
+                      "eq": "declined"
+                    }
+                  },
+                  "content": "$t:admin.signatures.status.declined"
+                },
+                {
+                  "type": "badge",
+                  "badgeVariant": "outline",
+                  "visibility": {
+                    "record": {
+                      "field": "status",
+                      "eq": "cancelled"
+                    }
+                  },
+                  "content": "$t:admin.signatures.status.cancelled"
+                },
+                {
+                  "type": "badge",
+                  "badgeVariant": "outline",
+                  "visibility": {
+                    "record": {
+                      "field": "status",
+                      "eq": "expired"
+                    }
+                  },
+                  "content": "$t:admin.signatures.status.expired"
+                },
+                {
+                  "type": "badge",
+                  "badgeVariant": "secondary",
+                  "visibility": {
+                    "record": {
+                      "field": "sealed",
+                      "eq": true
+                    }
+                  },
+                  "content": "$t:admin.signatures.detail.sealed"
+                },
+                {
+                  "type": "badge",
+                  "badgeVariant": "secondary",
+                  "visibility": {
+                    "record": {
+                      "field": "timestamped",
+                      "eq": true
+                    }
+                  },
+                  "content": "$t:admin.signatures.detail.timestamped"
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.signatures.detail.blurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "facts-strip",
+          "element": "div",
+          "props": {
+            "className": "flex flex-wrap items-start gap-x-8 gap-y-3"
+          },
+          "children": [
+            {
+              "type": "description-list",
+              "key": "facts",
+              "layout": "stacked",
+              "props": {
+                "className": "[&_dt]:text-xs [&_dd]:text-sm [&_dd]:font-medium [&_dd]:tabular-nums [&_dd]:break-all",
+                "data-testid": "signature-request-facts"
+              },
+              "items": [
+                {
+                  "term": "$t:admin.signatures.col.record",
+                  "detail": "$record.table · $record.recordId"
+                },
+                {
+                  "term": "$t:admin.signatures.col.sent",
+                  "detail": "$record.sentAt",
+                  "format": "day-relative-time"
+                },
+                {
+                  "term": "$t:admin.signatures.detail.expires",
+                  "detail": "$record.expiresAt",
+                  "format": "day-relative-time"
+                },
+                {
+                  "term": "$t:admin.signatures.col.ended",
+                  "detail": "$record.endedAt",
+                  "format": "day-relative-time"
+                },
+                {
+                  "term": "$t:admin.signatures.detail.document",
+                  "detail": "$record.documentHash"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "signers",
+          "element": "section",
+          "props": {
+            "className": "flex flex-col gap-3",
+            "aria-label": "$t:admin.signatures.detail.signers"
+          },
+          "children": [
+            {
+              "type": "container",
+              "element": "div",
+              "props": {
+                "className": "flex flex-col gap-1"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h2",
+                  "props": {
+                    "className": "text-foreground text-base font-semibold"
+                  },
+                  "content": "$t:admin.signatures.detail.signers"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-muted-foreground max-w-3xl text-sm"
+                  },
+                  "content": "$t:admin.signatures.detail.signersBlurb"
+                }
+              ]
+            },
+            {
+              "component": "console-grid",
+              "key": "signers-grid",
+              "vars": {
+                "id": "admin-signature-signers-grid",
+                "ariaLabel": "$t:admin.signatures.detail.signers",
+                "dataSource": {
+                  "system": {
+                    "endpoint": "/api/signatures/requests/$param.id",
+                    "rowsKey": "signers",
+                    "idKey": "name"
+                  }
+                },
+                "columns": [
+                  {
+                    "field": "displayName",
+                    "label": "$t:admin.signatures.col.signer",
+                    "minWidth": 180
+                  },
+                  {
+                    "field": "name",
+                    "label": "$t:admin.signatures.col.role",
+                    "width": 140
+                  },
+                  {
+                    "field": "status",
+                    "label": "$t:admin.signatures.col.status",
+                    "valueLabels": {
+                      "waiting": "$t:admin.signatures.signer.waiting",
+                      "sent": "$t:admin.signatures.signer.sent",
+                      "signed": "$t:admin.signatures.signer.signed",
+                      "declined": "$t:admin.signatures.signer.declined"
+                    },
+                    "width": 130
+                  },
+                  {
+                    "field": "signedAt",
+                    "label": "$t:admin.signatures.col.signedAt",
+                    "format": "datetime",
+                    "width": 170
+                  },
+                  {
+                    "field": "verifiedBy",
+                    "label": "$t:admin.signatures.col.verifiedBy",
+                    "sortable": false,
+                    "width": 160
+                  }
+                ],
+                "emptyMessage": "$t:admin.signatures.detail.noSigners"
+              }
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "timeline",
+          "element": "section",
+          "props": {
+            "className": "flex flex-col gap-3",
+            "aria-label": "$t:admin.signatures.detail.timeline"
+          },
+          "children": [
+            {
+              "type": "container",
+              "element": "div",
+              "props": {
+                "className": "flex flex-col gap-1"
+              },
+              "children": [
+                {
+                  "type": "text",
+                  "element": "h2",
+                  "props": {
+                    "className": "text-foreground text-base font-semibold"
+                  },
+                  "content": "$t:admin.signatures.detail.timeline"
+                },
+                {
+                  "type": "text",
+                  "element": "p",
+                  "props": {
+                    "className": "text-muted-foreground max-w-3xl text-sm"
+                  },
+                  "content": "$t:admin.signatures.detail.timelineBlurb"
+                }
+              ]
+            },
+            {
+              "component": "console-grid",
+              "key": "events-grid",
+              "vars": {
+                "id": "admin-signature-events-grid",
+                "ariaLabel": "$t:admin.signatures.detail.timeline",
+                "dataSource": {
+                  "system": {
+                    "endpoint": "/api/signatures/requests/$param.id/evidence",
+                    "rowsKey": "events",
+                    "idKey": "seq"
+                  }
+                },
+                "columns": [
+                  {
+                    "field": "seq",
+                    "label": "$t:admin.signatures.col.seq",
+                    "width": 60
+                  },
+                  {
+                    "field": "type",
+                    "label": "$t:admin.signatures.col.event",
+                    "valueLabels": {
+                      "sent": "$t:admin.signatures.event.sent",
+                      "opened": "$t:admin.signatures.event.opened",
+                      "challenge-sent": "$t:admin.signatures.event.challengeSent",
+                      "challenge-verified": "$t:admin.signatures.event.challengeVerified",
+                      "challenge-failed": "$t:admin.signatures.event.challengeFailed",
+                      "signed": "$t:admin.signatures.event.signed",
+                      "declined": "$t:admin.signatures.event.declined",
+                      "reminded": "$t:admin.signatures.event.reminded",
+                      "cancelled": "$t:admin.signatures.event.cancelled",
+                      "expired": "$t:admin.signatures.event.expired",
+                      "sealed": "$t:admin.signatures.event.sealed",
+                      "completed": "$t:admin.signatures.event.completed",
+                      "delivered": "$t:admin.signatures.event.delivered",
+                      "erased": "$t:admin.signatures.event.erased"
+                    },
+                    "minWidth": 160
+                  },
+                  {
+                    "field": "signer",
+                    "label": "$t:admin.signatures.col.role",
+                    "width": 140
+                  },
+                  {
+                    "field": "at",
+                    "label": "$t:admin.signatures.col.at",
+                    "format": "datetime",
+                    "width": 190
+                  }
+                ],
+                "emptyMessage": "$t:admin.signatures.detail.noEvents",
+                "pagination": {
+                  "pageSize": 50
+                }
+              }
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "export",
+          "element": "div",
+          "props": {
+            "className": "flex flex-col items-start gap-2"
+          },
+          "children": [
+            {
+              "type": "link",
+              "content": "$t:admin.signatures.detail.export",
+              "props": {
+                "href": "/api/signatures/requests/$record.id/export",
+                "download": "signature-$record.id.json",
+                "data-testid": "signature-export",
+                "className": "border-border hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium"
+              }
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.signatures.detail.exportHint"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -61,7 +61,7 @@ description: 'Full-featured e-commerce platform with cart, checkout and payment 
 
 ## `badge`
 
-`badge` controls the "Built with Sovrium" link pill every page carries: shown by default, moved into a footer line with `badge: { placement: footer }`, removed with `badge: false`. It has its own article, **Built with Sovrium Badge**, with the placement rules and where the badge does and does not appear.
+`badge` controls the "Built with Sovrium" link pill every page carries: shown by default, moved into a footer line with `badge: { placement: footer }`, removed with `badge: false`. It has its own article, [Built with Sovrium Badge](/en/docs/badge), with the placement rules and where the badge does and does not appear.
 
 ## Version history
 

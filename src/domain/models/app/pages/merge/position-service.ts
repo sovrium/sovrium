@@ -13,8 +13,9 @@
  */
 
 import { placedDrawnNodes } from '../page-drawing'
-import type { DrawnPage, PlacedDrawnNode } from '../page-drawing'
+import type { DrawnNode, DrawnPage, PlacedDrawnNode } from '../page-drawing'
 import type { CurrentNode } from './edits-service'
+import type { PageDesignTreeNode } from '@/domain/models/api/admin/design-system/page-design-tree'
 
 /** The path id a drawn position stands at on a page drawn as the config writes it. */
 const positionalIdOf = (pageName: string, at: string): string =>
@@ -71,4 +72,82 @@ export const reshapedUnstamped = (
   if (!unstamped(drawn, placed)) return false
   const matched = matchByPosition(placed, current, pageName)
   return matched.size !== placed.length || placed.length !== current.length
+}
+
+/** A drawn text as a reader sees it, every run of white space one space. */
+const readAs = (content: string | undefined): string => (content ?? '').replace(/\s+/g, ' ').trim()
+
+/**
+ * Whether a stamp names a page node the drawn node is not: none, one of another
+ * type, or one whose literal text is another. The node it was drawn of has
+ * moved. A stamp naming a node the drawing still reads as is a reorder.
+ */
+const isStale = (node: DrawnNode, current: ReadonlyMap<string, PageDesignTreeNode>): boolean => {
+  const named = node.id === undefined ? undefined : current.get(node.id)
+  if (named === undefined || named.type !== node.type) return true
+  return (
+    named.content !== undefined &&
+    node.content !== undefined &&
+    readAs(named.content) !== readAs(node.content)
+  )
+}
+
+/** Whether a drawn node and the node an unedited export draws at its place are one node. */
+const sameNodeAt = (
+  drawn: PlacedDrawnNode,
+  baseline: PlacedDrawnNode | undefined,
+  current: ReadonlyMap<string, PageDesignTreeNode>
+): boolean => {
+  if (baseline === undefined || drawn.at !== baseline.at) return false
+  if (drawn.node.type !== baseline.node.type) return false
+  if (drawn.node.id === baseline.node.id) return true
+  return (
+    isStale(drawn.node, current) && readAs(drawn.node.content) === readAs(baseline.node.content)
+  )
+}
+
+/** Every node of a tree with the id of the node an unedited export draws at its place. */
+const withIdsOf = (
+  nodes: readonly DrawnNode[],
+  baseline: readonly DrawnNode[]
+): readonly DrawnNode[] =>
+  nodes.map((node, index) => ({
+    ...node,
+    id: baseline[index]?.id,
+    children: withIdsOf(node.children, baseline[index]?.children ?? []),
+  }))
+
+/** Every page node of a design tree, by id. */
+const treeNodesOf = (
+  tree: readonly PageDesignTreeNode[]
+): readonly (readonly [string, PageDesignTreeNode])[] =>
+  tree.flatMap((node) => [[node.id, node] as const, ...treeNodesOf(node.children)])
+
+/**
+ * A stamped drawing whose stamps name the places its nodes had BEFORE a write,
+ * read with the places they have now. Right after `--write` inserted nodes in
+ * front of others, the board still names the old places, and the nodes it
+ * added carry no id; while the board draws exactly what an unedited export of
+ * the written config draws (the same nodes, the same types, the same text, at
+ * the same places), every node is that export's node at its place, and the
+ * drawing is read with its ids and stamp. A board edited since, or any node a
+ * stamp still names at a place that draws it (a reorder), keeps its stamps.
+ *
+ * @param drawn - the drawing as read.
+ * @param baseline - what an unedited export of the config draws, read by the same parser.
+ * @param tree - the page's design tree, recomputed from the config.
+ */
+export const restampedDrawing = (
+  drawn: DrawnPage,
+  baseline: DrawnPage,
+  tree: readonly PageDesignTreeNode[]
+): DrawnPage => {
+  const placed = placedDrawnNodes(drawn.nodes)
+  const expected = placedDrawnNodes(baseline.nodes)
+  if (unstamped(drawn, placed) || placed.length !== expected.length) return drawn
+  if (placed.every((entry, index) => entry.node.id === expected[index]?.node.id)) return drawn
+  const current = new Map(treeNodesOf(tree))
+  return placed.every((entry, index) => sameNodeAt(entry, expected[index], current))
+    ? { ...drawn, nodes: withIdsOf(drawn.nodes, baseline.nodes), stamp: baseline.stamp }
+    : drawn
 }

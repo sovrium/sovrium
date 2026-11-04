@@ -6,7 +6,7 @@
  */
 
 import { primaryPagePath } from '@/domain/kernel/matching/localized-path'
-import { evaluateFormAccess } from '@/domain/models/app/forms/form-access-flow'
+import { evaluateFormAccess, toFormAccessSession } from '@/domain/models/app/forms/form-access-flow'
 import { resolveTranslationPattern } from '@/domain/models/app/languages/translation-resolver'
 import { isArticleReadable } from './content-dir-access'
 import { extractMatchExcerpt, stripMarkdownToPlainText } from './content-dir-excerpt'
@@ -224,14 +224,7 @@ const embeddedFormsAdmit = (
   app: App,
   session: SessionInfo | undefined
 ): boolean => {
-  const formSession =
-    session === undefined
-      ? undefined
-      : {
-          userId: session.userId,
-          role: session.role,
-          ...(session.groups !== undefined ? { groups: session.groups } : {}),
-        }
+  const formSession = session === undefined ? undefined : toFormAccessSession(session, app)
   return formRefs.every((ref) => {
     const form = app.forms?.find((candidate) => candidate.name === ref)
     return (

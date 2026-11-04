@@ -116,6 +116,7 @@ type DynamicSignalId =
   | 'reader'
   | 'session'
   | 'twoFactorCode'
+  | 'itemList'
 
 /** Whether a node is a form checking a two-step code. */
 const isTwoFactorCodeForm = (node: Readonly<Record<string, unknown>>): boolean => {
@@ -157,6 +158,16 @@ const holdsSessionGate = (node: object): boolean => {
   if (typeof visibility !== 'object' || visibility === null) return false
   return Object.keys(visibility).some((key) => !SESSION_FREE_VISIBILITY_KEYS.has(key))
 }
+
+/** Whether the page's authored structured data carries an `itemList` source. */
+const declaresItemList = (page: Page): boolean =>
+  [page.meta?.schema, page.meta?.structuredData].some(
+    (document) =>
+      document !== null &&
+      typeof document === 'object' &&
+      !Array.isArray(document) &&
+      (document as Readonly<Record<string, unknown>>)['itemList'] !== undefined
+  )
 
 /**
  * Page-level signals that make a page's HTML vary per request — each reads the
@@ -212,6 +223,9 @@ const DYNAMIC_PAGE_SIGNALS: readonly {
     id: 'twoFactorCode',
     trips: (page, placed) => someRenderedNode(page.components ?? [], placed, isTwoFactorCodeForm),
   },
+  // An `itemList` in the page's structured data is built from a table's rows,
+  // read for each reader, exactly as a bound list is.
+  { id: 'itemList', trips: (page) => declaresItemList(page) },
 ]
 
 /**
@@ -279,6 +293,7 @@ const RECORD_BACKED_SIGNALS: ReadonlySet<DynamicSignalId> = new Set<DynamicSigna
   'sidebar',
   'reader',
   'session',
+  'itemList',
 ])
 
 /**

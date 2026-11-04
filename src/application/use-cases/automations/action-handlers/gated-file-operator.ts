@@ -11,6 +11,7 @@ import {
   StorageService,
   uploadTargetParts,
 } from '@/application/ports/services/storage-service'
+import { isSignatureNamespaceKey } from '@/domain/models/app/signatures/signature-capture-service'
 import { resolveTranscribeSource } from './ai-transcribe-source'
 import { isSelfContainedSource } from './file/support'
 import { CALLER_REFUSAL } from './record/caller-gate'
@@ -114,6 +115,21 @@ const keysOf = (
 ): readonly string[] => storedKeys((table[operator] ?? (() => []))(p))
 
 /**
+ * The refusal a step meets when it would remove, move or write over a file
+ * under the signature evidence namespace, in every run, started by hand or
+ * not: that file goes only when its request's retention ends.
+ */
+const EVIDENCE_REFUSAL =
+  'signature evidence files are kept by the engine until their retention ends'
+
+/** The keys `p` would remove or write over for `operator`, an upload's `path` included. */
+const alteredKeys = (operator: string, p: Props): readonly string[] => [
+  ...keysOf(REMOVED_KEYS, operator, p),
+  ...keysOf(WRITTEN_KEYS, operator, p),
+  ...(operator === 'upload' ? storedKeys([stringProp(p, 'path')]) : []),
+]
+
+/**
  * `storage`, writing create-only at `keys`: a write there replaces nothing, and
  * one that finds a file stored in the meantime marks `taken` and is kept.
  */
@@ -166,6 +182,9 @@ export const gatedFileOperator =
   (action, app, automation, runContext) =>
     Effect.gen(function* () {
       const p = (action['props'] as Props | undefined) ?? {}
+      if (alteredKeys(operator, p).some(isSignatureNamespaceKey)) {
+        return refusedAs(operator, EVIDENCE_REFUSAL)
+      }
       // Judged before any byte is read: a refused step reads, writes and removes nothing.
       const gates = [
         [starterFileGate, STORED_KEYS],

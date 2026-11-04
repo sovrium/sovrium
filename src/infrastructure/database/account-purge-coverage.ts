@@ -51,6 +51,7 @@
 
 import { PURGED_AUTH_TABLES } from './account-purge-auth-tables'
 import { PERSONAL_STORE_TABLES } from './account-purge-personal-stores'
+import { SIGNATURE_ERASURE_COVERAGE } from './account-purge-signature-coverage'
 
 export { PURGED_AUTH_TABLES }
 
@@ -138,9 +139,7 @@ export const PURGED_SYSTEM_TABLES = [
 /**
  * The complete census: every table the schema scan flags as user-referencing,
  * with its verdict. Checked against the live Drizzle schema by
- * `account-purge-coverage.test.ts`.
- *
- * Keys are `<namespace>.<table>` as the scan reports them.
+ * `account-purge-coverage.test.ts`. Keys are `<namespace>.<table>` as the scan reports them.
  */
 export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = {
   // ── Purged outright ────────────────────────────────────────────────────────
@@ -238,6 +237,7 @@ export const ERASURE_COVERAGE: Readonly<Record<string, ErasureCoverageEntry>> = 
   },
 
   // ── Identifier shed, row retained ─────────────────────────────────────────
+  ...SIGNATURE_ERASURE_COVERAGE,
   'system.user_access': {
     verdict: 'delete',
     columns: ['user_id'],

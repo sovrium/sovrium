@@ -5,27 +5,11 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-/**
- * Extract human-readable filename(s) from a stored attachment value.
- *
- * Accepts the same shapes the file-field island parses on hydration:
- *  - a JSON metadata object (`{ name, url, size, ... }`),
- *  - a JSON array of metadata objects / storage-key strings,
- *  - a plain storage key string (`<uuid>-<filename>` or a bare name).
- *
- * Returns the list of display names so edit-mode SSR can show the existing
- * attachment(s) immediately, before the island hydrates.
- */
-/** Recover the original filename from a `<uuid>-<filename>` storage key. */
-function attachmentNameFromKey(key: string): string {
-  return (
-    key.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(.+)$/i)?.[1] ?? key
-  )
-}
+import { stripStorageKeyUuidPrefix } from '@/domain/kernel/identity/storage-key'
 
 /** Resolve the display name for one attachment entry (key string or metadata object). */
 function attachmentNameFromEntry(entry: unknown): string | undefined {
-  if (typeof entry === 'string') return attachmentNameFromKey(entry)
+  if (typeof entry === 'string') return stripStorageKeyUuidPrefix(entry)
   if (typeof entry === 'object' && entry !== null) {
     const { name } = entry as Record<string, unknown>
     return typeof name === 'string' ? name : undefined
@@ -33,6 +17,19 @@ function attachmentNameFromEntry(entry: unknown): string | undefined {
   return undefined
 }
 
+/**
+ * Extract human-readable filename(s) from a stored attachment value.
+ *
+ * Accepts the same shapes the file-field island parses on hydration:
+ *  - a JSON metadata object (`{ name, url, size, ... }`),
+ *  - a JSON array of metadata objects / storage-key strings,
+ *  - a plain storage key string (`<uuid>-<filename>` or a bare name), read
+ *    without its upload prefix (`stripStorageKeyUuidPrefix`, the one rule the
+ *    read-only attachment links share).
+ *
+ * Returns the list of display names so edit-mode SSR can show the existing
+ * attachment(s) immediately, before the island hydrates.
+ */
 export function attachmentFilenames(rawValue: unknown): readonly string[] {
   // JSONB attachment columns surface as JS objects/arrays; VARCHAR columns
   // surface as JSON strings or bare storage keys. Handle all shapes.
@@ -49,6 +46,6 @@ export function attachmentFilenames(rawValue: unknown): readonly string[] {
     return list.map(attachmentNameFromEntry).filter((n): n is string => n !== undefined)
   } catch {
     // Not JSON — treat as a bare storage key string.
-    return [attachmentNameFromKey(trimmed)]
+    return [stripStorageKeyUuidPrefix(trimmed)]
   }
 }

@@ -150,6 +150,12 @@ export interface SubmitFormConfig {
   readonly resumeTokenHash?: string
   /** The language a translatable answer is filed under; `?lang=` on the submission when absent. */
   readonly writeLanguage?: string
+  /**
+   * The submitter's browser sent a privacy signal (`DNT: 1`, `Sec-GPC: 1`) the
+   * app honours, judged at the route, the only layer that sees the headers.
+   * The submission is saved either way; only its analytics event is skipped.
+   */
+  readonly declinesTracking?: boolean
 }
 
 /**

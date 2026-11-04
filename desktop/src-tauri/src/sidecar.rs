@@ -1026,7 +1026,10 @@ mod tests {
         // Built the way the shell builds them, so the expectation carries the
         // platform's own separator: `join` writes `\` on Windows.
         let dir = Path::new("/tmp/demo");
-        assert_eq!(env["SOVRIUM_DATA_DIR"], dir.join(".sovrium").to_string_lossy());
+        assert_eq!(
+            env["SOVRIUM_DATA_DIR"],
+            dir.join(".sovrium").to_string_lossy()
+        );
         assert_eq!(env["SOVRIUM_PROJECT_DIR"], dir.to_string_lossy());
         assert_eq!(env["SOVRIUM_CONFIG_FILE"], "app.yaml");
         assert_eq!(env["SOVRIUM_INSTALL_METHOD"], "desktop");
@@ -1057,7 +1060,11 @@ mod tests {
     fn start_args_watch() {
         assert_eq!(
             start_args(&project()),
-            vec!["start".to_string(), "app.yaml".to_string(), "--watch".to_string()]
+            vec![
+                "start".to_string(),
+                "app.yaml".to_string(),
+                "--watch".to_string()
+            ]
         );
     }
 
@@ -1072,7 +1079,10 @@ mod tests {
 
         s.push_log("err", "x".repeat(LOG_LINE_MAX * 3));
         let last = s.logs().last().cloned().unwrap();
-        assert!(last.len() <= LOG_LINE_MAX + 8, "a runaway line is truncated");
+        assert!(
+            last.len() <= LOG_LINE_MAX + 8,
+            "a runaway line is truncated"
+        );
     }
 
     #[test]
@@ -1110,7 +1120,10 @@ mod tests {
         // because a previous run left its lock file behind.
         let dir = std::env::temp_dir().join(format!("sov-stale-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let path = write_lock(&dir, r#"{"pid":1,"port":5123,"configHash":"a","configPath":"x"}"#);
+        let path = write_lock(
+            &dir,
+            r#"{"pid":1,"port":5123,"configHash":"a","configPath":"x"}"#,
+        );
         let in_the_future = SystemTime::now() + Duration::from_secs(3600);
         assert_eq!(read_lock_port(&path, 4242, in_the_future), None);
         std::fs::remove_dir_all(&dir).ok();
@@ -1120,7 +1133,10 @@ mod tests {
     fn a_lock_written_after_we_spawned_is_accepted_even_on_a_pid_mismatch() {
         let dir = std::env::temp_dir().join(format!("sov-mtime-{}", std::process::id()));
         std::fs::create_dir_all(&dir).unwrap();
-        let path = write_lock(&dir, r#"{"pid":1,"port":5123,"configHash":"a","configPath":"x"}"#);
+        let path = write_lock(
+            &dir,
+            r#"{"pid":1,"port":5123,"configHash":"a","configPath":"x"}"#,
+        );
         let long_ago = SystemTime::UNIX_EPOCH;
         assert_eq!(read_lock_port(&path, 4242, long_ago), Some(5123));
         std::fs::remove_dir_all(&dir).ok();
@@ -1136,7 +1152,11 @@ mod tests {
             "not json at all",
         ] {
             let path = write_lock(&dir, body);
-            assert_eq!(read_lock_port(&path, 4242, SystemTime::UNIX_EPOCH), None, "{body}");
+            assert_eq!(
+                read_lock_port(&path, 4242, SystemTime::UNIX_EPOCH),
+                None,
+                "{body}"
+            );
         }
         assert_eq!(
             read_lock_port(&dir.join("absent"), 4242, SystemTime::UNIX_EPOCH),
@@ -1238,6 +1258,9 @@ mod tests {
             serde_json::to_string(&ShellState::Restarting { attempt: 2 }).unwrap(),
             r#"{"kind":"restarting","attempt":2}"#
         );
-        assert_eq!(serde_json::to_string(&ShellState::Idle).unwrap(), r#"{"kind":"idle"}"#);
+        assert_eq!(
+            serde_json::to_string(&ShellState::Idle).unwrap(),
+            r#"{"kind":"idle"}"#
+        );
     }
 }

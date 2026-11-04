@@ -54,8 +54,6 @@ export default {
   'sovrium.datatable.loadFailedIn': '{table} : chargement impossible.',
   'sovrium.dialog.typeToConfirm': 'Pour confirmer, saisis « {text} »',
   'sovrium.dialog.typeToConfirmAsked': 'Pour confirmer, saisis le texte demandé',
-  'sovrium.filePreview.cannotShow':
-    '{name} ne peut pas être affiché ici. Télécharge-le pour l’ouvrir.',
   'sovrium.fileUpload.dropPrompt': 'Dépose des fichiers ici',
   'sovrium.form.confirmPrompt': 'Ça prend effet tout de suite.',
   'sovrium.form.dropFiles': 'Dépose des fichiers ici ou clique pour parcourir',

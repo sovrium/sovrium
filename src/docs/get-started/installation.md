@@ -8,9 +8,9 @@ You can install Sovrium on your own machine or run it on a cloud host. Pick the 
 
 ## Prerequisites
 
-None. Sovrium ships as a self-contained binary: no runtime, no package manager, nothing to install first.
+Sovrium ships as a self-contained binary, so there is no runtime or package manager to install first.
 
-Tables and authentication work out of the box on an embedded SQLite database. PostgreSQL 15+ is optional and unlocks advanced features such as raw SQL and vector search.
+Tables and authentication run on an embedded SQLite database with no setup. PostgreSQL 15+ is optional; a few features need it, such as raw SQL and vector search.
 
 ## Local installation
 
@@ -88,7 +88,7 @@ name: my-app
 
 Both `.yaml`/`.yml` and `.json` are supported. YAML is recommended for readability.
 
-Authoring the config in TypeScript instead? Run `sovrium types` in the project directory. It writes `sovrium.d.ts` and a `tsconfig.json` from the types embedded in the binary, so `app.ts` gets full autocompletion with no `package.json`, no `node_modules` and nothing to install. See **TypeScript Configs**.
+Authoring the config in TypeScript instead? Run `sovrium types` in the project directory. It writes `sovrium.d.ts` and a `tsconfig.json` from the types embedded in the binary, so `app.ts` gets autocompletion with no `package.json`, no `node_modules` and nothing to install. See **TypeScript Configs**.
 
 ## Database setup
 

@@ -87,13 +87,6 @@ export default {
   'admin.connections.search': 'Rechercher une connexion',
   'admin.connections.noMatch': 'Aucune connexion ne correspond à « {query} »',
   'admin.connections.empty': 'Aucune connexion',
-
-  // ── Organisation (`/organisation`) ──────────────────────────────────────
-  //
-  // Le vocabulaire de sécurité en français, fixé une fois ici pour les cinq
-  // vues : « droit » pour *grant*, « source de droits » pour *grant source*,
-  // « barreau ouvert » pour *open rung* (le `*` de la config), « constat » pour
-  // *finding*. Un terme par notion, comme en anglais.
   'admin.organisation.heading': 'Accès',
   'admin.organisation.blurb':
     'Qui peut atteindre quoi dans cette app, et où l’accès est plus large qu’il ne devrait. Chaque constat nomme la règle à changer dans ta config.',
@@ -255,7 +248,7 @@ export default {
 
   'admin.automations.heading': 'Exécutions',
   'admin.automations.blurb':
-    'Toutes les exécutions de cette app, et les automatisations dont elles viennent. Mets-en une en pause pour arrêter son exécution sans changer ta config ; une automatisation désactivée dans ta config d’app ne peut être réactivée que là.',
+    'Toutes les exécutions de cette app, et les automatisations dont elles viennent. Mets-en une en pause pour arrêter son exécution sans changer ta config ; une automatisation désactivée dans ta config d’app ne peut être réactivée que là. Les exécutions et les compteurs se mettent à jour toutes les 15 secondes.',
   'admin.automations.tabs.region': 'Sous-vues Exécutions',
   'admin.automations.metrics.region': 'Indicateurs des exécutions',
   'admin.automations.tabs.history': 'Historique',
@@ -310,6 +303,28 @@ export default {
   'admin.automations.catalog.col.trigger': 'Déclencheurs',
   'admin.automations.catalog.col.state': 'État',
   'admin.automations.catalog.col.paused': 'En pause',
+  'admin.automations.catalog.col.setup': 'Configuration',
+  'admin.automations.catalog.col.placeholders': 'Reste à configurer',
+  'admin.automations.catalog.needsSetup.1': 'À configurer · 1',
+  'admin.automations.catalog.needsSetup.2': 'À configurer · 2',
+  'admin.automations.catalog.needsSetup.3': 'À configurer · 3',
+  'admin.automations.catalog.needsSetup.4': 'À configurer · 4',
+  'admin.automations.catalog.needsSetup.5': 'À configurer · 5',
+  'admin.automations.catalog.needsSetup.6': 'À configurer · 6',
+  'admin.automations.catalog.needsSetup.7': 'À configurer · 7',
+  'admin.automations.catalog.needsSetup.8': 'À configurer · 8',
+  'admin.automations.catalog.needsSetup.9': 'À configurer · 9',
+  'admin.automations.catalog.needsSetup.10': 'À configurer · 10',
+  'admin.automations.catalog.needsSetup.11': 'À configurer · 11',
+  'admin.automations.catalog.needsSetup.12': 'À configurer · 12',
+  'admin.automations.catalog.needsSetup.13': 'À configurer · 13',
+  'admin.automations.catalog.needsSetup.14': 'À configurer · 14',
+  'admin.automations.catalog.needsSetup.15': 'À configurer · 15',
+  'admin.automations.catalog.needsSetup.16': 'À configurer · 16',
+  'admin.automations.catalog.needsSetup.17': 'À configurer · 17',
+  'admin.automations.catalog.needsSetup.18': 'À configurer · 18',
+  'admin.automations.catalog.needsSetup.19': 'À configurer · 19',
+  'admin.automations.catalog.needsSetup.20': 'À configurer · 20',
   'admin.automations.catalog.state.active': 'Active',
   'admin.automations.catalog.state.paused': 'En pause',
   'admin.automations.catalog.state.disabled': 'Désactivée dans la config',
@@ -532,4 +547,11 @@ export default {
     'Les trois plus gros consommateurs, mesurés à la demande. Chaque ligne nomme l’instrument derrière son chiffre, parce qu’une taille sans origine déclarée ne se distingue pas d’une taille que personne n’a prise. Une taille vide signifie que la sonde était indisponible — un zéro signifie que la ressource a été mesurée et qu’elle est vide.',
   'admin.locked.audit.footprint.configurationProvenance':
     'Lu depuis l’environnement à chaque requête, donc un changement prend effet au rafraîchissement suivant. La configuration est déclarée, pas mesurée : elle décrit comment cette instance est réglée, pas ce qu’elle a émis.',
+
+  'admin.connections.col.renewal': 'Renouvellement',
+  'admin.connections.renewal.automatic': 'Se renouvelle automatiquement',
+  'admin.connections.renewal.manual': 'Reconnecte pour renouveler',
+  'admin.connections.action.authorizeFailed':
+    'Impossible de lancer la connexion : $response.message',
+  'admin.connections.action.disconnectFailed': 'Impossible de déconnecter : $response.message',
 } as const

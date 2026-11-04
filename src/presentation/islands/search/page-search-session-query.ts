@@ -28,11 +28,16 @@ interface SessionHit {
 
 export const querySessionIndex = async (
   query: string,
-  maxResults: number
-): Promise<ReadonlyArray<SearchResult>> => {
+  maxResults: number,
+  options: { readonly signal?: AbortSignal; readonly page?: string | undefined } = {}
+): Promise<ReadonlyArray<SearchResult> | undefined> => {
+  const { signal, page } = options
+  // `page` narrows the answer to one collection's articles: the docs sidebar's field.
+  const scope = page === undefined ? '' : `&page=${encodeURIComponent(page)}`
   try {
-    const response = await fetch(`/api/search/pages?q=${encodeURIComponent(query)}`, {
+    const response = await fetch(`/api/search/pages?q=${encodeURIComponent(query)}${scope}`, {
       credentials: 'same-origin',
+      signal,
     })
     if (!response.ok) return []
     const hits = (await response.json()) as ReadonlyArray<SessionHit>
@@ -43,6 +48,8 @@ export const querySessionIndex = async (
         : [{ url, title: hit.title, excerpt: hit.excerpt ?? '', score: 0 }]
     })
   } catch (error: unknown) {
+    // A query the next keystroke made stale was cancelled: it has no answer to paint.
+    if (signal?.aborted === true) return undefined
     warnInBrowser('page-search', 'session query failed:', error)
     return []
   }

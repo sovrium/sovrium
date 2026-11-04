@@ -37,6 +37,8 @@ That strictness is not tidiness. `action` is the dispatch key both the renderer 
 
 The automation a button names must carry a `manual` trigger to be invocable this way. An automation triggered only by a record event cannot be started by a person.
 
+A press waits for its run and answers `200` with the run's id and how it ended, and the person sees whether the action completed. A run can take longer than that: it may wait its turn behind other runs of an automation with a `concurrency` limit, or its steps may simply be slow. When the run has not ended about two seconds before the server's idle guard (`SOVRIUM_REQUEST_IDLE_TIMEOUT_S`, 10 seconds by default, so after 8 seconds), the press answers `202` with `{ runId, status }`, where `status` is `queued` or `running`, and the person reads _The action is under way._ instead of a failure. The run goes on and completes; its outcome is in the run history under that `runId`. Widening the guard widens this wait with it.
+
 ## Showing a button on some records only
 
 `visibleWhen` names a record field and applies the shared condition vocabulary (`eq`, `neq`, `in`, `notIn`, `contains`, `gt`, `lt`, `gte`, `lte`, and the presence flags `isEmpty: true` / `isNotEmpty: true`) to its value. Supplying several operators requires all of them to hold. A presence flag treats a missing value, an empty text, an empty list and an empty object alike, so `{ field: phone, isNotEmpty: true }` shows the button only on records that actually have a phone number.

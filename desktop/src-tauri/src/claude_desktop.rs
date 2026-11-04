@@ -738,14 +738,21 @@ mod tests {
             "env": { "X": "1" }
         });
         let original =
-            serde_json::to_vec_pretty(&json!({ "mcpServers": { "sovrium": hand_written } })).unwrap();
+            serde_json::to_vec_pretty(&json!({ "mcpServers": { "sovrium": hand_written } }))
+                .unwrap();
         fs::write(&path, &original).unwrap();
         let servers = servers_of(Some(&original)).unwrap();
         let name = resolve_entry_name(None, "crm", "/a", &[], Some(&servers));
         assert_eq!(name, "sovrium-crm");
 
-        let connect =
-            plan(&path, Some(&original), &name, Some(ours(false)), "20261025T120000.000Z").unwrap();
+        let connect = plan(
+            &path,
+            Some(&original),
+            &name,
+            Some(ours(false)),
+            "20261025T120000.000Z",
+        )
+        .unwrap();
         assert!(!connect.already_present);
         apply(&connect).unwrap();
         let after = written(&path);

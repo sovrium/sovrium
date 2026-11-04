@@ -148,11 +148,11 @@ export const withinApp: AcceptsDestination = (url, anchor) =>
 
 /**
  * Page chrome a content swap cannot carry: the record-bound layout sidebar, the
- * presence indicator and a leading header banner, all rendered by the page
- * OUTSIDE its main region.
+ * presence indicator, a leading header banner and a closing footer, all
+ * rendered by the page OUTSIDE its main region.
  */
 const OUTSIDE_REGION_CHROME =
-  '[data-testid="page-sidebar"], [data-island="presence-indicator"], [data-page-banner]'
+  '[data-testid="page-sidebar"], [data-island="presence-indicator"], [data-page-banner], [data-page-footer]'
 
 /**
  * Whether the document on screen holds page chrome outside the swapped region.

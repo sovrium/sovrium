@@ -677,6 +677,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                     },
                     {
                       activeMatch: 'prefix',
+                      href: '/signatures',
+                      icon: 'signature',
+                      label: '$t:admin.crumb.signatures',
+                      props: {
+                        'data-testid': 'data-nav-signatures',
+                      },
+                    },
+                    {
+                      activeMatch: 'prefix',
                       badge: {
                         endpoint: '/api/admin/attention',
                         valuePath: 'tokensExpired',
@@ -956,9 +965,16 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                       },
                       type: 'flex',
                     },
+                    {
+                      content: '$t:admin.shell.home',
+                      element: 'span',
+                      props: {
+                        className: 'sr-only',
+                      },
+                      type: 'text',
+                    },
                   ],
                   props: {
-                    'aria-label': '$t:admin.shell.home',
                     className:
                       'flex h-12 w-full min-w-0 items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm text-sidebar-foreground no-underline ring-sidebar-ring outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:no-underline focus-visible:ring-2 group-data-[collapsible=icon]/sidebar:size-8! group-data-[collapsible=icon]/sidebar:p-0! [&_svg]:size-4 [&_svg]:shrink-0',
                     href: '/',
@@ -1065,6 +1081,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                   label: '$t:admin.crumb.files',
                   visibility: {
                     declares: 'buckets',
+                  },
+                },
+                {
+                  description: '$t:admin.nav.group.data',
+                  href: '/signatures',
+                  icon: 'signature',
+                  label: '$t:admin.crumb.signatures',
+                  visibility: {
+                    declares: 'signatures',
                   },
                 },
                 {
@@ -1256,16 +1281,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           type: 'command',
         },
         {
-          children: [
-            {
-              content: '',
-              element: 'span',
-              props: {
-                className: 'sr-only',
-              },
-              type: 'text',
-            },
-          ],
           element: 'div',
           props: {
             className: 'hidden',
@@ -1340,6 +1355,14 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
               type: 'icon',
             },
             {
+              content: '$t:admin.shell.search',
+              element: 'span',
+              props: {
+                className: 'sr-only @2xl:hidden',
+              },
+              type: 'text',
+            },
+            {
               content: '$t:admin.shell.searchPlaceholder',
               element: 'span',
               props: {
@@ -1350,13 +1373,14 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
             {
               keys: ['⌘', 'K'],
               props: {
+                'aria-hidden': 'true',
                 className: 'hidden @2xl:inline-flex',
               },
               type: 'kbd',
             },
           ],
           props: {
-            'aria-label': '$t:admin.shell.search',
+            'aria-keyshortcuts': 'Meta+K',
             className:
               'relative size-8 shrink-0 justify-center gap-2 rounded-md px-0 text-sm font-normal text-muted-foreground shadow-none @2xl:w-56 @2xl:justify-start @2xl:px-2',
             'data-command-palette-trigger': 'true',
@@ -4240,6 +4264,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.auditLog.action.agent.conversation.list.queried': 'Read an agent’s conversations',
         'admin.auditLog.action.agent.detail.queried': 'Read an agent',
         'admin.auditLog.action.agent.list.queried': 'Read the agents',
+        'admin.auditLog.action.audit.export.queried': 'Exported the audit log',
         'admin.auditLog.action.automation.auto_paused': 'Automation paused itself',
         'admin.auditLog.action.automation.overview.queried': 'Read the automations overview',
         'admin.auditLog.action.automation.paused': 'Paused an automation',
@@ -4346,15 +4371,37 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.auditLog.transport.restore': 'Restore',
         'admin.auth.backToSignIn': 'Back to sign in',
         'admin.automations.blurb':
-          'Every run this app has made, and the automations they came from. Pause one to stop it running without changing your config; an automation disabled in your app config can only be re-enabled there.',
+          'Every run this app has made, and the automations they came from. Pause one to stop it running without changing your config; an automation disabled in your app config can only be re-enabled there. Runs and counts refresh every 15 seconds.',
         'admin.automations.cancel': 'Cancel',
         'admin.automations.catalog.action.pause': 'Pause',
         'admin.automations.catalog.action.resume': 'Resume',
         'admin.automations.catalog.col.automation': 'Automation',
         'admin.automations.catalog.col.paused': 'Paused',
+        'admin.automations.catalog.col.placeholders': 'Left to set up',
+        'admin.automations.catalog.col.setup': 'Setup',
         'admin.automations.catalog.col.state': 'State',
         'admin.automations.catalog.col.trigger': 'Triggers',
         'admin.automations.catalog.empty': 'No automations',
+        'admin.automations.catalog.needsSetup.1': 'Needs setup · 1',
+        'admin.automations.catalog.needsSetup.10': 'Needs setup · 10',
+        'admin.automations.catalog.needsSetup.11': 'Needs setup · 11',
+        'admin.automations.catalog.needsSetup.12': 'Needs setup · 12',
+        'admin.automations.catalog.needsSetup.13': 'Needs setup · 13',
+        'admin.automations.catalog.needsSetup.14': 'Needs setup · 14',
+        'admin.automations.catalog.needsSetup.15': 'Needs setup · 15',
+        'admin.automations.catalog.needsSetup.16': 'Needs setup · 16',
+        'admin.automations.catalog.needsSetup.17': 'Needs setup · 17',
+        'admin.automations.catalog.needsSetup.18': 'Needs setup · 18',
+        'admin.automations.catalog.needsSetup.19': 'Needs setup · 19',
+        'admin.automations.catalog.needsSetup.2': 'Needs setup · 2',
+        'admin.automations.catalog.needsSetup.20': 'Needs setup · 20',
+        'admin.automations.catalog.needsSetup.3': 'Needs setup · 3',
+        'admin.automations.catalog.needsSetup.4': 'Needs setup · 4',
+        'admin.automations.catalog.needsSetup.5': 'Needs setup · 5',
+        'admin.automations.catalog.needsSetup.6': 'Needs setup · 6',
+        'admin.automations.catalog.needsSetup.7': 'Needs setup · 7',
+        'admin.automations.catalog.needsSetup.8': 'Needs setup · 8',
+        'admin.automations.catalog.needsSetup.9': 'Needs setup · 9',
         'admin.automations.catalog.pause.failed': 'Couldn’t pause $record.name.',
         'admin.automations.catalog.pause.message':
           'New runs stop until you resume. A run already in progress is not cancelled.',
@@ -4621,9 +4668,12 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.common.voice': 'Voice',
         'admin.common.zone': 'Zone',
         'admin.common.zones': 'Zones',
+        'admin.connections.action.authorizeFailed':
+          'Could not start the connection: $response.message',
         'admin.connections.action.connect': 'Connect',
         'admin.connections.action.disconnect': 'Disconnect',
         'admin.connections.action.disconnectConfirm': 'Disconnect this account?',
+        'admin.connections.action.disconnectFailed': 'Could not disconnect: $response.message',
         'admin.connections.action.disconnectMessage':
           'Its tokens are revoked now. Automations that use it fail until someone connects again.',
         'admin.connections.action.reconnect': 'Reconnect',
@@ -4635,6 +4685,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.connections.col.expiration': 'Expiration',
         'admin.connections.col.lastError': 'Last error',
         'admin.connections.col.lastUsed': 'Last used',
+        'admin.connections.col.renewal': 'Renewal',
         'admin.connections.col.status': 'Status',
         'admin.connections.col.tokens': 'Tokens',
         'admin.connections.col.type': 'Type',
@@ -4643,6 +4694,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.connections.heading': 'Connections',
         'admin.connections.noMatch': 'No connection matches “{query}”',
         'admin.connections.region': 'Connections',
+        'admin.connections.renewal.automatic': 'Renews automatically',
+        'admin.connections.renewal.manual': 'Reconnect to renew',
         'admin.connections.search': 'Search connections',
         'admin.connections.status.active': 'Active',
         'admin.connections.status.expired': 'Expired',
@@ -4682,6 +4735,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.count.records.other': '{count} records',
         'admin.count.runs.one': '{count} run',
         'admin.count.runs.other': '{count} runs',
+        'admin.count.signatures.one': '{count} request',
+        'admin.count.signatures.other': '{count} requests',
         'admin.count.starts.one': '{count} start',
         'admin.count.starts.other': '{count} starts',
         'admin.count.submissions.one': '{count} submission',
@@ -4710,6 +4765,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.crumb.report': 'Report a problem',
         'admin.crumb.run': 'Run',
         'admin.crumb.runs': 'Runs',
+        'admin.crumb.signatures': 'Signatures',
         'admin.crumb.submissions': 'Submissions',
         'admin.crumb.systemBucket': 'System',
         'admin.crumb.templates': 'Templates',
@@ -4804,6 +4860,11 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.ds.found.breakpoint': 'Breakpoint',
         'admin.ds.found.breakpoints': 'Breakpoints',
         'admin.ds.found.cardSample': 'Card on the page background',
+        'admin.ds.found.code': 'Code',
+        'admin.ds.found.codeDark': 'Dark',
+        'admin.ds.found.codeIntro':
+          'A syntax role listed here takes its colour from your palette. Every other role keeps the default colours. Declare design.code.tokens to colour one.',
+        'admin.ds.found.codeLight': 'Light',
         'admin.ds.found.colour': 'Colour',
         'admin.ds.found.copyHex': 'Copy the hex value of',
         'admin.ds.found.copyValue': 'Copy the declared value of',
@@ -5331,8 +5392,11 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.meta.release': '$app.label — Changelog · Release',
         'admin.meta.report': '$app.label — Report a problem',
         'admin.meta.resetPassword': '$app.label — New password',
+        'admin.meta.signatureRequest': '$app.label — Signing request',
+        'admin.meta.signatures': '$app.label — Signatures',
         'admin.meta.tables': '$app.label — Records',
         'admin.meta.templates': '$app.label — Templates',
+        'admin.meta.twoFactor': '$app.label — Two-step verification',
         'admin.meta.userAccount': '$app.label — Account',
         'admin.meta.users': '$app.label — Users',
         'admin.meta.voice': '$app.label — Voice',
@@ -5576,6 +5640,14 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           'That file was not accepted. Use a PNG, JPEG or WebP under 5 MB.',
         'admin.profile.picture.uploaded': 'Picture updated.',
         'admin.profile.rows.region': 'Account settings',
+        'admin.profile.twoFactor.disable': 'Turn off',
+        'admin.profile.twoFactor.disableRegion': 'Turn off two-step verification',
+        'admin.profile.twoFactor.enable': 'Turn on',
+        'admin.profile.twoFactor.enableRegion': 'Turn on two-step verification',
+        'admin.profile.twoFactor.hint':
+          'Asks for a code from an authenticator app after your password. You get recovery codes for when the app is out of reach.',
+        'admin.profile.twoFactor.label': 'Two-step verification',
+        'admin.profile.twoFactor.on': 'On. Signing in asks for a code from your authenticator app.',
         'admin.report.description':
           'Something wrong in Sovrium? Open a prefilled issue on GitHub. Nothing is sent until you submit it there.',
         'admin.report.heading': 'Report a problem',
@@ -5638,6 +5710,70 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.shortcuts.search': 'Search everything',
         'admin.shortcuts.sidebar': 'Show or hide the sidebar',
         'admin.shortcuts.title': 'Keyboard shortcuts',
+        'admin.signatures.blurb':
+          'Every signing request your app has sent: who signs it and where it stands. Your automations send and withdraw requests; here you read them and download their evidence.',
+        'admin.signatures.col.at': 'When',
+        'admin.signatures.col.ended': 'Ended',
+        'admin.signatures.col.event': 'Event',
+        'admin.signatures.col.flow': 'Flow',
+        'admin.signatures.col.keepUntil': 'Evidence kept until',
+        'admin.signatures.col.record': 'Record',
+        'admin.signatures.col.role': 'Role',
+        'admin.signatures.col.sent': 'Sent',
+        'admin.signatures.col.seq': '#',
+        'admin.signatures.col.signedAt': 'Signed',
+        'admin.signatures.col.signer': 'Signer',
+        'admin.signatures.col.signers': 'Signers',
+        'admin.signatures.col.status': 'Status',
+        'admin.signatures.col.verifiedBy': 'Verified by',
+        'admin.signatures.detail.blurb':
+          'One signing request, read-only: its document, its signers and every event of its evidence log.',
+        'admin.signatures.detail.document': 'Document fingerprint (SHA-256)',
+        'admin.signatures.detail.expires': 'Links stop working',
+        'admin.signatures.detail.export': 'Download the evidence',
+        'admin.signatures.detail.exportHint':
+          'A JSON file with the frozen document, the signed document, the proof file and the log. Check it with sovrium signature verify.',
+        'admin.signatures.detail.noEvents': 'No events recorded yet.',
+        'admin.signatures.detail.noSigners': 'This request has no signers.',
+        'admin.signatures.detail.sealed': 'Sealed',
+        'admin.signatures.detail.signers': 'Signers',
+        'admin.signatures.detail.signersBlurb':
+          'Who signs, in order, and how each one was verified.',
+        'admin.signatures.detail.timeline': 'Evidence log',
+        'admin.signatures.detail.timelineBlurb':
+          'Every event of the request, in order. Each one commits to the one before it, so a changed row breaks the log.',
+        'admin.signatures.detail.timestamped': 'Timestamped',
+        'admin.signatures.empty':
+          'No signing requests yet. One appears here when an automation sends it with a signature/send step.',
+        'admin.signatures.event.cancelled': 'Withdrawn',
+        'admin.signatures.event.challengeFailed': 'Wrong code',
+        'admin.signatures.event.challengeSent': 'Code sent',
+        'admin.signatures.event.challengeVerified': 'Code confirmed',
+        'admin.signatures.event.completed': 'Completed',
+        'admin.signatures.event.declined': 'Declined',
+        'admin.signatures.event.delivered': 'Signed copy sent',
+        'admin.signatures.event.erased': 'Signer erased',
+        'admin.signatures.event.expired': 'Expired',
+        'admin.signatures.event.opened': 'Link opened',
+        'admin.signatures.event.reminded': 'Reminder sent',
+        'admin.signatures.event.sealed': 'Sealed',
+        'admin.signatures.event.sent': 'Request sent',
+        'admin.signatures.event.signed': 'Signed',
+        'admin.signatures.heading': 'Signatures',
+        'admin.signatures.noMatch': 'No request matches “{query}”',
+        'admin.signatures.region': 'Signing requests',
+        'admin.signatures.search': 'Search requests',
+        'admin.signatures.signer.declined': 'Declined',
+        'admin.signatures.signer.sent': 'Link sent',
+        'admin.signatures.signer.signed': 'Signed',
+        'admin.signatures.signer.waiting': 'Waiting',
+        'admin.signatures.status.cancelled': 'Cancelled',
+        'admin.signatures.status.completed': 'Completed',
+        'admin.signatures.status.declined': 'Declined',
+        'admin.signatures.status.expired': 'Expired',
+        'admin.signatures.status.inProgress': 'In progress',
+        'admin.signatures.status.sealing': 'Sealing',
+        'admin.signatures.status.sent': 'Sent',
         'admin.tables.blurb':
           'Browse and edit the records in your tables. Choose a table to open its grid — search, sort, filter, then open a record to edit it.',
         'admin.tables.blurbTable':
@@ -5686,6 +5822,11 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.templates.row.noSample': 'No sample data',
         'admin.templates.row.readBy': 'Read by',
         'admin.templates.row.sample': 'Sample data',
+        'admin.twoFactor.blurb': 'Two-step verification is on for this account.',
+        'admin.twoFactor.heading': 'Enter your code',
+        'admin.twoFactor.submit': 'Verify',
+        'admin.twoFactor.useAuthenticator': 'Use your authenticator app instead',
+        'admin.twoFactor.useRecoveryCode': 'Use a recovery code instead',
         'admin.users.account.access.body':
           'What this person can read and write, with the grant behind each line. Grants change through the API, the seed or automations, never here.',
         'admin.users.account.access.grid': 'Grants',
@@ -5899,7 +6040,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'sovrium.datatable.loadFailedIn': '{table} couldn’t load.',
         'sovrium.dialog.typeToConfirm': 'To confirm, type “{text}”',
         'sovrium.dialog.typeToConfirmAsked': 'To confirm, type the text asked for',
-        'sovrium.filePreview.cannotShow': '{name} cannot be shown here. Download it to open it.',
         'sovrium.fileUpload.dropPrompt': 'Drop files here',
         'sovrium.form.confirmPrompt': 'This takes effect right away.',
         'sovrium.form.dropFiles': 'Drop files here or click to browse',
@@ -6015,6 +6155,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           'A lu les conversations d’un agent',
         'admin.auditLog.action.agent.detail.queried': 'A lu un agent',
         'admin.auditLog.action.agent.list.queried': 'A lu les agents',
+        'admin.auditLog.action.audit.export.queried': 'A exporté le journal d’audit',
         'admin.auditLog.action.automation.auto_paused': 'Automatisation mise en pause d’elle-même',
         'admin.auditLog.action.automation.overview.queried': 'A lu l’aperçu des automatisations',
         'admin.auditLog.action.automation.paused': 'A mis en pause une automatisation',
@@ -6125,15 +6266,37 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.auditLog.transport.restore': 'Restauration',
         'admin.auth.backToSignIn': 'Retour à la connexion',
         'admin.automations.blurb':
-          'Toutes les exécutions de cette app, et les automatisations dont elles viennent. Mets-en une en pause pour arrêter son exécution sans changer ta config ; une automatisation désactivée dans ta config d’app ne peut être réactivée que là.',
+          'Toutes les exécutions de cette app, et les automatisations dont elles viennent. Mets-en une en pause pour arrêter son exécution sans changer ta config ; une automatisation désactivée dans ta config d’app ne peut être réactivée que là. Les exécutions et les compteurs se mettent à jour toutes les 15 secondes.',
         'admin.automations.cancel': 'Annuler',
         'admin.automations.catalog.action.pause': 'Mettre en pause',
         'admin.automations.catalog.action.resume': 'Reprendre',
         'admin.automations.catalog.col.automation': 'Automatisation',
         'admin.automations.catalog.col.paused': 'En pause',
+        'admin.automations.catalog.col.placeholders': 'Reste à configurer',
+        'admin.automations.catalog.col.setup': 'Configuration',
         'admin.automations.catalog.col.state': 'État',
         'admin.automations.catalog.col.trigger': 'Déclencheurs',
         'admin.automations.catalog.empty': 'Aucune automatisation',
+        'admin.automations.catalog.needsSetup.1': 'À configurer · 1',
+        'admin.automations.catalog.needsSetup.10': 'À configurer · 10',
+        'admin.automations.catalog.needsSetup.11': 'À configurer · 11',
+        'admin.automations.catalog.needsSetup.12': 'À configurer · 12',
+        'admin.automations.catalog.needsSetup.13': 'À configurer · 13',
+        'admin.automations.catalog.needsSetup.14': 'À configurer · 14',
+        'admin.automations.catalog.needsSetup.15': 'À configurer · 15',
+        'admin.automations.catalog.needsSetup.16': 'À configurer · 16',
+        'admin.automations.catalog.needsSetup.17': 'À configurer · 17',
+        'admin.automations.catalog.needsSetup.18': 'À configurer · 18',
+        'admin.automations.catalog.needsSetup.19': 'À configurer · 19',
+        'admin.automations.catalog.needsSetup.2': 'À configurer · 2',
+        'admin.automations.catalog.needsSetup.20': 'À configurer · 20',
+        'admin.automations.catalog.needsSetup.3': 'À configurer · 3',
+        'admin.automations.catalog.needsSetup.4': 'À configurer · 4',
+        'admin.automations.catalog.needsSetup.5': 'À configurer · 5',
+        'admin.automations.catalog.needsSetup.6': 'À configurer · 6',
+        'admin.automations.catalog.needsSetup.7': 'À configurer · 7',
+        'admin.automations.catalog.needsSetup.8': 'À configurer · 8',
+        'admin.automations.catalog.needsSetup.9': 'À configurer · 9',
         'admin.automations.catalog.pause.failed': 'Impossible de mettre $record.name en pause.',
         'admin.automations.catalog.pause.message':
           'Les nouvelles exécutions s’arrêtent jusqu’à la reprise. Une exécution déjà en cours n’est pas annulée.',
@@ -6403,9 +6566,13 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.common.voice': 'Voix',
         'admin.common.zone': 'Zone',
         'admin.common.zones': 'Zones',
+        'admin.connections.action.authorizeFailed':
+          'Impossible de lancer la connexion : $response.message',
         'admin.connections.action.connect': 'Connecter',
         'admin.connections.action.disconnect': 'Déconnecter',
         'admin.connections.action.disconnectConfirm': 'Déconnecter ce compte ?',
+        'admin.connections.action.disconnectFailed':
+          'Impossible de déconnecter : $response.message',
         'admin.connections.action.disconnectMessage':
           'Ses jetons sont révoqués dès maintenant. Les automatisations qui l’utilisent échouent jusqu’à une nouvelle connexion.',
         'admin.connections.action.reconnect': 'Reconnecter',
@@ -6417,6 +6584,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.connections.col.expiration': 'Expiration',
         'admin.connections.col.lastError': 'Dernière erreur',
         'admin.connections.col.lastUsed': 'Dernière utilisation',
+        'admin.connections.col.renewal': 'Renouvellement',
         'admin.connections.col.status': 'Statut',
         'admin.connections.col.tokens': 'Jetons',
         'admin.connections.col.type': 'Type',
@@ -6425,6 +6593,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.connections.heading': 'Connexions',
         'admin.connections.noMatch': 'Aucune connexion ne correspond à « {query} »',
         'admin.connections.region': 'Connexions',
+        'admin.connections.renewal.automatic': 'Se renouvelle automatiquement',
+        'admin.connections.renewal.manual': 'Reconnecte pour renouveler',
         'admin.connections.search': 'Rechercher une connexion',
         'admin.connections.status.active': 'Actif',
         'admin.connections.status.expired': 'Expiré',
@@ -6464,6 +6634,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.count.records.other': '{count} enregistrements',
         'admin.count.runs.one': '{count} exécution',
         'admin.count.runs.other': '{count} exécutions',
+        'admin.count.signatures.one': '{count} demande',
+        'admin.count.signatures.other': '{count} demandes',
         'admin.count.starts.one': '{count} démarrage',
         'admin.count.starts.other': '{count} démarrages',
         'admin.count.submissions.one': '{count} réponse',
@@ -6492,6 +6664,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.crumb.report': 'Signaler un problème',
         'admin.crumb.run': 'Exécution',
         'admin.crumb.runs': 'Exécutions',
+        'admin.crumb.signatures': 'Signatures',
         'admin.crumb.submissions': 'Réponses',
         'admin.crumb.systemBucket': 'Système',
         'admin.crumb.templates': 'Modèles',
@@ -6590,6 +6763,11 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.ds.found.breakpoint': 'Point de rupture',
         'admin.ds.found.breakpoints': 'Points de rupture',
         'admin.ds.found.cardSample': 'Carte sur le fond de page',
+        'admin.ds.found.code': 'Code',
+        'admin.ds.found.codeDark': 'Sombre',
+        'admin.ds.found.codeIntro':
+          'Un rôle syntaxique listé ici prend sa couleur dans ta palette. Les autres gardent les couleurs par défaut. Déclare design.code.tokens pour en colorer un.',
+        'admin.ds.found.codeLight': 'Clair',
         'admin.ds.found.colour': 'Couleur',
         'admin.ds.found.copyHex': 'Copier la valeur hex de',
         'admin.ds.found.copyValue': 'Copier la valeur déclarée de',
@@ -7125,8 +7303,11 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.meta.release': '$app.label — Journal des versions · Version',
         'admin.meta.report': '$app.label — Signaler un problème',
         'admin.meta.resetPassword': '$app.label — Nouveau mot de passe',
+        'admin.meta.signatureRequest': '$app.label — Demande de signature',
+        'admin.meta.signatures': '$app.label — Signatures',
         'admin.meta.tables': '$app.label — Enregistrements',
         'admin.meta.templates': '$app.label — Modèles',
+        'admin.meta.twoFactor': '$app.label — Vérification en deux étapes',
         'admin.meta.userAccount': '$app.label — Compte',
         'admin.meta.users': '$app.label — Utilisateurs',
         'admin.meta.voice': '$app.label — Voix',
@@ -7372,6 +7553,15 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           'Ce fichier a été refusé. Utilise un PNG, un JPEG ou un WebP de moins de 5 Mo.',
         'admin.profile.picture.uploaded': 'Photo mise à jour.',
         'admin.profile.rows.region': 'Réglages du compte',
+        'admin.profile.twoFactor.disable': 'Désactiver',
+        'admin.profile.twoFactor.disableRegion': 'Désactiver la vérification en deux étapes',
+        'admin.profile.twoFactor.enable': 'Activer',
+        'admin.profile.twoFactor.enableRegion': 'Activer la vérification en deux étapes',
+        'admin.profile.twoFactor.hint':
+          'Demande un code d’une application d’authentification après ton mot de passe. Tu reçois des codes de récupération pour le jour où l’application n’est pas sous la main.',
+        'admin.profile.twoFactor.label': 'Vérification en deux étapes',
+        'admin.profile.twoFactor.on':
+          'Activée. La connexion te demande un code de ton application d’authentification.',
         'admin.report.description':
           'Quelque chose ne va pas dans Sovrium ? Ouvre un ticket prérempli sur GitHub, rédigé en anglais. Rien n’est envoyé tant que tu ne l’as pas soumis.',
         'admin.report.heading': 'Signaler un problème',
@@ -7437,6 +7627,70 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.shortcuts.search': 'Tout rechercher',
         'admin.shortcuts.sidebar': 'Afficher ou masquer la barre latérale',
         'admin.shortcuts.title': 'Raccourcis clavier',
+        'admin.signatures.blurb':
+          'Chaque demande de signature envoyée par ton app : qui la signe et où elle en est. Tes automatisations envoient et retirent les demandes ; ici, tu les lis et tu télécharges leurs preuves.',
+        'admin.signatures.col.at': 'Quand',
+        'admin.signatures.col.ended': 'Terminée',
+        'admin.signatures.col.event': 'Événement',
+        'admin.signatures.col.flow': 'Parcours',
+        'admin.signatures.col.keepUntil': 'Preuves conservées jusqu’au',
+        'admin.signatures.col.record': 'Enregistrement',
+        'admin.signatures.col.role': 'Rôle',
+        'admin.signatures.col.sent': 'Envoyée',
+        'admin.signatures.col.seq': 'N°',
+        'admin.signatures.col.signedAt': 'Signé',
+        'admin.signatures.col.signer': 'Signataire',
+        'admin.signatures.col.signers': 'Signataires',
+        'admin.signatures.col.status': 'Statut',
+        'admin.signatures.col.verifiedBy': 'Vérifié par',
+        'admin.signatures.detail.blurb':
+          'Une demande de signature, en lecture seule : son document, ses signataires et chaque événement de son journal de preuves.',
+        'admin.signatures.detail.document': 'Empreinte du document (SHA-256)',
+        'admin.signatures.detail.expires': 'Les liens expirent',
+        'admin.signatures.detail.export': 'Télécharger les preuves',
+        'admin.signatures.detail.exportHint':
+          'Un fichier JSON avec le document figé, le document signé, le fichier de preuve et le journal. Vérifie-le avec sovrium signature verify.',
+        'admin.signatures.detail.noEvents': 'Aucun événement enregistré pour l’instant.',
+        'admin.signatures.detail.noSigners': 'Cette demande n’a aucun signataire.',
+        'admin.signatures.detail.sealed': 'Scellé',
+        'admin.signatures.detail.signers': 'Signataires',
+        'admin.signatures.detail.signersBlurb':
+          'Qui signe, dans l’ordre, et comment chacun a été vérifié.',
+        'admin.signatures.detail.timeline': 'Journal de preuves',
+        'admin.signatures.detail.timelineBlurb':
+          'Chaque événement de la demande, dans l’ordre. Chacun s’engage sur le précédent : une ligne modifiée casse le journal.',
+        'admin.signatures.detail.timestamped': 'Horodaté',
+        'admin.signatures.empty':
+          'Aucune demande de signature pour l’instant. Une demande apparaît ici quand une automatisation l’envoie avec une étape signature/send.',
+        'admin.signatures.event.cancelled': 'Retirée',
+        'admin.signatures.event.challengeFailed': 'Code erroné',
+        'admin.signatures.event.challengeSent': 'Code envoyé',
+        'admin.signatures.event.challengeVerified': 'Code confirmé',
+        'admin.signatures.event.completed': 'Terminée',
+        'admin.signatures.event.declined': 'Refusé',
+        'admin.signatures.event.delivered': 'Copie signée envoyée',
+        'admin.signatures.event.erased': 'Signataire effacé',
+        'admin.signatures.event.expired': 'Expirée',
+        'admin.signatures.event.opened': 'Lien ouvert',
+        'admin.signatures.event.reminded': 'Relance envoyée',
+        'admin.signatures.event.sealed': 'Scellée',
+        'admin.signatures.event.sent': 'Demande envoyée',
+        'admin.signatures.event.signed': 'Signé',
+        'admin.signatures.heading': 'Signatures',
+        'admin.signatures.noMatch': 'Aucune demande ne correspond à « {query} »',
+        'admin.signatures.region': 'Demandes de signature',
+        'admin.signatures.search': 'Rechercher une demande',
+        'admin.signatures.signer.declined': 'Refusé',
+        'admin.signatures.signer.sent': 'Lien envoyé',
+        'admin.signatures.signer.signed': 'Signé',
+        'admin.signatures.signer.waiting': 'En attente',
+        'admin.signatures.status.cancelled': 'Annulée',
+        'admin.signatures.status.completed': 'Terminée',
+        'admin.signatures.status.declined': 'Refusée',
+        'admin.signatures.status.expired': 'Expirée',
+        'admin.signatures.status.inProgress': 'En cours',
+        'admin.signatures.status.sealing': 'Scellement',
+        'admin.signatures.status.sent': 'Envoyée',
         'admin.tables.blurb':
           'Parcours et modifie les enregistrements de tes tables. Choisis une table pour ouvrir sa grille — cherche, trie, filtre, puis ouvre un enregistrement pour le modifier.',
         'admin.tables.blurbTable':
@@ -7485,6 +7739,11 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'admin.templates.row.noSample': 'Sans données d’exemple',
         'admin.templates.row.readBy': 'Lu par',
         'admin.templates.row.sample': 'Données d’exemple',
+        'admin.twoFactor.blurb': 'La vérification en deux étapes est activée pour ce compte.',
+        'admin.twoFactor.heading': 'Saisis ton code',
+        'admin.twoFactor.submit': 'Vérifier',
+        'admin.twoFactor.useAuthenticator': 'Utiliser plutôt ton application d’authentification',
+        'admin.twoFactor.useRecoveryCode': 'Utiliser plutôt un code de récupération',
         'admin.users.account.access.body':
           'Ce que cette personne peut lire et écrire, avec l’accès derrière chaque ligne. Les accès se modifient par l’API, le seed ou les automatisations, jamais ici.',
         'admin.users.account.access.grid': 'Autorisations',
@@ -7708,8 +7967,6 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
         'sovrium.datatable.loadFailedIn': '{table} : chargement impossible.',
         'sovrium.dialog.typeToConfirm': 'Pour confirmer, saisis « {text} »',
         'sovrium.dialog.typeToConfirmAsked': 'Pour confirmer, saisis le texte demandé',
-        'sovrium.filePreview.cannotShow':
-          '{name} ne peut pas être affiché ici. Télécharge-le pour l’ouvrir.',
         'sovrium.fileUpload.dropPrompt': 'Dépose des fichiers ici',
         'sovrium.form.confirmPrompt': 'Ça prend effet tout de suite.',
         'sovrium.form.dropFiles': 'Dépose des fichiers ici ou clique pour parcourir',
@@ -8276,6 +8533,132 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           'grid grid-cols-1 gap-y-2.5 border-b border-border py-4 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-6 sm:gap-y-0',
                       },
                       type: 'container',
+                    },
+                    {
+                      children: [
+                        {
+                          content: '$t:admin.profile.twoFactor.label',
+                          element: 'h2',
+                          props: {
+                            className: 'text-foreground block text-base font-medium sm:leading-8',
+                          },
+                          type: 'text',
+                        },
+                        {
+                          children: [
+                            {
+                              content: '$t:admin.profile.twoFactor.on',
+                              element: 'p',
+                              props: {
+                                className: 'text-foreground text-sm',
+                                'data-testid': 'profile-two-factor-on',
+                              },
+                              type: 'text',
+                              visibility: {
+                                condition: {
+                                  field: '$user.twoFactorEnabled',
+                                  operator: 'eq',
+                                  value: true,
+                                },
+                              },
+                            },
+                            {
+                              action: {
+                                fields: [
+                                  {
+                                    label: '$t:admin.field.password',
+                                    name: 'password',
+                                  },
+                                ],
+                                method: 'enableTwoFactor',
+                                onSuccess: {
+                                  navigate: '/profile',
+                                },
+                                submitLabel: '$t:admin.profile.twoFactor.enable',
+                                submitVariant: 'outline',
+                                type: 'auth',
+                              },
+                              props: {
+                                'aria-label': '$t:admin.profile.twoFactor.enableRegion',
+                                className:
+                                  'grid grid-cols-1 items-start gap-x-6 border-0 bg-transparent p-0 rounded-none sm:grid-cols-[minmax(0,26rem)_max-content]',
+                                id: 'profile-two-factor-enable',
+                              },
+                              type: 'form',
+                              visibility: {
+                                condition: {
+                                  field: '$user.twoFactorEnabled',
+                                  operator: 'eq',
+                                  value: false,
+                                },
+                              },
+                            },
+                            {
+                              action: {
+                                fields: [
+                                  {
+                                    label: '$t:admin.field.password',
+                                    name: 'password',
+                                  },
+                                ],
+                                method: 'disableTwoFactor',
+                                onSuccess: {
+                                  navigate: '/profile',
+                                },
+                                submitLabel: '$t:admin.profile.twoFactor.disable',
+                                submitVariant: 'outline',
+                                type: 'auth',
+                              },
+                              props: {
+                                'aria-label': '$t:admin.profile.twoFactor.disableRegion',
+                                className:
+                                  'grid grid-cols-1 items-start gap-x-6 border-0 bg-transparent p-0 rounded-none sm:grid-cols-[minmax(0,26rem)_max-content]',
+                                id: 'profile-two-factor-disable',
+                              },
+                              type: 'form',
+                              visibility: {
+                                condition: {
+                                  field: '$user.twoFactorEnabled',
+                                  operator: 'eq',
+                                  value: true,
+                                },
+                              },
+                            },
+                            {
+                              content: '$t:admin.profile.twoFactor.hint',
+                              element: 'p',
+                              props: {
+                                className: 'text-foreground-subtle text-sm',
+                              },
+                              type: 'text',
+                              visibility: {
+                                condition: {
+                                  field: '$user.twoFactorEnabled',
+                                  operator: 'eq',
+                                  value: false,
+                                },
+                              },
+                            },
+                          ],
+                          element: 'div',
+                          key: 'profile-two-factor-2',
+                          props: {
+                            className: 'flex min-w-0 flex-col gap-2',
+                          },
+                          type: 'container',
+                        },
+                      ],
+                      element: 'div',
+                      key: 'profile-two-factor',
+                      props: {
+                        className:
+                          'grid grid-cols-1 gap-y-2.5 border-b border-border py-4 sm:grid-cols-[168px_minmax(0,1fr)] sm:gap-x-6 sm:gap-y-0',
+                        'data-testid': 'profile-two-factor',
+                      },
+                      type: 'container',
+                      visibility: {
+                        declares: 'auth.twoFactor',
+                      },
                     },
                     {
                       children: [
@@ -9869,6 +10252,21 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                   },
                   type: 'container',
                 },
+                {
+                  action: {
+                    bindTo: 'audit-log-filter',
+                    filename: 'audit-log.csv',
+                    mode: 'download',
+                    type: 'fetch',
+                    url: '/api/admin/audit-log?format=csv&reads=false',
+                  },
+                  label: '$t:admin.common.exportCsv',
+                  props: {
+                    className: 'sm:ml-auto',
+                  },
+                  type: 'button',
+                  variant: 'outline',
+                },
               ],
               element: 'div',
               key: 'admin-toolbar-row',
@@ -9917,6 +10315,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                         '$t:admin.auditLog.action.agent.conversation.list.queried',
                       'agent.detail.queried': '$t:admin.auditLog.action.agent.detail.queried',
                       'agent.list.queried': '$t:admin.auditLog.action.agent.list.queried',
+                      'audit.export.queried': '$t:admin.auditLog.action.audit.export.queried',
                       'automation.auto_paused': '$t:admin.auditLog.action.automation.auto_paused',
                       'automation.overview.queried':
                         '$t:admin.auditLog.action.automation.overview.queried',
@@ -17475,7 +17874,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                   content: '$t:admin.footprint.intro',
                   element: 'p',
                   props: {
-                    className: 'text-muted-foreground max-w-3xl text-sm',
+                    className: 'text-muted-foreground max-w-md text-sm',
                   },
                   type: 'text',
                 },
@@ -17645,7 +18044,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                   content: '$t:admin.locked.audit.footprint.measuredProvenance',
                   element: 'p',
                   props: {
-                    className: 'text-foreground-subtle max-w-3xl pt-3 text-md',
+                    className: 'text-foreground-subtle max-w-md pt-3 text-md',
                   },
                   type: 'text',
                 },
@@ -17719,7 +18118,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                   content: '$t:admin.locked.audit.footprint.storageProvenance',
                   element: 'p',
                   props: {
-                    className: 'text-foreground-subtle max-w-3xl pt-3 text-md',
+                    className: 'text-foreground-subtle max-w-md pt-3 text-md',
                   },
                   type: 'text',
                 },
@@ -17804,7 +18203,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                   content: '$t:admin.locked.audit.footprint.configurationProvenance',
                   element: 'p',
                   props: {
-                    className: 'text-foreground-subtle max-w-3xl pt-3 text-md',
+                    className: 'text-foreground-subtle max-w-md pt-3 text-md',
                   },
                   type: 'text',
                 },
@@ -17822,7 +18221,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                   content: '$t:admin.footprint.rgesn.blurb',
                   element: 'p',
                   props: {
-                    className: 'text-foreground-subtle max-w-3xl text-md',
+                    className: 'text-foreground-subtle max-w-md text-md',
                   },
                   type: 'text',
                 },
@@ -17928,6 +18327,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             dataSource: {
                               system: {
                                 endpoint: '/api/admin/automations/overview',
+                                pollIntervalMs: 15000,
+                                refreshMode: 'poll',
                                 valuePath: 'totals.automations',
                               },
                             },
@@ -17944,6 +18345,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             dataSource: {
                               system: {
                                 endpoint: '/api/admin/automations/overview',
+                                pollIntervalMs: 15000,
+                                refreshMode: 'poll',
                                 valuePath: 'totals.runs_24h',
                               },
                             },
@@ -17960,6 +18363,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             dataSource: {
                               system: {
                                 endpoint: '/api/admin/automations/overview',
+                                pollIntervalMs: 15000,
+                                refreshMode: 'poll',
                                 valuePath: 'totals.failures_24h',
                               },
                             },
@@ -17988,6 +18393,8 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             dataSource: {
                               system: {
                                 endpoint: '/api/admin/automations/overview',
+                                pollIntervalMs: 15000,
+                                refreshMode: 'poll',
                                 valuePath: 'totals.success_rate',
                               },
                             },
@@ -18478,6 +18885,47 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           {
                             field: 'pausedLabel',
                             label: '$t:admin.automations.catalog.col.paused',
+                          },
+                          {
+                            cellStyle: [
+                              {
+                                className:
+                                  "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-warning-solid",
+                                when: {
+                                  gt: 0,
+                                },
+                              },
+                            ],
+                            field: 'placeholderCount',
+                            label: '$t:admin.automations.catalog.col.setup',
+                            valueLabels: {
+                              '1': '$t:admin.automations.catalog.needsSetup.1',
+                              '2': '$t:admin.automations.catalog.needsSetup.2',
+                              '3': '$t:admin.automations.catalog.needsSetup.3',
+                              '4': '$t:admin.automations.catalog.needsSetup.4',
+                              '5': '$t:admin.automations.catalog.needsSetup.5',
+                              '6': '$t:admin.automations.catalog.needsSetup.6',
+                              '7': '$t:admin.automations.catalog.needsSetup.7',
+                              '8': '$t:admin.automations.catalog.needsSetup.8',
+                              '9': '$t:admin.automations.catalog.needsSetup.9',
+                              '10': '$t:admin.automations.catalog.needsSetup.10',
+                              '11': '$t:admin.automations.catalog.needsSetup.11',
+                              '12': '$t:admin.automations.catalog.needsSetup.12',
+                              '13': '$t:admin.automations.catalog.needsSetup.13',
+                              '14': '$t:admin.automations.catalog.needsSetup.14',
+                              '15': '$t:admin.automations.catalog.needsSetup.15',
+                              '16': '$t:admin.automations.catalog.needsSetup.16',
+                              '17': '$t:admin.automations.catalog.needsSetup.17',
+                              '18': '$t:admin.automations.catalog.needsSetup.18',
+                              '19': '$t:admin.automations.catalog.needsSetup.19',
+                              '20': '$t:admin.automations.catalog.needsSetup.20',
+                            },
+                            width: 150,
+                          },
+                          {
+                            field: 'placeholders',
+                            label: '$t:admin.automations.catalog.col.placeholders',
+                            minWidth: 200,
                           },
                           {
                             actions: [
@@ -21661,6 +22109,674 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
       name: 'dashboard-data-buckets-bucket',
       path: '/files/:bucket',
       requires: ['buckets'],
+    },
+    {
+      components: [
+        {
+          children: [
+            {
+              children: [
+                {
+                  content: '$t:admin.signatures.heading',
+                  element: 'h1',
+                  props: {
+                    className: 'text-foreground text-2xl font-semibold tracking-tight',
+                  },
+                  type: 'text',
+                },
+                {
+                  content: '$t:admin.signatures.blurb',
+                  element: 'p',
+                  props: {
+                    className: 'text-muted-foreground max-w-3xl text-sm',
+                  },
+                  type: 'text',
+                },
+              ],
+              element: 'header',
+              key: 'header',
+              props: {
+                className: 'flex flex-col gap-1',
+              },
+              type: 'container',
+            },
+            {
+              children: [
+                {
+                  component: 'console-toolbar-search',
+                  key: 'toolbar-search',
+                  vars: {
+                    ariaLabel: '$t:admin.signatures.search',
+                    placeholder: '$t:admin.signatures.search',
+                    publishes: {
+                      bindTo: 'signatures-filter',
+                      param: 'q',
+                      url: true,
+                    },
+                  },
+                },
+              ],
+              element: 'div',
+              key: 'admin-toolbar-row',
+              props: {
+                'aria-label': '$t:admin.common.gridControls',
+                className: 'flex min-h-10 flex-wrap items-center gap-2',
+                'data-testid': 'admin-toolbar-row',
+                role: 'toolbar',
+              },
+              type: 'container',
+            },
+            {
+              component: 'console-grid',
+              key: 'grid',
+              vars: {
+                ariaLabel: '$t:admin.signatures.region',
+                columns: [
+                  {
+                    field: 'flow',
+                    label: '$t:admin.signatures.col.flow',
+                    minWidth: 160,
+                  },
+                  {
+                    field: 'record',
+                    label: '$t:admin.signatures.col.record',
+                    width: 120,
+                  },
+                  {
+                    cellStyle: [
+                      {
+                        className:
+                          "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50",
+                        when: {
+                          eq: 'sent',
+                        },
+                      },
+                      {
+                        className:
+                          "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-warning-solid",
+                        when: {
+                          eq: 'in-progress',
+                        },
+                      },
+                      {
+                        className:
+                          "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-warning-solid",
+                        when: {
+                          eq: 'sealing',
+                        },
+                      },
+                      {
+                        className:
+                          "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid",
+                        when: {
+                          eq: 'completed',
+                        },
+                      },
+                      {
+                        className:
+                          "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-destructive [&:is(span)]:before:bg-destructive",
+                        when: {
+                          eq: 'declined',
+                        },
+                      },
+                      {
+                        className:
+                          "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50",
+                        when: {
+                          eq: 'cancelled',
+                        },
+                      },
+                      {
+                        className:
+                          "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50",
+                        when: {
+                          eq: 'expired',
+                        },
+                      },
+                    ],
+                    field: 'status',
+                    label: '$t:admin.signatures.col.status',
+                    valueLabels: {
+                      cancelled: '$t:admin.signatures.status.cancelled',
+                      completed: '$t:admin.signatures.status.completed',
+                      declined: '$t:admin.signatures.status.declined',
+                      expired: '$t:admin.signatures.status.expired',
+                      'in-progress': '$t:admin.signatures.status.inProgress',
+                      sealing: '$t:admin.signatures.status.sealing',
+                      sent: '$t:admin.signatures.status.sent',
+                    },
+                    width: 120,
+                  },
+                  {
+                    field: 'signers',
+                    label: '$t:admin.signatures.col.signers',
+                    minWidth: 200,
+                    sortable: false,
+                  },
+                  {
+                    field: 'sentAt',
+                    format: 'day-relative-time',
+                    label: '$t:admin.signatures.col.sent',
+                    width: 120,
+                  },
+                  {
+                    field: 'endedAt',
+                    format: 'day-relative-time',
+                    label: '$t:admin.signatures.col.ended',
+                    width: 120,
+                  },
+                  {
+                    field: 'keepUntil',
+                    format: 'short-date',
+                    label: '$t:admin.signatures.col.keepUntil',
+                    width: 140,
+                  },
+                ],
+                countLabel: {
+                  one: '$t:admin.count.signatures.one',
+                  other: '$t:admin.count.signatures.other',
+                },
+                dataSource: {
+                  system: {
+                    bindTo: 'signatures-filter',
+                    endpoint: '/api/admin/signatures',
+                    idKey: 'id',
+                    rowsKey: 'requests',
+                    sharedFilter: {},
+                  },
+                },
+                emptyMessage: '$t:admin.signatures.empty',
+                id: 'admin-signatures-grid',
+                noMatchMessage: '$t:admin.signatures.noMatch',
+                onRowClick: {
+                  path: '/signatures/$record.id',
+                  type: 'navigate',
+                },
+                pagination: {
+                  pageSize: 25,
+                },
+                phoneLayout: 'rows',
+                viewOptions: 'toolbar',
+              },
+            },
+          ],
+          component: 'console-shell',
+          key: 'container-1',
+          slots: {
+            trail: [
+              {
+                derive: 'path',
+                home: {
+                  label: '$app.label',
+                },
+                labels: {
+                  signatures: '$t:admin.crumb.signatures',
+                },
+                props: {
+                  className:
+                    'min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden',
+                  'data-testid': 'breadcrumb',
+                },
+                separator: '›',
+                type: 'breadcrumb',
+              },
+              {
+                component: 'console-header-end',
+                key: 'chrome-end',
+              },
+            ],
+          },
+          vars: {
+            bodyClass: 'flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6',
+          },
+        },
+      ],
+      id: 'dashboard-data-signatures',
+      meta: {
+        title: '$t:admin.meta.signatures',
+      },
+      name: 'dashboard-data-signatures',
+      path: '/signatures',
+      requires: ['signatures'],
+    },
+    {
+      components: [
+        {
+          children: [
+            {
+              children: [
+                {
+                  children: [
+                    {
+                      content: '$record.flow',
+                      element: 'h1',
+                      props: {
+                        className: 'text-foreground text-2xl font-semibold tracking-tight',
+                      },
+                      type: 'text',
+                    },
+                    {
+                      badgeVariant: 'outline',
+                      content: '$t:admin.signatures.status.sent',
+                      type: 'badge',
+                      visibility: {
+                        record: {
+                          eq: 'sent',
+                          field: 'status',
+                        },
+                      },
+                    },
+                    {
+                      badgeVariant: 'warning',
+                      content: '$t:admin.signatures.status.inProgress',
+                      type: 'badge',
+                      visibility: {
+                        record: {
+                          eq: 'in-progress',
+                          field: 'status',
+                        },
+                      },
+                    },
+                    {
+                      badgeVariant: 'warning',
+                      content: '$t:admin.signatures.status.sealing',
+                      type: 'badge',
+                      visibility: {
+                        record: {
+                          eq: 'sealing',
+                          field: 'status',
+                        },
+                      },
+                    },
+                    {
+                      badgeVariant: 'success',
+                      content: '$t:admin.signatures.status.completed',
+                      type: 'badge',
+                      visibility: {
+                        record: {
+                          eq: 'completed',
+                          field: 'status',
+                        },
+                      },
+                    },
+                    {
+                      badgeVariant: 'destructive',
+                      content: '$t:admin.signatures.status.declined',
+                      type: 'badge',
+                      visibility: {
+                        record: {
+                          eq: 'declined',
+                          field: 'status',
+                        },
+                      },
+                    },
+                    {
+                      badgeVariant: 'outline',
+                      content: '$t:admin.signatures.status.cancelled',
+                      type: 'badge',
+                      visibility: {
+                        record: {
+                          eq: 'cancelled',
+                          field: 'status',
+                        },
+                      },
+                    },
+                    {
+                      badgeVariant: 'outline',
+                      content: '$t:admin.signatures.status.expired',
+                      type: 'badge',
+                      visibility: {
+                        record: {
+                          eq: 'expired',
+                          field: 'status',
+                        },
+                      },
+                    },
+                    {
+                      badgeVariant: 'secondary',
+                      content: '$t:admin.signatures.detail.sealed',
+                      type: 'badge',
+                      visibility: {
+                        record: {
+                          eq: true,
+                          field: 'sealed',
+                        },
+                      },
+                    },
+                    {
+                      badgeVariant: 'secondary',
+                      content: '$t:admin.signatures.detail.timestamped',
+                      type: 'badge',
+                      visibility: {
+                        record: {
+                          eq: true,
+                          field: 'timestamped',
+                        },
+                      },
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className: 'flex flex-wrap items-center gap-2',
+                  },
+                  type: 'container',
+                },
+                {
+                  content: '$t:admin.signatures.detail.blurb',
+                  element: 'p',
+                  props: {
+                    className: 'text-muted-foreground max-w-3xl text-sm',
+                  },
+                  type: 'text',
+                },
+              ],
+              element: 'header',
+              key: 'header',
+              props: {
+                className: 'flex flex-col gap-1',
+              },
+              type: 'container',
+            },
+            {
+              children: [
+                {
+                  items: [
+                    {
+                      detail: '$record.table · $record.recordId',
+                      term: '$t:admin.signatures.col.record',
+                    },
+                    {
+                      detail: '$record.sentAt',
+                      format: 'day-relative-time',
+                      term: '$t:admin.signatures.col.sent',
+                    },
+                    {
+                      detail: '$record.expiresAt',
+                      format: 'day-relative-time',
+                      term: '$t:admin.signatures.detail.expires',
+                    },
+                    {
+                      detail: '$record.endedAt',
+                      format: 'day-relative-time',
+                      term: '$t:admin.signatures.col.ended',
+                    },
+                    {
+                      detail: '$record.documentHash',
+                      term: '$t:admin.signatures.detail.document',
+                    },
+                  ],
+                  key: 'facts',
+                  layout: 'stacked',
+                  props: {
+                    className:
+                      '[&_dt]:text-xs [&_dd]:text-sm [&_dd]:font-medium [&_dd]:tabular-nums [&_dd]:break-all',
+                    'data-testid': 'signature-request-facts',
+                  },
+                  type: 'description-list',
+                },
+              ],
+              element: 'div',
+              key: 'facts-strip',
+              props: {
+                className: 'flex flex-wrap items-start gap-x-8 gap-y-3',
+              },
+              type: 'container',
+            },
+            {
+              children: [
+                {
+                  children: [
+                    {
+                      content: '$t:admin.signatures.detail.signers',
+                      element: 'h2',
+                      props: {
+                        className: 'text-foreground text-base font-semibold',
+                      },
+                      type: 'text',
+                    },
+                    {
+                      content: '$t:admin.signatures.detail.signersBlurb',
+                      element: 'p',
+                      props: {
+                        className: 'text-muted-foreground max-w-3xl text-sm',
+                      },
+                      type: 'text',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className: 'flex flex-col gap-1',
+                  },
+                  type: 'container',
+                },
+                {
+                  component: 'console-grid',
+                  key: 'signers-grid',
+                  vars: {
+                    ariaLabel: '$t:admin.signatures.detail.signers',
+                    columns: [
+                      {
+                        field: 'displayName',
+                        label: '$t:admin.signatures.col.signer',
+                        minWidth: 180,
+                      },
+                      {
+                        field: 'name',
+                        label: '$t:admin.signatures.col.role',
+                        width: 140,
+                      },
+                      {
+                        field: 'status',
+                        label: '$t:admin.signatures.col.status',
+                        valueLabels: {
+                          declined: '$t:admin.signatures.signer.declined',
+                          sent: '$t:admin.signatures.signer.sent',
+                          signed: '$t:admin.signatures.signer.signed',
+                          waiting: '$t:admin.signatures.signer.waiting',
+                        },
+                        width: 130,
+                      },
+                      {
+                        field: 'signedAt',
+                        format: 'datetime',
+                        label: '$t:admin.signatures.col.signedAt',
+                        width: 170,
+                      },
+                      {
+                        field: 'verifiedBy',
+                        label: '$t:admin.signatures.col.verifiedBy',
+                        sortable: false,
+                        width: 160,
+                      },
+                    ],
+                    dataSource: {
+                      system: {
+                        endpoint: '/api/signatures/requests/$param.id',
+                        idKey: 'name',
+                        rowsKey: 'signers',
+                      },
+                    },
+                    emptyMessage: '$t:admin.signatures.detail.noSigners',
+                    id: 'admin-signature-signers-grid',
+                  },
+                },
+              ],
+              element: 'section',
+              key: 'signers',
+              props: {
+                'aria-label': '$t:admin.signatures.detail.signers',
+                className: 'flex flex-col gap-3',
+              },
+              type: 'container',
+            },
+            {
+              children: [
+                {
+                  children: [
+                    {
+                      content: '$t:admin.signatures.detail.timeline',
+                      element: 'h2',
+                      props: {
+                        className: 'text-foreground text-base font-semibold',
+                      },
+                      type: 'text',
+                    },
+                    {
+                      content: '$t:admin.signatures.detail.timelineBlurb',
+                      element: 'p',
+                      props: {
+                        className: 'text-muted-foreground max-w-3xl text-sm',
+                      },
+                      type: 'text',
+                    },
+                  ],
+                  element: 'div',
+                  props: {
+                    className: 'flex flex-col gap-1',
+                  },
+                  type: 'container',
+                },
+                {
+                  component: 'console-grid',
+                  key: 'events-grid',
+                  vars: {
+                    ariaLabel: '$t:admin.signatures.detail.timeline',
+                    columns: [
+                      {
+                        field: 'seq',
+                        label: '$t:admin.signatures.col.seq',
+                        width: 60,
+                      },
+                      {
+                        field: 'type',
+                        label: '$t:admin.signatures.col.event',
+                        minWidth: 160,
+                        valueLabels: {
+                          cancelled: '$t:admin.signatures.event.cancelled',
+                          'challenge-failed': '$t:admin.signatures.event.challengeFailed',
+                          'challenge-sent': '$t:admin.signatures.event.challengeSent',
+                          'challenge-verified': '$t:admin.signatures.event.challengeVerified',
+                          completed: '$t:admin.signatures.event.completed',
+                          declined: '$t:admin.signatures.event.declined',
+                          delivered: '$t:admin.signatures.event.delivered',
+                          erased: '$t:admin.signatures.event.erased',
+                          expired: '$t:admin.signatures.event.expired',
+                          opened: '$t:admin.signatures.event.opened',
+                          reminded: '$t:admin.signatures.event.reminded',
+                          sealed: '$t:admin.signatures.event.sealed',
+                          sent: '$t:admin.signatures.event.sent',
+                          signed: '$t:admin.signatures.event.signed',
+                        },
+                      },
+                      {
+                        field: 'signer',
+                        label: '$t:admin.signatures.col.role',
+                        width: 140,
+                      },
+                      {
+                        field: 'at',
+                        format: 'datetime',
+                        label: '$t:admin.signatures.col.at',
+                        width: 190,
+                      },
+                    ],
+                    dataSource: {
+                      system: {
+                        endpoint: '/api/signatures/requests/$param.id/evidence',
+                        idKey: 'seq',
+                        rowsKey: 'events',
+                      },
+                    },
+                    emptyMessage: '$t:admin.signatures.detail.noEvents',
+                    id: 'admin-signature-events-grid',
+                    pagination: {
+                      pageSize: 50,
+                    },
+                  },
+                },
+              ],
+              element: 'section',
+              key: 'timeline',
+              props: {
+                'aria-label': '$t:admin.signatures.detail.timeline',
+                className: 'flex flex-col gap-3',
+              },
+              type: 'container',
+            },
+            {
+              children: [
+                {
+                  content: '$t:admin.signatures.detail.export',
+                  props: {
+                    className:
+                      'border-border hover:bg-muted inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-sm font-medium',
+                    'data-testid': 'signature-export',
+                    download: 'signature-$record.id.json',
+                    href: '/api/signatures/requests/$record.id/export',
+                  },
+                  type: 'link',
+                },
+                {
+                  content: '$t:admin.signatures.detail.exportHint',
+                  element: 'p',
+                  props: {
+                    className: 'text-muted-foreground max-w-3xl text-sm',
+                  },
+                  type: 'text',
+                },
+              ],
+              element: 'div',
+              key: 'export',
+              props: {
+                className: 'flex flex-col items-start gap-2',
+              },
+              type: 'container',
+            },
+          ],
+          component: 'console-shell',
+          key: 'container-1',
+          slots: {
+            trail: [
+              {
+                derive: 'path',
+                home: {
+                  label: '$app.label',
+                },
+                labels: {
+                  signatures: '$t:admin.crumb.signatures',
+                },
+                props: {
+                  className:
+                    'min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden',
+                  'data-testid': 'breadcrumb',
+                },
+                separator: '›',
+                type: 'breadcrumb',
+              },
+              {
+                component: 'console-header-end',
+                key: 'chrome-end',
+              },
+            ],
+          },
+          vars: {
+            bodyClass: 'flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6',
+          },
+        },
+      ],
+      dataSource: {
+        system: {
+          endpoint: '/api/signatures/requests/:id',
+          param: 'id',
+        },
+      },
+      id: 'dashboard-data-signature-request',
+      meta: {
+        title: '$t:admin.meta.signatureRequest',
+      },
+      name: 'dashboard-data-signature-request',
+      path: '/signatures/:id',
+      requires: ['signatures'],
     },
     {
       components: [
@@ -25134,6 +26250,25 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                     width: 140,
                   },
                   {
+                    cellStyle: [
+                      {
+                        className: 'text-muted-foreground',
+                        when: {
+                          eq: 'none',
+                        },
+                      },
+                    ],
+                    field: 'renewal',
+                    label: '$t:admin.connections.col.renewal',
+                    minWidth: 170,
+                    sortable: false,
+                    valueLabels: {
+                      automatic: '$t:admin.connections.renewal.automatic',
+                      manual: '$t:admin.connections.renewal.manual',
+                      none: '—',
+                    },
+                  },
+                  {
                     field: 'tokenCount',
                     label: '$t:admin.connections.col.tokens',
                     valueLabels: {
@@ -25156,6 +26291,11 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           callbackPath: '/api/admin/connections/$record.name/callback',
                           method: 'POST',
                           mode: 'oauth',
+                          onError: {
+                            message: '$t:admin.connections.action.authorizeFailed',
+                            type: 'toast',
+                            variant: 'error',
+                          },
                           redirectKey: 'authorizationUrl',
                           type: 'fetch',
                           url: '/api/admin/connections/$record.id/authorize',
@@ -25172,6 +26312,11 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                           callbackPath: '/api/admin/connections/$record.name/callback',
                           method: 'POST',
                           mode: 'oauth',
+                          onError: {
+                            message: '$t:admin.connections.action.authorizeFailed',
+                            type: 'toast',
+                            variant: 'error',
+                          },
                           redirectKey: 'authorizationUrl',
                           type: 'fetch',
                           url: '/api/admin/connections/$record.id/authorize',
@@ -25186,6 +26331,11 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                       {
                         action: {
                           method: 'POST',
+                          onError: {
+                            message: '$t:admin.connections.action.disconnectFailed',
+                            type: 'toast',
+                            variant: 'error',
+                          },
                           type: 'fetch',
                           url: '/api/admin/connections/$record.id/disconnect',
                         },
@@ -28692,6 +29842,161 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                             {
                               children: [
                                 {
+                                  content: '$t:admin.ds.found.code',
+                                  element: 'h2',
+                                  props: {
+                                    className:
+                                      'text-foreground text-lg font-semibold tracking-tight',
+                                  },
+                                  type: 'text',
+                                },
+                                {
+                                  content: '$t:admin.ds.found.codeIntro',
+                                  element: 'p',
+                                  props: {
+                                    className:
+                                      'text-foreground-subtle max-w-md text-sm leading-relaxed',
+                                  },
+                                  type: 'text',
+                                },
+                                {
+                                  children: [
+                                    {
+                                      children: [
+                                        {
+                                          content: '$record.leaf',
+                                          element: 'span',
+                                          props: {
+                                            className: 'text-foreground w-24 font-mono text-sm',
+                                          },
+                                          type: 'text',
+                                        },
+                                        {
+                                          content: '$record.token',
+                                          element: 'span',
+                                          props: {
+                                            className:
+                                              'text-foreground-subtle min-w-32 font-mono text-sm',
+                                          },
+                                          type: 'text',
+                                        },
+                                        {
+                                          children: [
+                                            {
+                                              children: [],
+                                              element: 'div',
+                                              props: {
+                                                'aria-hidden': 'true',
+                                                className:
+                                                  'border-border size-4 shrink-0 rounded-sm border',
+                                                style: {
+                                                  backgroundColor: '$record.hex',
+                                                },
+                                              },
+                                              type: 'container',
+                                            },
+                                            {
+                                              content: '$t:admin.ds.found.codeLight',
+                                              element: 'span',
+                                              props: {
+                                                className: 'text-foreground-subtle text-xs',
+                                              },
+                                              type: 'text',
+                                            },
+                                            {
+                                              content: '$record.hex',
+                                              element: 'span',
+                                              props: {
+                                                className: 'text-foreground font-mono text-xs',
+                                              },
+                                              type: 'text',
+                                            },
+                                          ],
+                                          element: 'div',
+                                          props: {
+                                            className: 'flex items-center gap-2',
+                                          },
+                                          type: 'container',
+                                        },
+                                        {
+                                          children: [
+                                            {
+                                              children: [],
+                                              element: 'div',
+                                              props: {
+                                                'aria-hidden': 'true',
+                                                className:
+                                                  'border-border size-4 shrink-0 rounded-sm border',
+                                                style: {
+                                                  backgroundColor: '$record.darkHex',
+                                                },
+                                              },
+                                              type: 'container',
+                                            },
+                                            {
+                                              content: '$t:admin.ds.found.codeDark',
+                                              element: 'span',
+                                              props: {
+                                                className: 'text-foreground-subtle text-xs',
+                                              },
+                                              type: 'text',
+                                            },
+                                            {
+                                              content: '$record.darkHex',
+                                              element: 'span',
+                                              props: {
+                                                className: 'text-foreground font-mono text-xs',
+                                              },
+                                              type: 'text',
+                                            },
+                                          ],
+                                          element: 'div',
+                                          props: {
+                                            className: 'flex items-center gap-2',
+                                          },
+                                          type: 'container',
+                                        },
+                                      ],
+                                      element: 'div',
+                                      key: 'code-2-1',
+                                      props: {
+                                        className:
+                                          'flex flex-wrap items-center gap-x-6 gap-y-2 py-2',
+                                        'data-testid': 'design-system-code-$record.leaf',
+                                      },
+                                      type: 'container',
+                                    },
+                                  ],
+                                  dataSource: {
+                                    system: {
+                                      endpoint: '/api/admin/design-system/tokens',
+                                      idKey: 'path',
+                                      query: {
+                                        group: 'code',
+                                      },
+                                      rowsKey: 'items',
+                                    },
+                                  },
+                                  element: 'div',
+                                  key: 'code-2',
+                                  props: {
+                                    className: 'flex flex-col divide-y divide-border',
+                                  },
+                                  type: 'container',
+                                },
+                              ],
+                              element: 'section',
+                              key: 'code',
+                              props: {
+                                className: 'flex scroll-mt-6 flex-col gap-4',
+                                'data-design-section': 'code',
+                                id: 'code',
+                              },
+                              type: 'container',
+                            },
+                            {
+                              children: [
+                                {
                                   content: '$t:admin.ds.found.breakpoints',
                                   element: 'h2',
                                   props: {
@@ -29048,6 +30353,17 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                                 'data-design-kit-type': 'link',
                                 'data-design-rail-entry': 'motion',
                                 href: '#motion',
+                              },
+                              type: 'link',
+                            },
+                            {
+                              content: '$t:admin.ds.found.code',
+                              props: {
+                                className:
+                                  'text-foreground-subtle hover:text-foreground hover:bg-muted transition-colors border-l-2 border-transparent py-[3px] pl-3 text-sm aria-[current]:border-foreground aria-[current]:text-foreground aria-[current]:font-medium',
+                                'data-design-kit-type': 'link',
+                                'data-design-rail-entry': 'breakpoints',
+                                href: '#code',
                               },
                               type: 'link',
                             },
@@ -36995,6 +38311,9 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
                 onSuccess: {
                   navigate: '/',
                 },
+                onTwoFactor: {
+                  navigate: '/two-factor',
+                },
                 pendingLabel: '$t:admin.login.pending',
                 strategy: 'email',
                 submitLabel: '$t:admin.login.submit',
@@ -37217,6 +38536,120 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
           onUnknown: 'given',
         },
       },
+    },
+    {
+      components: [
+        {
+          children: [
+            {
+              children: [
+                {
+                  action: {
+                    factor: 'totp',
+                    method: 'verifyTwoFactor',
+                    onSuccess: {
+                      navigate: '/',
+                    },
+                    submitLabel: '$t:admin.twoFactor.submit',
+                    type: 'auth',
+                  },
+                  props: {
+                    id: 'admin-two-factor-form',
+                  },
+                  type: 'form',
+                },
+                {
+                  children: [
+                    {
+                      content: '$t:admin.twoFactor.useRecoveryCode',
+                      element: 'span',
+                      props: {
+                        className: '[[aria-expanded=true]_&]:hidden',
+                      },
+                      type: 'text',
+                    },
+                    {
+                      content: '$t:admin.twoFactor.useAuthenticator',
+                      element: 'span',
+                      props: {
+                        className: 'hidden [[aria-expanded=true]_&]:inline',
+                      },
+                      type: 'text',
+                    },
+                  ],
+                  interactions: {
+                    click: {
+                      toggleElement: '#admin-two-factor-recovery',
+                    },
+                  },
+                  props: {
+                    'aria-controls': 'admin-two-factor-recovery',
+                    className: 'self-start px-0',
+                  },
+                  type: 'button',
+                  variant: 'ghost',
+                },
+                {
+                  children: [
+                    {
+                      action: {
+                        factor: 'backupCode',
+                        method: 'verifyTwoFactor',
+                        onSuccess: {
+                          navigate: '/',
+                        },
+                        submitLabel: '$t:admin.twoFactor.submit',
+                        type: 'auth',
+                      },
+                      props: {
+                        id: 'admin-two-factor-recovery-form',
+                      },
+                      type: 'form',
+                    },
+                  ],
+                  props: {
+                    className: 'flex flex-col gap-3',
+                    id: 'admin-two-factor-recovery',
+                    style: {
+                      display: 'none',
+                    },
+                  },
+                  type: 'container',
+                },
+                {
+                  content: '$t:admin.auth.backToSignIn',
+                  props: {
+                    className: 'text-center text-sm underline-offset-4 hover:underline',
+                    href: '/login',
+                  },
+                  type: 'link',
+                },
+              ],
+              element: 'div',
+              key: 'two-factor-ways',
+              props: {
+                className:
+                  'flex flex-col gap-5 [&:has(#admin-two-factor-recovery:not([style*=none]))_#admin-two-factor-form]:hidden',
+              },
+              type: 'container',
+            },
+          ],
+          component: 'console-password-card',
+          key: 'section',
+          vars: {
+            content: '$t:admin.twoFactor.heading',
+            content2: '$t:admin.twoFactor.blurb',
+          },
+        },
+      ],
+      id: 'dashboard-two-factor',
+      meta: {
+        noindex: true,
+        title: '$t:admin.meta.twoFactor',
+      },
+      name: 'dashboard-two-factor',
+      path: '/two-factor',
+      requires: ['auth.twoFactor'],
     },
     {
       components: [
@@ -37625,7 +39058,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
               props: {
                 'aria-labelledby': 'admin-not-found-heading',
                 className:
-                  'flex min-h-[60svh] w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl p-6 text-center text-balance',
+                  'flex min-h-[60svh] w-full min-w-0 flex-1 flex-col items-center justify-start gap-4 rounded-xl p-6 pt-[12svh] text-center text-balance',
                 'data-slot': 'empty',
               },
               type: 'container',
@@ -37779,7 +39212,7 @@ export const EMBEDDED_ADMIN_PRESET: AppEncoded = {
               props: {
                 'aria-labelledby': 'admin-internal-error-heading',
                 className:
-                  'flex min-h-[60svh] w-full min-w-0 flex-1 flex-col items-center justify-center gap-4 rounded-xl p-6 text-center text-balance',
+                  'flex min-h-[60svh] w-full min-w-0 flex-1 flex-col items-center justify-start gap-4 rounded-xl p-6 pt-[12svh] text-center text-balance',
                 'data-slot': 'empty',
               },
               type: 'container',

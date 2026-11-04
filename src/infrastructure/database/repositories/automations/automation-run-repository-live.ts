@@ -170,6 +170,8 @@ const finalisedColumns = (
   resumeCursor: input.park?.cursor ?? null,
   // A pausing run stores what it wrote and read; any other finalisation clears it.
   filesLedger: input.filesLedger ?? null,
+  // A pausing run stores the trigger data its resume reads; otherwise the column is untouched.
+  ...(input.triggerData !== undefined ? { triggerData: input.triggerData } : {}),
   ...(input.completedAt !== undefined ? { completedAt: input.completedAt } : {}),
   ...(input.durationMs !== undefined ? { durationMs: input.durationMs } : {}),
   ...(input.error !== undefined ? { error: input.error } : {}),
@@ -306,6 +308,11 @@ const members: MembersOverDatabase<typeof AutomationRunRepository> = {
     wrap(async () => {
       await db.delete(automationRunSteps).where(eq(automationRunSteps.runId, runId))
       await db.update(automationRuns).set({ triggerData: null }).where(eq(automationRuns.id, runId))
+    }),
+
+  replaceTriggerData: (db) => (runId, triggerData) =>
+    wrap(async () => {
+      await db.update(automationRuns).set({ triggerData }).where(eq(automationRuns.id, runId))
     }),
 
   deleteRun: (db) => (runId) =>

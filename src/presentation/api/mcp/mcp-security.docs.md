@@ -33,7 +33,7 @@ Both credentials name a **real user**, and that user's role is resolved live on 
 
 That last point is why the static `MCP_TOKEN_*` variables were removed rather than deprecated. A static token carried no user, so the row-level tier never ran for a token-authenticated caller at all: the model saw every row the _role_ could see rather than every row the _person_ could. They were not merely coarse: they silently skipped a permission tier the equivalent human request went through.
 
-A leftover static token **refuses the boot** when the server is enabled. That is deliberate: the failure lands where the change was made rather than in someone's CI a week later. Unset `MCP_TOKEN_ADMIN`, `MCP_TOKEN_MEMBER`, `MCP_TOKEN_VIEWER` and `MCP_AUTH_STRATEGY`; make sure the app has an `auth` block with API keys enabled; then mint a key as the user whose role the client should inherit. Where you would once have issued a viewer token, create a user holding the viewer role and mint that user's key. Replace a role with a person.
+A leftover static token **refuses the boot** when the server is enabled. That is deliberate: the failure lands where the change was made instead of in someone's CI a week later. Unset `MCP_TOKEN_ADMIN`, `MCP_TOKEN_MEMBER`, `MCP_TOKEN_VIEWER` and `MCP_AUTH_STRATEGY`; make sure the app has an `auth` block with API keys enabled; then mint a key as the user whose role the client should inherit. Where you would once have issued a viewer token, create a user holding the viewer role and mint that user's key. Replace a role with a person.
 
 ## Five layers, all of which must pass
 

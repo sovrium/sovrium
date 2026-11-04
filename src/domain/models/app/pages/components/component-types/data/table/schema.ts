@@ -473,8 +473,9 @@ export function validateDataTableColumns(
   // `dataSource` is OPTIONAL, and this additionally runs against the RAW parsed
   // config (see `validateDataTableFieldReferences`), where even a declared type
   // is a promise rather than a fact — a bare `'table' in dataSource` threw a
-  // TypeError on the five data-tables in `apps/website` and `src/templates/intranet`
-  // that nest their whole config under `props`, turning a validation miss into a
+  // TypeError on the five data-tables then in the website app (since moved out of
+  // this repository, [internal ref]) and `src/templates/intranet` that nest their whole
+  // config under `props`, turning a validation miss into a
   // crashed CLI. A component with no object `dataSource` binds to nothing this
   // rule can check, so it is skipped exactly as an unresolvable table name is.
   //
@@ -537,8 +538,8 @@ function validateDbTableColumns(
   // A field reference resolves if the author DECLARED it, or if it names a
   // system column — the intrinsic DDL columns (`id` and the timestamps) and the
   // authorship columns exist without ever appearing in `fields[]`, so checking
-  // `fields[]` alone rejects them. Measured against the 19 data-tables shipped
-  // in `apps/` + `templates/`, that omission produced exactly one verdict and it
+  // `fields[]` alone rejects them. Measured against the 19 data-tables then shipped
+  // in the business apps + `src/templates/`, that omission produced exactly one verdict and it
   // was wrong: `dataSource.filter: field 'id'` on the implicit primary key.
   // See `domain/models/app/tables/system-fields.ts` for why the namespace is
   // admitted wholesale rather than adjudicated per context.

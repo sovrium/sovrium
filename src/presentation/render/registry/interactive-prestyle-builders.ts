@@ -26,6 +26,7 @@
 
 import { type ButtonVariant } from '@/presentation/design/button-default-classes'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
+import { yieldOutlineToAuthor } from '@/presentation/render/styling/outline-yield'
 import {
   computeIconClasses,
   computeLinkClasses,
@@ -99,12 +100,17 @@ const ICON_TONES = new Set<IconTone>(['default', 'muted', 'primary'])
  * drops it. The floor is unaffected — it is already inside `authorClassName` —
  * which is exactly why the floor is a separate layer rather than part of the
  * recipe an operator is allowed to replace.
+ *
+ * An outline the merged list draws then outlives the recipe's outline removal
+ * (`yieldOutlineToAuthor`), so an author's keyboard outline on a link or a
+ * button draws.
  */
 export const mergePrestyle = (
   defaults: string,
   authorClassName: string | undefined,
   replaceDefaults = false
-): string => resolveClasses(replaceDefaults ? '' : defaults, undefined, authorClassName)
+): string =>
+  yieldOutlineToAuthor(resolveClasses(replaceDefaults ? '' : defaults, undefined, authorClassName))
 
 /**
  * Build the merged className for a `link` component. Validates the schema's

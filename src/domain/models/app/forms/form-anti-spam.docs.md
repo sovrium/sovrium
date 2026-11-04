@@ -39,6 +39,8 @@ The honeypot is a conventionally named hidden input carrying every marker that k
 
 The client is told nothing specific, because a bot that learns **why** it was refused learns how to get past. The reason is recorded on the ledger row instead, where a moderator can review it.
 
+A form posted from a browser that runs no scripts gets a page rather than a bare refusal: past a limit, the page the form was posted from is answered again with its `429` and `Retry-After`, the answers typed back in their fields and a short notice above the form, in the page's language, asking to try again shortly.
+
 A spam-flagged submission never writes to the bound table, never fires the submit automation, and never counts against the availability cap. The submitter's address is stored only as a salted hash; the raw address is never persisted.
 
 A duplicate answered from its idempotency key (see [Form Submissions](/en/docs/form-submissions)) is not a submission: it counts against neither limit nor the availability cap. The key is not a spam defence either: a request with no key is accepted as before, and the limits above still apply to it.

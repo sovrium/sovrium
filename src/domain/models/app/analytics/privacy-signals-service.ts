@@ -54,6 +54,21 @@ export function requestDeclinesTracking(
 }
 
 /**
+ * Whether a request carries a privacy signal the app's analytics settings
+ * honour: {@link requestDeclinesTracking} over {@link resolvePrivacySignals},
+ * for a road that holds the app's `analytics` value rather than resolved settings.
+ *
+ * @param analytics - The app's `analytics` value
+ * @param header - Reads one request header by name
+ */
+export function trackingDeclinedUnder(
+  analytics: BuiltInAnalytics | undefined,
+  header: (name: string) => string | undefined
+): boolean {
+  return requestDeclinesTracking(resolvePrivacySignals(analytics), header)
+}
+
+/**
  * The first statement of every tracker the engine emits: it stops the script
  * before anything is sent when the browser reports a signal the settings
  * honour. The client-side twin of {@link requestDeclinesTracking}, shared so

@@ -80,6 +80,9 @@ const structuralSecureHeaders = (frameAncestors: readonly string[] | undefined) 
  */
 const ROUTE_OVERRIDABLE_HEADERS = ['Content-Security-Policy', 'X-Frame-Options'] as const
 
+/** The one referrer policy a route may set over the structural one: sending none. */
+const STRICTEST_REFERRER_POLICY = 'no-referrer'
+
 /**
  * Wraps the structural `secureHeaders` middleware so that a per-route framing
  * decision set by a downstream handler is NOT clobbered by the platform-wide
@@ -120,8 +123,10 @@ export const securityHeadersFor = (frameAncestors?: readonly string[]): Middlewa
   return async (c, next) => {
     let routeHeaders: ReadonlyArray<readonly [string, string]> = []
     let routeGrants: string | undefined = undefined
+    let routeReferrer: string | null = null
     await structural(c, async () => {
       await next()
+      routeReferrer = c.res.headers.get('Referrer-Policy')
       routeHeaders = ROUTE_OVERRIDABLE_HEADERS.flatMap((name) => {
         const value = c.res.headers.get(name)
         return value === null ? [] : [[name, value] as const]
@@ -130,6 +135,11 @@ export const securityHeadersFor = (frameAncestors?: readonly string[]): Middlewa
     })
 
     routeHeaders.forEach(([name, value]) => c.res.headers.set(name, value))
+    // A route may only tighten the referrer policy: a link carrying a secret in
+    // its URL (a signing or delivery token, a calendar feed) answers `no-referrer`.
+    if (routeReferrer === STRICTEST_REFERRER_POLICY) {
+      c.res.headers.set('Referrer-Policy', STRICTEST_REFERRER_POLICY)
+    }
     const structuralPolicy = c.res.headers.get('Permissions-Policy')
     if (routeGrants !== undefined && structuralPolicy !== null) {
       c.res.headers.set('Permissions-Policy', grantPermissions(structuralPolicy, routeGrants))

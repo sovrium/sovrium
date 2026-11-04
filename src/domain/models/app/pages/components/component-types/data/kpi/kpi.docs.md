@@ -2,7 +2,7 @@
 
 > The `kpi` component: a single summary metric, with an optional comparison, sparkline and thresholds.
 
-A KPI card states one number. Reference: shadcn/ui Card, as the section cards of its dashboard block draw it: the label and its `icon` are the card description, in the muted foreground; the figure is the card title, in semibold tabular digits; the `trend` is an outline badge beside them; the `sparkline` sits in the card content and a ratio's two counts in the card footer. The card paints the `card` colour with a faint ring instead of a border, and while its figure loads it draws skeletons where the label and the figure will sit. It aggregates the records its `dataSource` binds and formats the result. It binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. Bound to a view, the number counts or totals the records the view returns.
+A KPI card states one number. Reference: shadcn/ui Card, as the section cards of its dashboard block draw it: the label and its `icon` are the card description, in the muted foreground; the figure is the card title, in semibold tabular digits; the `trend` is an outline badge beside them; the `sparkline` sits in the card content and a ratio's two counts in the card footer. The card paints the `card` colour with a faint ring instead of a border, and while its figure loads it draws skeletons where the label and the figure will sit. A card among a page's own `components`, bound directly to a table and showing no ratio, arrives instead with the figure the server worked out for its reader, so the browser's find and a print reach it before its code runs. It aggregates the records its `dataSource` binds and formats the result. It binds the same way every data component does: to one of the table's views with `dataSource: { table, view }`, the view then owning the filter, sort, grouping and visible fields, or directly to the table with `dataSource: { table }` and its own optional `filter` and `sort`. Bound to a view, the number counts or totals the records the view returns.
 
 The figure is computed by the server over every record the binding matches, through the table's aggregate read (`GET /api/tables/:tableId/aggregate`): one request per card, never a page of records added up in the browser, so a count over 250 records says 250. Cards that ask the same question of the same table and filter share one request. A card with a `sparkline` also reads the records the sparkline is drawn from. A count, or a figure over a number field, comes from the aggregate read; a `min` or `max` over a date is still worked out from a page of records.
 
@@ -73,6 +73,23 @@ All four properties are required once `sparkline` is present: `field` is plotted
 ## Size and tone
 
 `size` sets how large the value is drawn, per breakpoint: `sm`, `md` (the default) or `lg`, keyed `mobile`, `sm`, `md`, `lg`, `xl`, `2xl`. A breakpoint left out inherits the nearest narrower one, so `size: { mobile: sm, md: md }` draws a row of figures smaller on a phone and at full size from `md` up. `tone` gives the value a fixed semantic colour (`success`, `warning`, `error` or `muted`) for a figure that always reads as a warning because of what it counts. A colour that depends on the value is `thresholds`' job, and a matching threshold wins over the tone.
+
+## A figure kept current from a system read
+
+A card bound to a platform read endpoint, `dataSource: { system: { endpoint, valuePath } }`, reads its figure once when the page opens. `refreshMode: poll` makes it read the endpoint again every `pollIntervalMs` milliseconds (1,000 to 300,000, 30,000 when left out) while the tab is visible, so a figure that changes elsewhere shows without a reload. `none`, the default, reads once. `realtime` is refused when the app starts: an endpoint has no change feed to follow.
+
+```yaml
+- type: kpi
+  label: Failures (24h)
+  dataSource:
+    system:
+      endpoint: /api/admin/automations/overview
+      valuePath: totals.failures_24h
+      refreshMode: poll
+      pollIntervalMs: 15000
+```
+
+Cards reading the same endpoint with the same `query` share one request, and polling keeps that: four cards polling one endpoint every 15 seconds send one request every 15 seconds between them, not four. Cards on one endpoint that declare different intervals each keep their own. A poll that fails leaves the last figure on screen, since it was true one interval ago; a card that has never read its figure still shows the neutral dash.
 
 ## A field the reader may not read
 

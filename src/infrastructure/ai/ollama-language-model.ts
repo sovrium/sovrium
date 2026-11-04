@@ -155,11 +155,17 @@ const toOllamaTools = (
 // Ollama lines -> Response parts
 // ---------------------------------------------------------------------------
 
+/**
+ * Tool-call arguments as an object. A string is parsed with the same
+ * `__proto__`/`constructor.prototype`-refusing parser the OpenAI-compatible
+ * adapter uses, so a model reply cannot plant a prototype key; a refused or
+ * unparsable string reads as no arguments.
+ */
 const parseArguments = (value: unknown): Record<string, unknown> => {
   if (typeof value === 'object' && value !== null) return value as Record<string, unknown>
   if (typeof value !== 'string') return {}
   try {
-    const parsed = JSON.parse(value) as unknown
+    const parsed = Tool.unsafeSecureJsonParse(value)
     return typeof parsed === 'object' && parsed !== null ? (parsed as Record<string, unknown>) : {}
   } catch {
     return {}
@@ -190,7 +196,7 @@ const malformed = (method: string): AiError.AiError =>
   AiError.make({
     module: 'OllamaLanguageModel',
     method,
-    reason: new AiError.InvalidOutputError({
+    reason: new AiError.InvalidResponseError({
       description: 'Ollama returned a malformed chat response',
     }),
   })
@@ -228,7 +234,7 @@ const transportError = (method: string) => (error: HttpClientError.HttpClientErr
       error.reason._tag === 'EncodeError' ||
       error.reason._tag === 'InvalidUrlError'
         ? AiError.NetworkError.fromRequestError(error.reason)
-        : new AiError.InvalidOutputError({ description: error.message }),
+        : new AiError.InvalidResponseError({ description: error.message }),
   })
 
 const statusError = (
@@ -348,7 +354,7 @@ const streamParts = (
     Stream.filter((text) => text.trim().length > 0),
     Stream.mapEffect((text) =>
       Effect.try({
-        try: () => JSON.parse(text) as OllamaChatLine,
+        try: () => Tool.unsafeSecureJsonParse(text) as OllamaChatLine,
         catch: () => malformed('streamText'),
       })
     ),

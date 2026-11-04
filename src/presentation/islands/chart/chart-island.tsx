@@ -16,6 +16,7 @@ import {
   type ChartEmptyStateConfig,
 } from './chart-skeleton'
 import { chartAggregateOverGroups, useChartAggregate } from './use-chart-aggregate'
+import { useChartReadState } from './use-chart-read-state'
 import { useChartRecords } from './use-chart-records'
 import { useChartSystemRecords } from './use-chart-system-records'
 import type { ChartAggregateConfig, ChartCategoryOption } from './chart-aggregate'
@@ -210,6 +211,7 @@ export default function ChartIsland(props: ChartIslandProps): ReactElement {
   const viewBound = typeof (dataSource as ChartTableSource | undefined)?.view === 'string'
   const readAggregate = aggregateRead === true && !viewBound ? chartAggregate : undefined
   const { records, isLoading, isError, error } = useChartData(dataSource, readAggregate)
+  useChartReadState(dataSource, { records, isLoading, isError })
   const fields = useMemo(
     () => ({ categoryOptions, valueCurrency, dataLabels }),
     [categoryOptions, valueCurrency, dataLabels]

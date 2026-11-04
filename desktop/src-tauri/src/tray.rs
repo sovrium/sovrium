@@ -64,11 +64,7 @@ fn build_menu<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<Menu<R>> {
     let has_project = snapshot.project.is_some();
     let running = matches!(snapshot.state, ShellState::Serving { .. });
 
-    let toggle_label = if running {
-        "Pause"
-    } else {
-        "Resume"
-    };
+    let toggle_label = if running { "Pause" } else { "Resume" };
 
     let open = MenuItem::with_id(app, ID_OPEN, "Open Sovrium", true, None::<&str>)?;
     let browser = MenuItem::with_id(app, ID_BROWSER, "Open in browser", running, None::<&str>)?;

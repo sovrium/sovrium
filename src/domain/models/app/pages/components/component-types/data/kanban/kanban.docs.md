@@ -31,6 +31,8 @@ A column's header reads its option's `label`, translated in the page's language 
 
 `kanbanGroupBy.collapsed` lists the column values that start folded, for example `kanbanGroupBy: { field: status, collapsed: [done] }`. A folded column keeps its heading and record count, hides its cards, and carries a disclosure control the reader clicks to expand it, the column counterpart of `swimlanes.collapsed`. A folded column takes only the width of its heading, on a phone as on a wider screen, so the reader does not scroll past an empty panel to reach the next stage. Columns fold on a board without `swimlanes`; a board that declares both axes keeps every column open.
 
+`kanbanGroupBy.aggregate` prints one figure per column in its header, after the count: `{ field: amount, function: sum }` totals a pipeline's amounts at each stage. `function` is `sum`, `avg`, `min` or `max` over a number, currency or percentage field, or `count`, the number of the column's cards whose field holds a value; these are the functions a grid's footer summary takes. A currency field's figure reads as money in the field's own currency, precision and separators (`€15,600.00`), as a `format: currency` footer item does; a percentage field's carries its `%`; any other number is written in the page's language with at most two decimals; a `count` is a plain number of cards. The figure is computed over the cards the column holds, so a card dropped in another column moves its amount with it. A value that is not a number (a checkbox, an empty multi-value cell, blank text) is skipped by `sum`, `avg`, `min` and `max`, never read as `0` or `1`, so a column figure agrees with a grid summary over the same values. A column with no cards totals zero and counts zero, and prints no average, minimum or maximum. A field the table does not declare is refused at boot, and a reader who may not read the field sees the header with its count alone.
+
 ```yaml
 tables:
   - name: tasks
@@ -51,6 +53,8 @@ pages:
           children: [{ type: text, content: '$record.title' }]
           footer: [{ field: assignee, format: avatar }, { field: due_date, format: short-date }]
 ```
+
+A `card.footer` item takes an optional `label`, printed before its formatted value inside the item's own text, so a card with an amount and two dates says which is which: `{ field: due, format: short-date, label: Due }` reads « Due: Apr 30 » on an `en-US` page. A French page sets a no-break space before the colon (« Échéance : 30 avr. »), as a grid's summary label does. An item without one prints its value alone.
 
 The card takes `children` for its body: record components bound to the card's record: `text`, `badge`, `avatar` (`label: $record.owner`), `image` (`src: $record.photo`) `qr-code` (`value: $record.asset_tag`; `size`, `ecc` and `props.className` mean what they mean on a page `qr-code`) and `container`, which groups children, each bound to the card's record, and whose own `visibility.record` shows or hides the group as one; a data component there is refused at boot, naming `card.children`. The card also takes `coverImage`, `colorField`, `footer` entries of `{ field, format }` (where `format` is `relative-date`, `short-date`, `avatar`, `badge`, `text` or `currency`) and `onClick`. `relative-date` reads in the page's language (`meta.lang`), so a French page prints « dans 3 j ». `currency` formats the amount with the bound column's own `currency`, `precision` and separators, exactly as a table's `format: currency` cell does. A `coverImage`, or the `src` of an `image` child, naming an attachment field shows the first file it holds that is an image, as a gallery card's cover does; a file that is not an image (a PDF, a Word document) is never drawn, so a card whose files are none of them images has no cover, as a card whose field is empty. One typed as text is drawn only when the filled value is a web address (`http` or `https`, without a user name or password) or a path on this site; any other value, such as a script or an address on another site written without its scheme, shows no image.
 
@@ -74,7 +78,7 @@ By default every column takes the same readable width and the board scrolls side
 
 Lanes behave exactly as columns do: one lane per declared option of the field, in the field's own option order; a value present in the data but not declared on the field is appended; records whose lane field is empty collect in one lane headed « Uncategorized » in the page language (`sovrium.kanban.uncategorized` renames it, as it does the column of cards with no group value). The lane field is checked against the bound table, so a typo is refused by `sovrium validate` rather than drawing one lane per record.
 
-**Not yet drawn.** The key validates today and the field check runs, but the board still renders a flat column list: the lane axis is unimplemented. A config declaring `swimlanes` is accepted and forward-compatible; it simply does not change the render yet.
+**Not yet drawn.** The key validates today and the field check runs, but the board still renders a flat column list: the lane axis is unimplemented. A config declaring `swimlanes` is accepted and forward-compatible; it does not change the render yet.
 
 ## Colouring records by a field
 

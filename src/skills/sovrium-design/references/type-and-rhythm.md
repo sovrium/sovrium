@@ -13,7 +13,7 @@ Faces, the type ladder, and the ladders that decide room, corners, distance, bre
 
 ## Faces: typeScale.families
 
-A face is a role key (alphabetic, freely chosen) mapped to a typeface. Each mints `--font-<face>` and `font-<face>`. `heading`, `body` and `mono` are the conventional three the shipped components look for. Manual: `sovrium docs theming/theme-typography`.
+A face is a role key (alphabetic, freely chosen) mapped to a typeface. Each mints `--font-<face>` and `font-<face>`. `title` (headings), `body`, `mono` and `sans` are the ones the shipped components read; `heading` reaches only the headings of Markdown article prose. Manual: `sovrium docs theming/theme-typography`.
 
 | Member                                                                        | Reaches                                                                                |
 | ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |

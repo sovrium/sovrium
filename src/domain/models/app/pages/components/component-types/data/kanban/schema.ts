@@ -13,6 +13,7 @@ import {
   FillActionSchema,
   OpenDrawerActionSchema,
 } from '../../../action'
+import { AggregateFunctionSchema } from '../../../shared-schemas'
 
 // ---------------------------------------------------------------------------
 // KanbanGroupBySchema
@@ -88,6 +89,30 @@ export const KanbanGroupBySchema = Schema.Struct({
       description:
         'A fixed width, in px or rem, for named columns from the md breakpoint up, typically the narrow closing columns of a pipeline. The other columns follow columnSizing.',
       examples: [{ Won: '6rem', Lost: '6rem' }],
+    })
+  ),
+  /**
+   * One figure per column, printed in the column header beside the count: the
+   * sum of a pipeline's amounts at each stage, say.
+   *
+   * One object, in the vocabulary a table's footer summary already uses
+   * (`function` over one `field`), formatted like the field itself so a
+   * currency field reads as money in its own currency. A list of figures, and
+   * whether the figure moves while a card is being dragged, are deliberately
+   * left out until they are asked for.
+   */
+  aggregate: Schema.optional(
+    Schema.Struct({
+      field: Schema.String.annotate({
+        description:
+          'Field the figure is computed over: a number, currency or percentage field for sum, avg, min and max; any field for count',
+      }),
+      function: AggregateFunctionSchema,
+    }).annotate({
+      title: 'Kanban Column Aggregate',
+      description:
+        "A figure computed over each column's cards and printed in the column header beside the count, in the field's own format: sum, avg, min or max of a number, currency or percentage field, or the count of cards with a value",
+      examples: [{ field: 'amount', function: 'sum' }],
     })
   ),
 }).annotate({
@@ -223,6 +248,20 @@ export const KanbanCardFooterItemSchema = Schema.Struct({
       description:
         "How to format the field value in the footer. `currency` formats a number with the bound column's own currency, precision and separators",
     })
+  ),
+  /**
+   * A short word printed before the formatted value, so a card carrying two
+   * dates says which one is the deadline. Omitted, the value stands alone.
+   */
+  label: Schema.optional(
+    Schema.String.pipe(
+      Schema.annotate({
+        description:
+          'A short word printed before the formatted value (Amount: €48,500.00), so a card with two dates says which is which. Omitted, the value is printed alone.',
+        examples: ['Amount', 'Due'],
+      }),
+      Schema.check(Schema.isMinLength(1))
+    )
   ),
 }).annotate({
   title: 'Kanban Card Footer Item',

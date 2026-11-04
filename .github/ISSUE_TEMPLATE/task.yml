@@ -38,6 +38,7 @@ body:
         - pages
         - records-api
         - security
+        - signatures
         - tables
         - templates
         - theming

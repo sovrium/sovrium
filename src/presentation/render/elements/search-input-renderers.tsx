@@ -6,6 +6,7 @@
  */
 
 import { type ReactElement } from 'react'
+import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import { SearchLucideGlyph } from '@/presentation/design/control-glyphs'
 import {
   computeInputGroupAddonClasses,
@@ -16,6 +17,7 @@ import { resolveClasses } from '@/presentation/design/resolve-classes'
 import { computeSearchInputRootClasses } from '@/presentation/design/search-input-default-classes'
 import { hostComponentType } from '@/presentation/render/registry/island-host-attributes'
 import type { ElementProps } from './html-element-renderer'
+import type { Languages } from '@/domain/models/app/languages'
 
 /**
  * The search box itself, shared by both scopes: shadcn/ui's `InputGroup` — one
@@ -153,7 +155,37 @@ export interface RenderPageSearchConfig {
   readonly maxResults?: number
   /** `index: 'session'` — the island queries `GET /api/search/pages` per keystroke. */
   readonly sessionIndex?: boolean
+  /** The results panel's words in the page language ({@link resolvePageSearchWords}). */
+  readonly words?: PageSearchWords
+  /**
+   * The collection page whose articles alone a session query searches: the docs
+   * sidebar's field. Absent searches every page the reader may open.
+   */
+  readonly collectionPage?: string
 }
+
+/** The words a page search's results panel says, in the page language. */
+export interface PageSearchWords {
+  readonly searching: string
+  readonly noResultsFor: string
+  readonly resultCount: string
+  readonly resultCountOne: string
+}
+
+/**
+ * The results panel's words — searching, nothing matched, the result count —
+ * from the engine's interface strings, so an app renames them as it renames
+ * every engine word (`languages.translations[<lang>]['sovrium.search.<key>']`).
+ */
+export const resolvePageSearchWords = (
+  lang: string | undefined,
+  languages: Languages | undefined
+): PageSearchWords => ({
+  searching: resolveInterpreterString('search.searching', lang, languages),
+  noResultsFor: resolveInterpreterString('search.noResultsFor', lang, languages),
+  resultCount: resolveInterpreterString('search.resultCount', lang, languages),
+  resultCountOne: resolveInterpreterString('search.resultCountOne', lang, languages),
+})
 
 /**
  * Renders the SSR shell for a `search-input` under `scope: 'page'`.
@@ -173,7 +205,7 @@ export interface RenderPageSearchConfig {
  * regardless of JS availability).
  */
 export function renderPageSearch(config: RenderPageSearchConfig): ReactElement {
-  const { props, placeholder, maxResults, sessionIndex } = config
+  const { props, placeholder, maxResults, sessionIndex, words, collectionPage } = config
   const id = props.id as string | undefined
   const className = props.className as string | undefined
   const testId = props['data-testid'] as string | undefined
@@ -183,8 +215,10 @@ export function renderPageSearch(config: RenderPageSearchConfig): ReactElement {
   // field does not move or restyle when the island mounts and replaces it.
   const islandProps = {
     placeholder: effectivePlaceholder,
+    ...(words === undefined ? {} : { words }),
     ...(typeof maxResults === 'number' ? { maxResults } : {}),
     ...(sessionIndex === true ? { index: 'session' } : {}),
+    ...(collectionPage === undefined ? {} : { page: collectionPage }),
     ...(id !== undefined ? { id } : {}),
     ...(className !== undefined ? { className } : {}),
     ...(testId !== undefined ? { 'data-testid': testId } : {}),

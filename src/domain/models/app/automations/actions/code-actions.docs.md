@@ -103,7 +103,7 @@ The log is for narrating what the step decided; anything a later step has to rea
 
 ## Checked at startup, stopped at its timeout
 
-The `execute` body is type-checked when the app boots, so a malformed function fails immediately rather than in the middle of a run at three in the morning.
+The `execute` body is type-checked when the app boots, so a malformed function fails at boot instead of in the middle of a run at three in the morning.
 
 Each code step runs on a thread of its own, started for the step and stopped when it ends. `props.timeout` (default 30 000 ms) and the action's top-level `timeout` both **stop the step** when they elapse, whatever the code is doing, a tight loop included; the smaller wins. The step fails with `code action exceeded timeout of <n>ms` and the run goes on as for any failed step. While a step computes, the app keeps answering: pages, the API, webhooks and other automations do not wait for it.
 
@@ -118,4 +118,4 @@ There is no setting to run code steps on the server's own thread.
 
 ## Code an agent writes
 
-An agent can hold the same action as `code.runTypescript` in its `tools.actions`, and then the code is written by its model rather than by you. Only an agent no person can reach may hold it: one whose `permissions.trigger` is `none`, run by automation `agent` steps and its own schedule. An agent that people can chat with or call refuses the configuration when it lists the action, and a chat never offers or runs it. When people need what some code computes, write the code in a step like the ones above and let them start the automation.
+An agent can hold the same action as `code.runTypescript` in its `tools.actions`, and then the code is written by its model instead of by you. Only an agent no person can reach may hold it: one whose `permissions.trigger` is `none`, run by automation `agent` steps and its own schedule. An agent that people can chat with or call refuses the configuration when it lists the action, and a chat never offers or runs it. When people need what some code computes, write the code in a step like the ones above and let them start the automation.

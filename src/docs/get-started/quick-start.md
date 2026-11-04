@@ -1,12 +1,12 @@
 # Quick Start
 
-> From an empty file to a running app, in YAML driven by the CLI, or in TypeScript with full type safety.
+> From an empty file to a running app, in YAML driven by the CLI, or in TypeScript with type checking and autocompletion.
 
-This guide takes you from an empty file to a running Sovrium app. Pick the approach that fits your workflow: a YAML file driven by the CLI, or a TypeScript project for full type safety.
+This guide takes you from an empty file to a running Sovrium app. Pick the approach that fits your workflow: a YAML file driven by the CLI, or a TypeScript file with type checking and autocompletion.
 
 ## Option A: YAML and the CLI
 
-The simplest path. Install the binary, write a YAML config, and start the server.
+The shortest path: install the binary, write a YAML config, and start the server.
 
 **1. Install the CLI.** Homebrew, Docker and Scoop are also available; see **Installation**.
 
@@ -14,7 +14,7 @@ The simplest path. Install the binary, write a YAML config, and start the server
 curl -fsSL https://sovrium.com/install | sh
 ```
 
-**2. Create a config file.** The simplest valid configuration is just a name.
+**2. Create a config file.** The smallest valid configuration is a name.
 
 ```yaml
 name: my-app
@@ -45,11 +45,11 @@ tables:
 sovrium start app.yaml
 ```
 
-Start small with just tables. Then progressively add design, auth, pages and analytics as your needs grow.
+From here, add design, auth, pages and analytics as the app needs them.
 
 ## Option B: TypeScript
 
-Prefer type safety? Author the config in TypeScript with full autocompletion, then run it with the same CLI.
+To have the config type-checked as you write, author it in TypeScript, then run it with the same CLI.
 
 **1. Write the type definitions.** Run this in your project directory. It writes `sovrium.d.ts` and a `tsconfig.json` from the types embedded in the binary. There is no `package.json`, no `node_modules` and nothing to install.
 
@@ -57,7 +57,7 @@ Prefer type safety? Author the config in TypeScript with full autocompletion, th
 sovrium types
 ```
 
-**2. Create `app.ts`.** Export the config as the default export, checked with `satisfies`, starting with just a name. The import carries only the type, so nothing has to resolve at run time.
+**2. Create `app.ts`.** Export the config as the default export, checked with `satisfies`, starting with a name. The import carries only the type, so nothing has to resolve at run time.
 
 ```typescript
 import type { AppConfig } from 'sovrium'
@@ -67,7 +67,7 @@ export default {
 } satisfies AppConfig
 ```
 
-**3. Add data tables.** Extend the configuration with typed fields, options and validation, with full autocompletion.
+**3. Add data tables.** Extend the configuration with typed fields, options and validation, and autocompletion as you type.
 
 ```typescript
 import type { AppConfig } from 'sovrium'
@@ -98,7 +98,7 @@ export default {
 sovrium start app.ts
 ```
 
-You get autocompletion for every property and type errors on field types as you write, without adding a single dependency to the project. `sovrium init --typescript` scaffolds all three files at once. See **TypeScript Configs**.
+You get autocompletion for every property and type errors on field types as you write, without adding any dependency to the project. `sovrium init --typescript` scaffolds all three files at once. See **TypeScript Configs**.
 
 ## What next?
 

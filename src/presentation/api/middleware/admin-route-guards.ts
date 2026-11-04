@@ -313,16 +313,16 @@ export const chainAdminRouteGuards = (
     .use('/api/admin/links/*', requireAdminTier(app))
     // The Organisation page's access-graph read `/api/admin/organisation` is a
     // NEW namespace, so it gets an explicit entry rather than being left to the
-    // defense-in-depth catch-all — an ungated sibling inside a guarded
-    // namespace is how a gap starts, and the entries above record what that has
-    // already cost once. The `/*` wildcard is what matches `/organisation/graph`;
-    // the bare path serves nothing today, and adding it would gate a URL that
-    // does not exist.
+    // defense-in-depth catch-all: an ungated sibling inside a guarded namespace
+    // is how a gap starts. The `/*` wildcard matches `/organisation/graph`; the
+    // bare path serves nothing, and gating it would gate a URL that does not exist.
     //
     // The payload is a map of who can reach what in this instance, which is
     // precisely the thing a 401 or a 403 must not confirm the existence of.
     .use('/api/admin/organisation/*', authMiddleware(auth))
     .use('/api/admin/organisation/*', requireAdminTier(app))
+    // The Signatures list: a new namespace, so an explicit entry as above.
+    .use('/api/admin/signatures', authMiddleware(auth), requireAdminTier(app))
     .use('/api/admin/storage/transform-cache', authMiddleware(auth))
     .use('/api/admin/storage/transform-cache', requireAuth())
     .use('/api/admin/storage/transform-cache', requireAdmin(app))
@@ -408,10 +408,10 @@ export const chainAdminRouteGuardsWithoutAuth = (honoApp: SessionHono, app: App)
     // Short-link console — both spellings, as in the auth-enabled branch.
     .use('/api/admin/links', requireAdminTier(app))
     .use('/api/admin/links/*', requireAdminTier(app))
-    // The Organisation page's access-graph read — the no-auth mirror. One line,
-    // not two: there is no auth instance to attach a session with. See the
-    // auth-enabled branch for why the namespace gets an explicit entry.
+    // The Organisation and Signatures reads — the no-auth mirror, one line each
+    // (no auth instance to attach a session with); see the auth-enabled branch.
     .use('/api/admin/organisation/*', requireAdminTier(app))
+    .use('/api/admin/signatures', requireAdminTier(app))
     // Defense-in-depth catch-all (S1) — the no-auth mirror of the
     // `/api/admin/*` line in the branch above. Without it, every admin
     // sub-path that lacks its own `.use(...)` entry here ships OPEN when

@@ -11,7 +11,7 @@
 - Inbound webhooks and outbound redirects
 - Checks against your own running app
 
-Manual: `sovrium docs pages/pages-layouts-access`, `sovrium docs form-delivery/form-access`, `sovrium docs form-delivery/form-anti-spam`, `sovrium docs form-delivery/form-availability`, `sovrium docs buckets/buckets-permissions`, `sovrium docs files/file-security`, `sovrium docs file-access/signed-urls`, `sovrium docs components/action-allow-origins`.
+Manual: `sovrium docs pages/pages-layouts-access`, `sovrium docs form-delivery/form-access`, `sovrium docs form-delivery/form-anti-spam`, `sovrium docs form-delivery/form-availability`, `sovrium docs buckets/buckets-permissions`, `sovrium docs files/file-security`, `sovrium docs file-access/signed-urls`, `sovrium docs components-presentation/action-allow-origins`.
 
 ## Inventory first
 

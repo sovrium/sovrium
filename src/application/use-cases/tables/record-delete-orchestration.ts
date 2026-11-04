@@ -26,6 +26,8 @@
  *     its transaction on the row as it stands there, so a delete racing a
  *     change that locks the row is judged on what that change left; recording
  *     the table's delete webhook deliveries in the same transaction
+ *     — and, for a delete for good, the evidence of the signatures captured on
+ *     the record (`forget-record-signatures.ts`), once the delete committed
  *  3. a purge only: delete the stored files of the row read in step 1 that no
  *     other record references — once the delete committed, so a delete refused
  *     or failed keeps every file
@@ -44,6 +46,7 @@
  */
 
 import { Effect } from 'effect'
+import { forgetRecordSignatures } from '@/application/use-cases/signatures/forget-record-signatures'
 import { prepareRowOpRuleJudge, type prepareRuleJudge } from './permissions/business-rule-gate'
 import { rawGetRecordIncludingTrashProgram, rawGetRecordProgram } from './read-record-programs'
 import { deleteRecordProgram, permanentlyDeleteRecordProgram } from './record-lifecycle-programs'
@@ -215,7 +218,8 @@ export function deleteRecordVia<RA>(
     | Effect.Error<ReturnType<typeof permanentlyDeleteRecordProgram>>,
     | Effect.Services<ReturnType<typeof deleteRecordProgram>>
     | Effect.Services<ReturnType<typeof prepareRuleJudge>>
-    | Effect.Services<ReturnType<typeof purgeStoredAttachments>>,
+    | Effect.Services<ReturnType<typeof purgeStoredAttachments>>
+    | Effect.Services<ReturnType<typeof forgetRecordSignatures>>,
     RecordWebhookDispatcher,
     RA
   >(
@@ -238,7 +242,17 @@ export function deleteRecordVia<RA>(
               permanentlyDeleteRecordProgram(session, tableName, recordId, { app, judge }),
               asDeleteResult
             )
-        ).pipe(withRecordWebhooks(app, tableName)),
+        ).pipe(
+          withRecordWebhooks(app, tableName),
+          Effect.tap((removed) =>
+            mode !== 'soft' && removedARow(removed.value)
+              ? forgetRecordSignatures({
+                  ...{ tableName, recordId },
+                  forgetDerivedVariants: input.forgetDerivedVariants,
+                })
+              : Effect.void
+          )
+        ),
       dispatchAutomations,
       deliverWebhooks: (deliveryIds) => deliverRecordWebhooks(app, deliveryIds, input.deliveryMode),
     }

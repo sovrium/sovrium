@@ -6,3 +6,4 @@
  */
 
 export * from './overview'
+export * from './record-access'

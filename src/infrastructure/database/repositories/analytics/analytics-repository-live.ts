@@ -14,6 +14,7 @@ import { toFiniteCount } from '@/domain/kernel/sql/count-coercion'
 import { devClockStamp } from '@/infrastructure/database/analytics-event-clock'
 import { countEventsByName } from '@/infrastructure/database/analytics-event-counts'
 import { minimisationMembers } from '@/infrastructure/database/analytics-event-minimisation'
+import { pageViewRowFields } from '@/infrastructure/database/analytics-event-page-view'
 import { resolveDialectSchema } from '@/infrastructure/database/drizzle/dialect-schema'
 import {
   layerOverDatabase,
@@ -95,7 +96,7 @@ const members: MembersOverDatabase<typeof AnalyticsRepository> = {
     wrap(async () => {
       // Query-builder INSERT (SQLite drizzle clients have no `.execute()`);
       // `bindJsonb` makes Postgres store `properties` as a jsonb OBJECT so
-      // `->>` extraction works — see `recordPageView` for the full rationale.
+      // `->>` extraction works — see `pageViewRowFields` for the full rationale.
       // @effect-diagnostics effect/preferSchemaOverJson:off
       await db.insert(analyticsEvents).values({
         appName: input.appName,
@@ -111,30 +112,12 @@ const members: MembersOverDatabase<typeof AnalyticsRepository> = {
 
   recordPageView: (db, dialect) => (input) =>
     wrap(async () => {
-      const properties = {
-        path: input.pagePath,
-        title: input.pageTitle,
-        isEntrance: input.isEntrance,
-        referrerUrl: input.referrerUrl,
-        referrerDomain: input.referrerDomain,
-        utmSource: input.utmSource,
-        utmMedium: input.utmMedium,
-        utmCampaign: input.utmCampaign,
-        utmContent: input.utmContent,
-        utmTerm: input.utmTerm,
-        deviceType: input.deviceType,
-        browserName: input.browserName,
-        osName: input.osName,
-        language: input.language,
-        screenWidth: input.screenWidth,
-        screenHeight: input.screenHeight,
-      }
-      // `bindJsonb` stores a jsonb OBJECT on Postgres (a jsonb STRING would make
-      // `properties->>'path'` NULL) and plain JSON text on SQLite.
+      const { eventName, properties } = pageViewRowFields(input)
       // @effect-diagnostics effect/preferSchemaOverJson:off
       await db.insert(analyticsEvents).values({
         appName: input.appName,
         eventType: 'page_view',
+        eventName,
         visitorHash: input.visitorHash,
         sessionHash: input.sessionHash,
         // drizzle accepts an SQL fragment as a column value; this carries

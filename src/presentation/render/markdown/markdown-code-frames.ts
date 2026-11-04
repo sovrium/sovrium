@@ -65,13 +65,18 @@ import {
 import type { MarkdownCodeBlock } from '@/domain/kernel/markdown/markdown-renderer'
 
 /**
- * Copy-button labels for docs fences. The docs article is not a component with
- * authored `copyLabel` / `copiedLabel` fields, so the frame uses the same
- * defaults the `code` renderer falls back to — keeping the accessible name a
- * reader hears identical on both surfaces.
+ * Copy-button labels for a fence. The docs article is not a component with
+ * authored `copyLabel` / `copiedLabel` fields, so the caller passes the words
+ * the `code` renderer falls back to (`code.copy`, `code.copied`, in the page
+ * language) — keeping the accessible name a reader hears identical on both
+ * surfaces. English when none are passed.
  */
-const COPY_LABEL = 'Copy'
-const COPIED_LABEL = 'Copied'
+export interface FenceCopyLabels {
+  readonly copy: string
+  readonly copied: string
+}
+
+const ENGLISH_COPY_LABELS: FenceCopyLabels = { copy: 'Copy', copied: 'Copied' }
 
 /**
  * Match a highlighted (or plain-fallback) fence `<pre>` carrying the ordinal
@@ -111,6 +116,8 @@ export interface FenceFrameOptions {
   readonly title: 'docs-default' | 'language'
   /** Whether the header carries the copy button and its status region. */
   readonly copy: boolean
+  /** The copy button's words; English when absent. */
+  readonly copyLabels?: FenceCopyLabels
 }
 
 /** A docs fence's frame: default size and variant, the derived title, a copy button. */
@@ -156,11 +163,11 @@ const renderFenceTitle = (header: FenceHeader): string => {
 }
 
 /** The header's actions group with the copy control and its status region, when asked for. */
-const renderFenceActions = (copy: boolean): string =>
+const renderFenceActions = (copy: boolean, labels: FenceCopyLabels): string =>
   copy
     ? [
         `<span data-slot="code-block-actions" class="${computeCodeBlockActionsClasses()}">`,
-        renderCodeCopyButtonHtml(COPY_LABEL, COPIED_LABEL),
+        renderCodeCopyButtonHtml(labels.copy, labels.copied),
         `</span>`,
         CODE_COPY_STATUS_HTML,
       ].join('')
@@ -194,7 +201,7 @@ export const renderFenceFrame = (
     ` class="${computeCodeBlockClasses()}">`,
     `<figcaption data-slot="code-block-header" class="${computeCodeBlockHeaderClasses()}">`,
     renderFenceTitle(header),
-    renderFenceActions(options.copy),
+    renderFenceActions(options.copy, options.copyLabels ?? ENGLISH_COPY_LABELS),
     `</figcaption>`,
     markCommandPre(shapeCodeBlockPre(preHtml, { language: block.lang })),
     `</figure>`,
@@ -211,13 +218,15 @@ export const renderFenceFrame = (
  */
 export const spliceMarkdownCodeFrames = (
   html: string,
-  codeBlocks: readonly MarkdownCodeBlock[]
+  codeBlocks: readonly MarkdownCodeBlock[],
+  copyLabels: FenceCopyLabels = ENGLISH_COPY_LABELS
 ): string => {
   if (codeBlocks.length === 0) return html
+  const options: FenceFrameOptions = { ...DOCS_FENCE_FRAME, copyLabels }
   return html.replace(FENCE_RE, (match, indexStr: string) => {
     const block = codeBlocks[Number(indexStr)]
     if (block === undefined) return match
-    return renderFenceFrame(block, match)
+    return renderFenceFrame(block, match, options)
   })
 }
 

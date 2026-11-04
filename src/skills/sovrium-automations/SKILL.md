@@ -1,6 +1,6 @@
 ---
 name: sovrium-automations
-description: Use when building, reviewing or debugging automations in a Sovrium app — record, webhook, cron, form, auth, comment, manual or failure triggers; http, record, email, code, loop, digest or AI actions; connections and secrets for external services; retries, timeouts, duplicate deliveries, runaway loops, failed runs, notifications and digests. Triggers include "when a record changes", "send an email when", "sync with", "call this API", "webhook", "every night", "sovrium library add recipe", "the automation fired twice", and "why did this run fail".
+description: Use when building, reviewing or debugging automations in a Sovrium app — record, webhook, cron, form, auth, comment, manual or failure triggers; http, record, email, code, loop, digest or AI actions; connections and secrets for external services; signing flows that send a document for signature; retries, timeouts, duplicate deliveries, runaway loops, failed runs, notifications and digests. Triggers include "when a record changes", "send an email when", "sync with", "call this API", "webhook", "every night", "sovrium library add recipe", "send this contract for signature", "the automation fired twice", and "why did this run fail".
 license: BSL-1.1
 metadata:
   author: sovrium
@@ -24,7 +24,7 @@ sovrium library show <id>
 sovrium library add <id> --set key=value --dry-run
 ```
 
-A recipe is a starting point: it installs a fragment you own, lists the environment variables it needs in `.env.example`, and installs the connection it depends on. Read what it wrote, replace every placeholder, then apply this skill's checklist to it. Manual: `sovrium docs cli-api/cli-library`.
+A recipe is a starting point: it installs a fragment you own, lists the environment variables it needs in `.env.example`, and installs the connection it depends on. Read what it wrote, replace every placeholder, then apply this skill's checklist to it. Manual: `sovrium docs cli-tools/cli-library`.
 
 ## Trigger design
 
@@ -90,6 +90,20 @@ A `code` action runs a TypeScript `execute(context)` function, type-checked when
 - Email needs SMTP configured; without it a send is logged, not delivered, and the run still reads green.
 - Anything sent in bulk needs a sending domain with SPF, DKIM and DMARC, and a one-click unsubscribe. Sovrium's `email` action does not set custom headers today, so bulk or marketing email goes through a dedicated email provider's API. Details: `references/notifications.md`.
 
+## Signing flows
+
+A request for signatures is started and followed by automations: a `signature/send` step, a `signature/cancel` step, and a `signature` trigger on each event of a request. The flow itself is declared under the top-level `signatures` key, with a page of the app as its signing page.
+
+```
+- [ ] evidence.keep and evidence.basis come from the person who runs the app, never from you
+- [ ] The send step is guarded like any record automation; an open request already refuses a second send
+- [ ] A cancel reason is written for the team: it is recorded in the evidence, and the signer never sees it
+- [ ] SIGNATURE_OTP_SECRET is set when a flow declares verify, or the server refuses to start
+- [ ] Nothing writes a signature field, an output field, or the document field while a request is open
+```
+
+What it produces is a simple electronic signature with an evidence file; for an advanced or qualified one, use a signature provider through a connection. Details: `references/signing-flows.md`.
+
 ## Test with one record before enabling
 
 1. Point the trigger at a narrow condition (one test record, one test email address) or use a `manual` trigger copy.
@@ -125,5 +139,6 @@ Report each automation you built or changed with its trigger, the run you fired 
 - [references/reliability.md](references/reliability.md) — read before calling any external service: idempotency keys, retry presets, timeouts, compensation, webhooks in and out.
 - [references/loops.md](references/loops.md) — read when an automation writes to a table any automation watches.
 - [references/notifications.md](references/notifications.md) — read before sending email or notifications: urgency tiers, digests, email authentication and unsubscribe.
+- [references/signing-flows.md](references/signing-flows.md) — read before sending a document for signature: the decisions in order, the signing page, the actions and trigger, what the engine refuses.
 - [references/triggers-and-actions.generated.md](references/triggers-and-actions.generated.md) — read for the exact trigger and action options of the binary you run; generated from it.
 - [references/sources.md](references/sources.md) — where the practices in this skill come from.

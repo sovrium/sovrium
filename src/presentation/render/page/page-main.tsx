@@ -12,6 +12,8 @@ import { MarkdownArticle } from '@/presentation/render/page/markdown-article'
 import { SectionRenderer } from '@/presentation/render/page/section-renderer'
 import { componentField, keyOf } from '@/presentation/render/resolve/component-rewrite'
 import { someComponentInTree } from '@/presentation/render/resolve/component-template-walker'
+import { resolveFrontmatterInComponents } from '@/presentation/render/resolve/frontmatter-components-resolver'
+import { withSigningPage } from '@/presentation/render/resolve/signing-page-stamp'
 import type { RouteParams } from '@/domain/kernel/matching/route-matcher'
 import type { SessionInfo } from '@/domain/models/app/auth/session-info'
 import type { Buckets } from '@/domain/models/app/buckets'
@@ -30,28 +32,76 @@ import type { ResolvedMarkdownPage } from '@/presentation/render/markdown/markdo
 /** Stable identity for `<main>` minimum height to satisfy react-perf. */
 const MAIN_STYLE = { minHeight: '1px' } as const
 
-/** The banner wrapper draws no box of its own. */
-const BANNER_STYLE = { display: 'contents' } as const
+/** The banner and footer wrappers draw no box of their own. */
+const CHROME_STYLE = { display: 'contents' } as const
 
 type PageComponent = Component | SimpleComponentReference | ComponentReference
 
-/** Whether a page component renders as a `header` container, directly or through its template. */
-function isBannerComponent(component: PageComponent, components: Components | undefined): boolean {
+type PageSections = ReadonlyArray<PageComponent>
+
+/** The fields of a component, or of the template a reference places, that say what it draws. */
+function drawnNode(
+  component: PageComponent,
+  components: Components | undefined
+): { readonly type?: unknown; readonly element?: unknown } | undefined {
   const node = component as { readonly type?: unknown; readonly element?: unknown }
-  if (typeof node.type === 'string') return node.type === 'container' && node.element === 'header'
+  if (typeof node.type === 'string') return node
   const name = (component as { readonly component?: unknown }).component
-  const template = components?.find((candidate) => candidate.name === name) as
+  return components?.find((candidate) => candidate.name === name) as
     { readonly type?: unknown; readonly element?: unknown } | undefined
-  return template?.type === 'container' && template.element === 'header'
 }
+
+/** Whether a page component renders as a container drawn as `element`, directly or through its template. */
+function isContainerDrawnAs(
+  component: PageComponent,
+  components: Components | undefined,
+  element: 'header' | 'footer'
+): boolean {
+  const node = drawnNode(component, components)
+  return node?.type === 'container' && node.element === element
+}
+
+/** Component types drawn above the page wherever they are declared: they never hold a footer in place. */
+const OVERLAY_TYPES: ReadonlySet<unknown> = new Set([
+  'dialog',
+  'alert-dialog',
+  'sheet',
+  'drawer',
+  'bottom-drawer',
+  'record-drawer',
+  'toast',
+  // The ⌘K palette the engine places on every page, a dialog until it opens.
+  'command',
+])
 
 /** How many of the page's first components form its banner. */
 function leadingBannerCount(
   pageComponents: ReadonlyArray<PageComponent>,
   components: Components | undefined
 ): number {
-  const firstBody = pageComponents.findIndex((c) => !isBannerComponent(c, components))
+  const firstBody = pageComponents.findIndex((c) => !isContainerDrawnAs(c, components, 'header'))
   return firstBody === -1 ? pageComponents.length : firstBody
+}
+
+/**
+ * Split off the page's closing footer: the trailing run of `footer`
+ * containers, ignoring the overlays declared after it, which stay where they
+ * are. A footer followed by any other component is part of the content and
+ * stays in place.
+ */
+function splitTrailingFooter(
+  body: PageSections,
+  components: Components | undefined
+): { readonly content: PageSections; readonly footer: PageSections } {
+  const overlaysFrom =
+    body.findLastIndex((c) => !OVERLAY_TYPES.has(drawnNode(c, components)?.type)) + 1
+  const footerFrom =
+    body.slice(0, overlaysFrom).findLastIndex((c) => !isContainerDrawnAs(c, components, 'footer')) +
+    1
+  return {
+    content: [...body.slice(0, footerFrom), ...body.slice(overlaysFrom)],
+    footer: body.slice(footerFrom, overlaysFrom),
+  }
 }
 
 /**
@@ -112,16 +162,24 @@ function MainShell({
 }
 
 /**
- * The page's leading header components, drawn before its main landmark.
- * `display: contents` keeps the header's own layout (a sticky header sticks to
- * the page) while the marker tells a content swap that the page holds chrome
+ * The page's chrome drawn outside its main landmark: the leading header
+ * components before it (`banner`), the closing footer after it (`footer`).
+ * `display: contents` keeps their own layout (a sticky header sticks to the
+ * page) while the marker tells a content swap that the page holds chrome
  * outside its main region.
  */
-function PageBanner({ children }: { readonly children: React.ReactNode }): Readonly<ReactElement> {
+function PageChrome({
+  edge,
+  children,
+}: {
+  readonly edge: 'banner' | 'footer'
+  readonly children: React.ReactNode
+}): Readonly<ReactElement> {
+  const marker = edge === 'banner' ? { 'data-page-banner': '' } : { 'data-page-footer': '' }
   return (
     <div
-      data-page-banner=""
-      style={BANNER_STYLE}
+      {...marker}
+      style={CHROME_STYLE}
     >
       {children}
     </div>
@@ -167,71 +225,86 @@ type PageMainProps = {
  * component-only pages (no markdown) render every component in order, so the
  * landing page and all non-markdown pages are unaffected.
  */
-export function PageMain({
-  page,
-  pageComponents,
-  design,
-  components,
-  languages,
-  currentLang,
-  tables,
-  buckets,
-  landingPath,
-  routeParams,
-  session,
-  markdownPayload,
-}: PageMainProps): Readonly<ReactElement> {
-  const renderSections = (
-    sections: ReadonlyArray<Component | SimpleComponentReference | ComponentReference>
-  ): Readonly<ReactElement> => (
+/** The renderer of a run of the page's components, with everything the page threads to them. */
+function sectionsRenderer(
+  props: PageMainProps
+): (sections: PageSections) => Readonly<ReactElement> {
+  const { page, components } = props
+  // A pad inside a component template is stamped too: it is drawn on this page once placed.
+  const templates = components === undefined ? undefined : withSigningPage(components, page.name)
+  const renderSections = (sections: PageSections): Readonly<ReactElement> => (
     <SectionRenderer
-      sections={sections}
+      sections={withSigningPage(sections, page.name)}
       pageVars={page.vars}
-      design={design}
-      components={components}
-      languages={languages}
-      currentLang={currentLang}
-      tables={tables}
-      buckets={buckets}
-      landingPath={landingPath}
-      routeParams={routeParams}
-      session={session}
+      design={props.design}
+      components={templates}
+      languages={props.languages}
+      currentLang={props.currentLang}
+      tables={props.tables}
+      buckets={props.buckets}
+      landingPath={props.landingPath}
+      routeParams={props.routeParams}
+      session={props.session}
     />
   )
+  return renderSections
+}
+
+export function PageMain(props: PageMainProps): Readonly<ReactElement> {
+  const { page, components, languages, markdownPayload } = props
+  const renderSections = sectionsRenderer(props)
+  // An article's page shows its front matter: `$frontmatter.<key>` in its components.
+  const pageComponents =
+    markdownPayload === undefined
+      ? props.pageComponents
+      : resolveFrontmatterInComponents(props.pageComponents, markdownPayload.frontmatter)
 
   // A leading run of `header` components is the page's banner: it is drawn
   // BEFORE the main landmark, so the skip link lands past it and its navigation.
+  // A closing run of `footer` components is drawn AFTER it, as the page's
+  // contentinfo — unless the page names its own main region and keeps its order.
   const bannerCount = leadingBannerCount(pageComponents, components)
   const banner = pageComponents.slice(0, bannerCount)
-  const body = pageComponents.slice(bannerCount)
-  const bannerSlot =
-    banner.length > 0 ? <PageBanner>{renderSections(banner)}</PageBanner> : undefined
-  const shell = { page, ownRegion: declaresMainRegion(pageComponents, components) }
+  const ownRegion = declaresMainRegion(pageComponents, components)
+  const shell = { page, ownRegion }
+  const chrome = (edge: 'banner' | 'footer', sections: PageSections) =>
+    sections.length > 0 ? (
+      <PageChrome edge={edge}>{renderSections(sections)}</PageChrome>
+    ) : undefined
+  const split = ownRegion
+    ? { content: pageComponents.slice(bannerCount), footer: [] }
+    : splitTrailingFooter(pageComponents.slice(bannerCount), components)
+  const body = split.content
 
   // No markdown: render every component in declared order (landing + all
   // component-only pages).
   if (!markdownPayload) {
     return (
       <>
-        {bannerSlot}
+        {chrome('banner', banner)}
         <MainShell {...shell}>{renderSections(body)}</MainShell>
+        {chrome('footer', split.footer)}
       </>
     )
   }
 
   // Markdown page: the header chrome (the banner, or else the first component,
   // by convention the navbar), then the article, then the trailing components
-  // (overlays/footer).
+  // (overlays, and a footer followed by content).
   const headerSections = banner.length > 0 ? [] : body.slice(0, 1)
   const trailingSections = banner.length > 0 ? body : body.slice(1)
   return (
     <>
-      {bannerSlot}
+      {chrome('banner', banner)}
       <MainShell {...shell}>
         {headerSections.length > 0 && renderSections(headerSections)}
-        <MarkdownArticle markdown={markdownPayload} />
+        <MarkdownArticle
+          markdown={markdownPayload}
+          languages={languages}
+        />
         {trailingSections.length > 0 && renderSections(trailingSections)}
       </MainShell>
+      {chrome('footer', split.footer)}
     </>
   )
 }

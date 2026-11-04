@@ -14,8 +14,9 @@
  * automation name in the URL, unlike the schema-author `:name/runs/:id/replay`
  * endpoint). This use-case resolves the run by id, derives its automation name
  * from the persisted row, then delegates to the EXISTING replay engine
- * ({@link replayAutomationRun}) so the retry reuses the side-effects-once
- * resume-from-failure semantics rather than re-implementing run execution.
+ * ({@link replayAutomationRun}) so the retry resumes at the step that failed,
+ * with the steps before it neither run again nor forgotten, rather than
+ * re-implementing run execution.
  *
  * Loading the run first (rather than letting `replayAutomationRun` fail on a
  * missing run) lets the route surface an anti-enumeration 404 (S1) for an
@@ -42,8 +43,9 @@ export interface RetryAutomationRunOptions {
 /**
  * Retry an automation run by id. Resolves the run → its automation name →
  * the existing {@link replayAutomationRun} engine, which creates a NEW run
- * that skips already-executed actions (side-effects fire once) and never
- * mutates the original run's row.
+ * that resumes at the step that failed: the steps before it are skipped (their
+ * side effects fire once) and their recorded outputs reused, the failed step
+ * and every one after it run again, and the original run's row is never mutated.
  *
  * Fails with `AutomationRunNotFound` when the run id is unknown — the route
  * maps that to a 404 (anti-enumeration, S1) — and with the repository's own

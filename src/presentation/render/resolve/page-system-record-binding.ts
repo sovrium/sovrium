@@ -72,6 +72,7 @@ import { bindPageRecordToButtons } from '@/presentation/render/resolve/page-reco
 import { pageRecordScope } from '@/presentation/render/resolve/record-repeat-expansion'
 import {
   filterChildrenForRecord,
+  markRecordGatedRegions,
   omitRecordGatedEntries,
 } from '@/presentation/render/resolve/record-visibility'
 import { systemRecordWithText } from '@/presentation/render/resolve/system-record-text'
@@ -174,10 +175,12 @@ function substitutePageComponents(
   // A dialog whose trigger the record's rules drop is still ADDRESSED by the
   // page: it is marked from the tree as authored, before the drop, so it waits
   // closed rather than opening on its own (the later overlay passes only see
-  // the bound tree, where the trigger is already gone).
+  // the bound tree, where the trigger is already gone). Gated regions are
+  // stamped then too, so a write's refetch can redraw them (`record-visibility.ts`).
+  const marked = markRecordGatedRegions(components as readonly ComponentListEntry[])
   const visible = markAddressedDialogs(
     components,
-    filterChildrenForRecord(components as readonly (Component | string)[], record)
+    filterChildrenForRecord(marked as readonly (Component | string)[], record)
   ) as Page['components']
   if (!visible) return visible
   const scope = pageRecordScope(record)

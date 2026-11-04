@@ -6,6 +6,9 @@ intro: |
   four figures a sales lead asks for; contacts and companies open in a drawer without leaving
   their list; tasks sit on a calendar beside what is due next; and a records assistant reads
   and edits all four tables.
+audience: >-
+  A small sales team: the reps who work contacts, companies, deals and tasks, and the founder or
+  sales lead who also deletes records.
 glance:
   - '**Tables** (4): companies, contacts, deals, tasks'
   - '**Pages** (6): pipeline (`/`), contacts, companies, tasks, assistant, sign-in'

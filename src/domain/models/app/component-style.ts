@@ -43,6 +43,11 @@ import { TailwindClassListSchema } from './tailwind-class-list'
  * its variant is `aria-[current=page]`, written by the engine, never by the
  * author.
  *
+ * `invalid` keys on `aria-invalid="true"`, the refusal the form REPORTS, and
+ * not on the browser's `:invalid` constraint check: an empty required field
+ * matches `:invalid` the moment the page loads, so a form styling its refused
+ * controls would have marked every required field before anyone typed.
+ *
  * `focus` and `focusVisible` are BOTH here rather than collapsed. Naming one
  * key `focus` and quietly emitting `focus-visible:` would be the schema lying
  * about what it does, and the two are genuinely different: `focus` fires on a
@@ -70,7 +75,7 @@ export const COMPONENT_STATE_VARIANTS = {
   open: 'open',
   selected: 'selected',
   checked: 'checked',
-  invalid: 'invalid',
+  invalid: 'aria-invalid',
   current: 'aria-[current=page]',
 } as const
 
@@ -103,7 +108,8 @@ export const COMPONENT_STATE_DESCRIPTIONS: Readonly<Record<ComponentState, strin
   open: 'Classes applied while the component is expanded, such as an open menu or dialog trigger.',
   selected: 'Classes applied while the component is the chosen one among its siblings.',
   checked: 'Classes applied while a checkbox, radio or switch is on.',
-  invalid: 'Classes applied while the value the component holds has been refused.',
+  invalid:
+    'Classes applied while the form reports the value as refused (aria-invalid="true"). An empty required field is not invalid until a submission is refused.',
   current:
     'Classes applied to the entry that points at the page being read — the current link of a sidebar, a navigation menu or a breadcrumb.',
 }

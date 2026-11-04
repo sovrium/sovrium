@@ -1,0 +1,33 @@
+# Sending a contract for signature. HR drafts the contract, attaches the PDF,
+# and moves it to Ready to sign: this automation then starts the signing
+# request, which mails the employee her link.
+#
+# It watches `stage` only, and the condition skips a contract whose request
+# already started, so editing a contract that is out for signature sends
+# nothing twice. A record with an open request also fails the send step.
+name: send-contract-for-signature
+label: Contracts — send a ready contract for signature
+description: When a contract is marked Ready to sign, send it to the employee, then the manager.
+enabled: true
+trigger:
+  type: record
+  table: contracts
+  events:
+    - create
+    - update
+  watchFields:
+    - stage
+  condition:
+    conditions:
+      - field: '{{trigger.data.record.stage}}'
+        operator: equals
+        value: Ready to sign
+      - field: '{{trigger.data.record.signing_status}}'
+        operator: isEmpty
+actions:
+  - name: send
+    type: signature
+    operator: send
+    props:
+      flow: employment_contract
+      recordId: '{{trigger.data.record.id}}'

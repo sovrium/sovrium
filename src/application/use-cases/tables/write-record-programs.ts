@@ -42,7 +42,7 @@ import {
   splitManyToManyFields,
 } from './record-link-enrichment'
 import { refuseSelfLinkCycle } from './self-link-cycle-check'
-import { refuseSignatureOverwrite } from './signature-write-once-check'
+import { settleSignatureWrites, writeOnceColumnsOf } from './signature-write-once-check'
 import { readWrittenLinkLists } from './to-many-link-reads'
 import { writeOnlyBlock } from './write-only-presence'
 import type { LinkReader } from './linked-row-visibility'
@@ -162,19 +162,16 @@ export function createRecordProgram(config: CreateRecordConfig) {
       reader: linkReaderOf(session, userRole, config.linkReader),
     })
 
-    // [internal ref]: see applyAuthorshipOverrides.
+    const [settled = fields] = yield* settleSignatureWrites({
+      ...{ app, tableName, writes: [{ fields }] },
+    })
     const fieldsWithAuthorship = applyAuthorshipOverrides({
-      phase: 'create',
-      fields,
-      tables: app?.tables,
-      tableName,
+      ...{ phase: 'create', fields: settled, tables: app?.tables, tableName },
       userId: session.userId,
     })
 
-    // A many-to-many relationship field has no base column — split it
-    // out of the base INSERT (it would try to write a phantom column → 500).
-    // The junction rows are written after the base row (real id), in the same
-    // transaction: a refused link leaves no record behind.
+    // A many-to-many field has no base column: its junction rows are written after
+    // the base row (real id), in the same transaction — a refused link leaves no record.
     const { baseFields, links } = splitManyToManyFields(
       fieldsWithAuthorship,
       getManyToManyFieldSpecs(app?.tables, tableName)
@@ -191,8 +188,7 @@ export function createRecordProgram(config: CreateRecordConfig) {
       writeEchoReaderOf(session, { ...config, userRole })
     )
 
-    // B-01: enrich attachment fields with signedUrl / url on the create-record
-    // response so callers see the same shape they get back on GET / LIST.
+    // Attachment fields carry their download URLs, as a GET or LIST answers them.
     const enrich = attachmentUrlsOf(app, tableName, origin, yield* ProcessEnv)
 
     const transformed = enrich(transformRecord(record, app ? { app, tableName } : undefined))
@@ -202,9 +198,7 @@ export function createRecordProgram(config: CreateRecordConfig) {
       readable: { ...config, enrich },
     })
 
-    // Return in format expected by tests: system fields at root, user fields
-    // both nested (canonical) and at the root (flat alias). The flat alias
-    // supports specs that read `record.file` instead of `record.fields.file`.
+    // System fields at the root, user fields nested (canonical) and flat (`record.file`).
     return {
       ...filteredFields,
       id: transformed.id,
@@ -278,10 +272,11 @@ const resolveUpdatedBaseRecord = (
     })
     const { app, fields } = params
     yield* refuseSelfLinkCycle({ app, session, tableName, recordId, fields })
-    yield* refuseSignatureOverwrite({ app, tableName, fields, held })
-
+    const [settled = fields] = yield* settleSignatureWrites({
+      ...{ app, tableName, writes: [{ fields, held }] },
+    })
     const m2mSpecs = getManyToManyFieldSpecs(params.app?.tables, tableName)
-    const { baseFields, links } = splitManyToManyFields(params.fields, m2mSpecs)
+    const { baseFields, links } = splitManyToManyFields(settled, m2mSpecs)
 
     // [internal ref]: re-stamp every `updated-by`-typed column BY NAME with the updating
     // actor (created-by fields are never touched on update).
@@ -301,6 +296,7 @@ const resolveUpdatedBaseRecord = (
     const { expectedUpdatedAt, auditContext, judge } = params
     return yield* repo.updateRecord(session, tableName, recordId, {
       ...{ fields: baseWithAuthorship, app: params.app, links, unlinks },
+      writeOnce: writeOnceColumnsOf(app, tableName),
       accounts: namedAccounts(params.app, tableName, [params.fields]),
       ...(expectedUpdatedAt === undefined ? {} : { expectedUpdatedAt }),
       ...(auditContext === undefined ? {} : { auditContext }),

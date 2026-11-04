@@ -12,6 +12,7 @@ import { TableBodyRows } from '../body'
 import { TableHeader } from '../body-header'
 import { TableSummaryFooter } from '../body-summary'
 import { tableFrameAttributes } from './fill-column-widths'
+import { drawsCompactFill } from './fill-empty'
 import { GridCaptionContext } from './grid-caption'
 import { FillColGroup, LoadingStatus, ScrollRegion } from './grid-frame-parts'
 import { useGridString } from './grid-strings'
@@ -149,6 +150,29 @@ const loadingProps = (props: TableContentProps) => ({
   ...(props.loadingMore === true && { loadingMore: true }),
 })
 
+/**
+ * A grid drawn inside another component, holding no row at all — not loading,
+ * not narrowed by a search or a filter, and answered: it draws no header row,
+ * and its empty state is compact and starts on its left edge. A read that
+ * failed before any row arrived is not an empty table, so the grid keeps the
+ * header its loading skeleton drew. A grid that is the page keeps its header
+ * over its empty state, and either draws its header once a row exists.
+ */
+const isBareEmpty = (props: TableContentProps, rows: readonly DataTableRow[]): boolean =>
+  props.embedded === true &&
+  rows.length === 0 &&
+  !props.isLoading &&
+  props.unanswered !== true &&
+  props.narrowed !== true &&
+  (props.globalFilter ?? '').trim() === ''
+
+/** Whether the grid fills its column: `layout: fill`, unless it holds no row (see `fill-empty.ts`). */
+const fillsColumn = (props: TableContentProps, rows: readonly DataTableRow[]): boolean =>
+  props.layout === 'fill' && !drawsCompactFill(props.layout, { ...props, rowCount: rows.length })
+
+/** The header groups of a grid drawing no header row: none, so no head. */
+const NO_HEADER_GROUPS: never[] = []
+
 /** What decides between the no-match and the empty state: the search, the narrowing, the message. */
 const noMatchProps = (props: TableContentProps) => ({
   ...(props.noMatchMessage !== undefined && { noMatchMessage: props.noMatchMessage }),
@@ -196,6 +220,7 @@ function BodyRowsSlot({
 }: BodyRowsSlotProps) {
   return (
     <TableBodyRows
+      compactEmpty={isBareEmpty(props, rows)}
       {...fillProps(fill, canFillFromCell, addRow)}
       range={cursor.range}
       rows={rows}
@@ -261,7 +286,7 @@ export function TableContent(props: TableContentProps) {
   const { tableRef, frozenOffsets } = useFrozenPinning(table)
   // prettier-ignore
   const { rows, cursor, fill, canFillFromCell, autoSave, addRow, handleEditSave, handleEditCancel } = useGridInteractions(props, tableRef, navigable)
-  const fills = props.layout === 'fill'
+  const fills = fillsColumn(props, rows)
   // The caption the bottom bar draws is the table's description.
   const caption = useContext(GridCaptionContext)
 
@@ -289,7 +314,7 @@ export function TableContent(props: TableContentProps) {
       >
         {fills && <FillColGroup table={table} />}
         {/* prettier-ignore */}
-        <TableHeader headerGroups={table.getHeaderGroups()} frozenOffsets={frozenOffsets} sticky={fills} />
+        <TableHeader headerGroups={isBareEmpty(props, rows) ? NO_HEADER_GROUPS : table.getHeaderGroups()} frozenOffsets={frozenOffsets} sticky={fills} />
         <BodyRowsSlot
           props={props}
           rows={rows}

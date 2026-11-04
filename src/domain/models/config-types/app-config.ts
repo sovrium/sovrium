@@ -80,6 +80,9 @@ export type ConnectionConfig = AppConfigEntry<'connections'>
 /** Single form configuration (element of `AppConfig['forms']`). */
 export type FormConfig = AppConfigEntry<'forms'>
 
+/** Single signing flow configuration (element of `AppConfig['signatures']`). */
+export type SignatureConfig = AppConfigEntry<'signatures'>
+
 /** Single env-var declaration (element of `AppConfig['env']`). */
 export type EnvConfig = AppConfigEntry<'env'>
 

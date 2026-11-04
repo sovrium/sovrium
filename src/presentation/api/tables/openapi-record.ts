@@ -7,6 +7,8 @@
 
 import { Schema } from 'effect'
 import { errorResponseSchema } from '@/domain/models/api/error'
+import { signatureValueV2Schema } from '@/domain/models/api/signatures/common'
+import { signatureErrorResponseSchema } from '@/domain/models/api/signatures/error'
 import {
   aggregateRecordsQuerySchema,
   aggregateRecordsResponseSchema,
@@ -31,6 +33,7 @@ import {
   createRecordRequestSchema,
   updateRecordRequestSchema,
 } from '@/domain/models/api/tables/records'
+import { inlineSignRequestFieldsSchema } from '@/domain/models/api/tables/signatures'
 import {
   createRecordResponseSchema,
   deleteRecordResponseSchema,
@@ -45,6 +48,7 @@ import {
   effectJsonBody,
   effectJsonResponse,
   effectParameters,
+  effectSchema,
 } from '@/presentation/api/openapi/route-fragments'
 import { type ResourceGroupSpec, type RouteSpec } from '../openapi/route-spec'
 
@@ -56,6 +60,12 @@ import { type ResourceGroupSpec, type RouteSpec } from '../openapi/route-spec'
  * baked into the concrete path, so `request.params` here omits it — see the
  * `*OnlyParamSchema` schemas in `domain/models/api/tables/params.ts`.
  */
+
+/** The record and the `signature` field a signature is given to. */
+const signatureFieldParamSchema = Schema.Struct({
+  recordId: Schema.String.annotate({ description: 'Record identifier' }),
+  field: Schema.String.annotate({ description: 'Name of the signature field' }),
+})
 
 const errorResponse = (description: string) => effectJsonResponse(errorResponseSchema, description)
 
@@ -166,6 +176,45 @@ const routes: readonly RouteSpec[] = [
       200: effectJsonResponse(restoreRecordResponseSchema, 'Record restored'),
       401: errorResponse('Unauthorized'),
       404: errorResponse('Record not found'),
+    },
+  },
+  {
+    method: 'post',
+    pathTemplate: '/api/tables/{tableSlug}/records/{recordId}/signatures/{field}',
+    summary: 'Sign a signature field',
+    description:
+      'Signs a `signature` field of the record from a `signature-pad`. The body is multipart: the text fields below and, for a drawn signature, the PNG of the mark as the `image` part (at most 512 KB and 2000 x 800 pixels). The server stores the image, resolves the statement shown on the named page and writes the signature. A field already signed, or owned by a signing flow, cannot be signed here.',
+    operationIdBase: 'signRecordField',
+    parameters: effectParameters(signatureFieldParamSchema, 'path'),
+    request: {
+      body: {
+        content: {
+          'multipart/form-data': {
+            schema: effectSchema(
+              Schema.Struct({
+                ...inlineSignRequestFieldsSchema.fields,
+                image: Schema.optional(
+                  Schema.String.annotate({
+                    description: 'The PNG of the mark, for a drawn signature',
+                  })
+                ),
+              })
+            ),
+          },
+        },
+      },
+    },
+    responses: {
+      201: effectJsonResponse(signatureValueV2Schema, 'The signature as stored'),
+      400: effectJsonResponse(
+        signatureErrorResponseSchema,
+        'Consent missing, image invalid, or the field is already signed'
+      ),
+      404: errorResponse('Record, field or page not found, or the caller may not sign it'),
+      409: effectJsonResponse(
+        signatureErrorResponseSchema,
+        'The statement changed since the page was read'
+      ),
     },
   },
   {

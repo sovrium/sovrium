@@ -74,7 +74,11 @@ pub const DOWNLOAD_DIR_PREFIX: &str = "sovrium-bundle-";
 /// send the demo files to a bucket, and `STORAGE_LOCAL_DIRECTORY`, which would
 /// move them out of `<data dir>/storage`). Withheld from the bundle flow's
 /// engine runs; the `STORAGE_S3_*` settings are inert once the provider is.
-pub const STORAGE_REDIRECTS: [&str; 3] = ["DATABASE_URL", "STORAGE_PROVIDER", "STORAGE_LOCAL_DIRECTORY"];
+pub const STORAGE_REDIRECTS: [&str; 3] = [
+    "DATABASE_URL",
+    "STORAGE_PROVIDER",
+    "STORAGE_LOCAL_DIRECTORY",
+];
 
 /// The whole environment of a bundle-flow engine run: `parent` (the shell's
 /// own, `std::env::vars_os()`) without [`STORAGE_REDIRECTS`], then `extra`.
@@ -89,9 +93,12 @@ where
     let same = |a: &OsString, b: &str| a.to_str().is_some_and(|a| a.eq_ignore_ascii_case(b));
     let withheld = |name: &OsString| {
         STORAGE_REDIRECTS.iter().any(|r| same(name, r))
-            || extra.iter().any(|(k, _)| k.to_str().is_some_and(|k| same(name, k)))
+            || extra
+                .iter()
+                .any(|(k, _)| k.to_str().is_some_and(|k| same(name, k)))
     };
-    let mut env: Vec<(OsString, OsString)> = parent.into_iter().filter(|(k, _)| !withheld(k)).collect();
+    let mut env: Vec<(OsString, OsString)> =
+        parent.into_iter().filter(|(k, _)| !withheld(k)).collect();
     env.extend(extra);
     env
 }
@@ -174,8 +181,9 @@ pub enum InspectOutcome {
     rename_all_fields = "camelCase"
 )]
 pub enum BundleView {
-    /// The engine is downloading and checking.
-    Fetching { host: String },
+    /// The engine is downloading and checking. `road` lets the window word
+    /// the wait for an archive or for a single document.
+    Fetching { road: Road, host: String },
     /// The one consent dialog.
     Ready {
         /// A bundle or a single document: the dialog names a publisher
@@ -196,8 +204,13 @@ pub enum BundleView {
         /// A folder name to pre-fill, derived from the app name.
         folder_suggestion: String,
     },
-    /// Nothing can be imported; `reason` says why.
-    Refused { host: String, reason: String },
+    /// Nothing can be imported; `reason` says why, and `road` which kind of
+    /// address was refused.
+    Refused {
+        road: Road,
+        host: String,
+        reason: String,
+    },
 }
 
 /// The admin `--with-demo-data` created. Shown once, stored nowhere.
@@ -494,6 +507,7 @@ fn begin_road<R: Runtime>(app: &AppHandle<R>, road: Road, url: String, link_host
         slot.generation += 1;
         slot.document_url = None;
         slot.view = Some(BundleView::Fetching {
+            road,
             host: link_host.clone(),
         });
         (slot.generation, slot.inspection.take())
@@ -536,6 +550,7 @@ fn begin_road<R: Runtime>(app: &AppHandle<R>, road: Road, url: String, link_host
                     InspectOutcome::Refused(reason) => {
                         log::info!("an import was refused at inspection");
                         slot.view = Some(BundleView::Refused {
+                            road,
                             host: link_host.clone(),
                             reason,
                         });
@@ -559,7 +574,9 @@ mod tests {
     const SHA: &str = "119d9c2fd8fe2c418f7425f506aef1b4438b4eb4f1b76b721a42084ea6284c6a";
 
     fn pairs(list: &[(&str, &str)]) -> Vec<(OsString, OsString)> {
-        list.iter().map(|(k, v)| ((*k).into(), (*v).into())).collect()
+        list.iter()
+            .map(|(k, v)| ((*k).into(), (*v).into()))
+            .collect()
     }
 
     fn lookup<'a>(env: &'a [(OsString, OsString)], name: &str) -> Vec<&'a str> {
@@ -581,7 +598,10 @@ mod tests {
         ]);
         let env = import_env(parent, Vec::new());
         for withheld in STORAGE_REDIRECTS {
-            assert!(lookup(&env, withheld).is_empty(), "{withheld} must not reach the engine");
+            assert!(
+                lookup(&env, withheld).is_empty(),
+                "{withheld} must not reach the engine"
+            );
         }
         // The download needs the rest: a proxy, a home, a PATH.
         assert_eq!(lookup(&env, "HOME"), ["/Users/me"]);
@@ -599,7 +619,10 @@ mod tests {
     #[test]
     fn the_import_env_puts_the_project_data_dir_last_and_once() {
         let env = import_env(
-            pairs(&[("SOVRIUM_DATA_DIR", "/from/the/shell"), ("DATABASE_URL", "postgres://x/y")]),
+            pairs(&[
+                ("SOVRIUM_DATA_DIR", "/from/the/shell"),
+                ("DATABASE_URL", "postgres://x/y"),
+            ]),
             pairs(&[("SOVRIUM_DATA_DIR", "/project/.sovrium")]),
         );
         assert_eq!(lookup(&env, "SOVRIUM_DATA_DIR"), ["/project/.sovrium"]);
@@ -769,13 +792,28 @@ mod tests {
     #[test]
     fn the_view_serialises_with_a_kind_tag() {
         let json = serde_json::to_value(BundleView::Refused {
+            road: Road::Document,
             host: "x.test".into(),
             reason: "no".into(),
         })
         .unwrap();
         assert_eq!(
             json,
-            serde_json::json!({ "kind": "refused", "host": "x.test", "reason": "no" })
+            serde_json::json!({
+                "kind": "refused",
+                "road": "document",
+                "host": "x.test",
+                "reason": "no"
+            })
+        );
+        let json = serde_json::to_value(BundleView::Fetching {
+            road: Road::Bundle,
+            host: "x.test".into(),
+        })
+        .unwrap();
+        assert_eq!(
+            json,
+            serde_json::json!({ "kind": "fetching", "road": "bundle", "host": "x.test" })
         );
         let json = serde_json::to_value(BundleView::Ready {
             road: Road::Bundle,

@@ -10,6 +10,7 @@
  * `attachment-links.tsx`, shared by the grid's cells and the record drawer.
  */
 
+import { stripStorageKeyUuidPrefix } from '@/domain/kernel/identity/storage-key'
 import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
 
 /**
@@ -21,12 +22,6 @@ export interface AttachmentEntry {
   readonly href?: string
 }
 
-/**
- * The prefix a stored key carries to stay unique — `<uuid>-` before the name
- * the file was uploaded under. Never shown.
- */
-const UNIQUE_KEY_PREFIX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}-(?=.)/i
-
 /** The last path segment of a stored name. */
 const lastSegment = (path: string): string => {
   const segments = path.split('/').filter(Boolean)
@@ -34,11 +29,12 @@ const lastSegment = (path: string): string => {
 }
 
 /**
- * The name the uploader chose, read off a storage KEY: its last segment
- * without the unique prefix. A name the value declares (`filename`, `name`) is
- * already that name and keeps whatever it starts with.
+ * The name the uploader chose: the last segment, without the `<uuid>-` prefix
+ * a storage key carries to stay unique. A declared name (`filename`, `name`)
+ * goes through the same strip, since an import may copy the key into it; one
+ * that does not start with that prefix keeps whatever it starts with.
  */
-const baseName = (key: string): string => lastSegment(key).replace(UNIQUE_KEY_PREFIX, '')
+const baseName = (path: string): string => stripStorageKeyUuidPrefix(lastSegment(path))
 
 export const toAttachmentEntry = (value: unknown): AttachmentEntry | undefined => {
   if (typeof value === 'string') return value.length > 0 ? { name: baseName(value) } : undefined
@@ -57,7 +53,7 @@ export const toAttachmentEntry = (value: unknown): AttachmentEntry | undefined =
   // canonical safe-address check: a value that is not a same-origin path or an
   // http(s) URL leaves the entry as its name, with nothing to follow.
   const href = toSafeAssetUrl(pick('signedUrl', 'url', 'key'))
-  const name = declared === undefined ? baseName(key ?? '') : lastSegment(declared)
+  const name = baseName(declared ?? key ?? '')
   return { name, ...(href !== undefined ? { href } : {}) }
 }
 

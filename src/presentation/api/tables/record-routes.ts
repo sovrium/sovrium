@@ -43,6 +43,7 @@ import {
   handleRestoreRecord,
 } from './record-handlers'
 import { servesRecordLanguage } from './record-read-language'
+import { handleSignRecordField, signRequestBodyLimit } from './record-signature-handler'
 import { handleSubscribe } from './subscribe-handlers'
 import type { App } from '@/domain/models/app'
 import type { Context, Hono } from 'hono'
@@ -113,6 +114,12 @@ export function chainRecordRoutesMethods<T extends Hono>(honoApp: T, app: App) {
       .post('/api/tables/:tableId/records/:recordId/restore', (c) => handleRestoreRecord(c, app))
       .post('/api/tables/:tableId/records/:recordId/buttons/:fieldName', (c) =>
         handleInvokeRecordButton(c, app)
+      )
+      // A signature is posted as multipart: the drawing's PNG bytes beside the consent.
+      .post(
+        '/api/tables/:tableId/records/:recordId/signatures/:field',
+        signRequestBodyLimit,
+        acceptsFormBody((c: Context) => handleSignRecordField(c, app))
       )
       // The link previews of a stored message: reads of the server's cache,
       // through the record's own read gate; neither takes an address.

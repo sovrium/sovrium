@@ -123,9 +123,10 @@ const constraintNamesFit = ({ from, to, columns }: Pick<LinkMove, 'from' | 'to' 
 /**
  * SQLite: build the link table a fresh boot would build, copy the links, drop
  * the old one. An in-place rename is not enough there: the schema step runs
- * with foreign keys off and Bun's SQLite in `legacy_alter_table` mode, where
- * renaming a PARENT table leaves the link table's `REFERENCES` naming the old
- * one — the closing `foreign_key_check` then reads every link as orphaned —
+ * with foreign keys off and `legacy_alter_table` pinned ON on every platform
+ * (`applySqlitePragmas`), where renaming a PARENT table leaves the link table's
+ * `REFERENCES` naming the old one — the closing `foreign_key_check` then reads
+ * every link as orphaned —
  * and a `RENAME COLUMN` after it fails outright (`SQL logic error`) on the
  * renamed table's stale trigger body. The new table references the parents by
  * their new names; with foreign keys off it may be created before they exist.

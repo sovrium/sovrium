@@ -116,13 +116,20 @@ function withFooterBadgePaints(
   )
 }
 
+/** The fields whose display a board prints: its footer items' and its column figure's. */
+interface KanbanFormattedFields {
+  readonly card?: { readonly footer?: readonly FooterItem[] }
+  readonly kanbanGroupBy?: { readonly aggregate?: { readonly field: string } }
+}
+
 /**
- * The field metadata of the columns a kanban card's FOOTER names — the same
- * entries the grid receives, narrowed to what the footer can print, so a
- * `currency` item formats with the column's own currency, precision and
+ * The field metadata of the columns a kanban card's FOOTER names, and of the
+ * field its column figure (`kanbanGroupBy.aggregate`) sums — the same entries
+ * the grid receives, narrowed to what the board can print, so a `currency`
+ * item or figure formats with the column's own currency, precision and
  * separators without the whole table's schema riding along in the page, and a
- * `badge` item on an option field carries its paints. Absent when the card
- * declares no footer.
+ * `badge` item on an option field carries its paints. Absent when the board
+ * declares neither.
  */
 export function resolveKanbanFooterFieldMeta(
   fieldMeta: Record<string, unknown> | undefined,
@@ -130,10 +137,11 @@ export function resolveKanbanFooterFieldMeta(
   component: Component,
   form: BadgeForm | undefined
 ): Record<string, unknown> | undefined {
-  const footer = (component as { readonly card?: { readonly footer?: readonly FooterItem[] } }).card
-    ?.footer
-  if (!footer || footer.length === 0) return undefined
-  const named = new Set(footer.map((item) => item.field))
+  const { card, kanbanGroupBy } = component as KanbanFormattedFields
+  const footer = card?.footer ?? []
+  const aggregated = kanbanGroupBy?.aggregate?.field
+  if (footer.length === 0 && aggregated === undefined) return undefined
+  const named = new Set([...footer.map((item) => item.field), ...(aggregated ? [aggregated] : [])])
   const narrowed = Object.fromEntries(
     Object.entries(fieldMeta ?? {}).filter(([field]) => named.has(field))
   )

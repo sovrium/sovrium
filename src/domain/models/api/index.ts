@@ -58,6 +58,9 @@ export * from './connections'
 // Real-time subscription schemas
 export * from './realtime'
 
+// Signing requests, the signing session, evidence files and their offline verification
+export * from './signatures'
+
 // What the ⌘K palette of an app finds: pages and readable records
 export * from './search'
 

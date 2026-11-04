@@ -64,7 +64,7 @@ import { TablesOverviewRepository } from '@/application/ports/repositories/table
 import { ProcessEnv, type ProcessEnvShape } from '@/application/ports/services/process-env'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { buildAutomationsOverview } from '@/application/use-cases/admin/automations-overview'
-import { buildConnectionsList } from '@/application/use-cases/admin/connections'
+import { buildConnectionsListFor } from '@/application/use-cases/admin/connections'
 import { withBlockTimeout } from '@/application/use-cases/admin/overview-block-timeout'
 import {
   overviewBlockTimeoutMs,
@@ -296,12 +296,14 @@ const storageBlock = (): Effect.Effect<AdminOverviewStorage, never, StorageServi
  * token has no expiry either, and only the list knows it is `not-connected`.
  * A failure (or no connections) degrades to `{ total: 0, healthy: 0 }`.
  */
-const connectionsBlock = (): Effect.Effect<
+const connectionsBlock = (
+  app: App
+): Effect.Effect<
   AdminOverviewConnections,
   never,
   ConnectionRepository | ConnectionTokenRepository | OAuthStateStore | Logger
 > =>
-  buildConnectionsList.pipe(
+  buildConnectionsListFor(app.connections).pipe(
     Effect.map((outcome) => {
       if (outcome._tag !== 'Ok') return CONNECTIONS_ZERO
       const { connections } = outcome.body
@@ -361,7 +363,7 @@ const overviewRollUp = (
         withBlockTimeout(runsBlock(app), asDegraded(RUNS_ZERO), blockTimeoutMs),
         withBlockTimeout(usersBlock(app), asDegraded(USERS_ZERO), blockTimeoutMs),
         withBlockTimeout(storageBlock(), asDegraded(STORAGE_ZERO), blockTimeoutMs),
-        withBlockTimeout(connectionsBlock(), asDegraded(CONNECTIONS_ZERO), blockTimeoutMs),
+        withBlockTimeout(connectionsBlock(app), asDegraded(CONNECTIONS_ZERO), blockTimeoutMs),
       ],
       { concurrency: 'unbounded' }
     )

@@ -8,9 +8,9 @@
 import { Schema } from 'effect'
 import { DataSourceSchema } from '../../data-source'
 import { TabsOrientationSchema } from '../../form-controls'
+import { VariantOverridesSchema } from '../../responsive'
 import { coreFields } from '../modules/core'
 import { i18nFields } from '../modules/i18n'
-import { responsiveFields } from '../modules/responsive'
 import { visibilityFields } from '../modules/visibility'
 
 /**
@@ -192,9 +192,53 @@ export const TabsLayoutSchema = Schema.Literals(['flow', 'fill']).annotate({
 // by being the prop type three island modules read; add this one beside its
 // first reader, not ahead of it.
 
+/**
+ * A tab set's per-breakpoint overrides: the overrides every adaptive component
+ * reads, plus `defaultTab`.
+ *
+ * ─── WHY HERE, AND NOT ON THE SHARED OVERRIDES ─────────────────────────────
+ *
+ * A page that offers a list (good on a phone) and a board (good on a desktop)
+ * wants a different tab open on arrival per width. `defaultTab` keeps its one
+ * string type and becomes overridable per breakpoint, so a reader meets one
+ * spelling for "this value from md up" across every component. It is admitted
+ * on the tab set's `responsive` only: on the shared overrides it would be a
+ * key every other component accepts and ignores.
+ *
+ * Rejected: a per-breakpoint map on `defaultTab` itself (`{ mobile, md }`),
+ * which would give one key two types.
+ */
+const TabsVariantOverridesSchema = Schema.Struct({
+  ...VariantOverridesSchema.fields,
+  defaultTab: Schema.optional(
+    Schema.String.annotate({
+      description:
+        'ID of the tab open on arrival from this breakpoint up, in place of the base defaultTab. Ignored when defaultTab reads the address (`$query.<name>`): the address decides.',
+      examples: ['board'],
+    })
+  ),
+}).annotate({
+  title: 'Tabs Variant Overrides',
+  description:
+    'Overrides for a tab set at this breakpoint: the overrides every adaptive component reads, plus the tab open on arrival',
+})
+
+const TabsResponsiveSchema = Schema.Struct({
+  mobile: Schema.optional(TabsVariantOverridesSchema),
+  sm: Schema.optional(TabsVariantOverridesSchema),
+  md: Schema.optional(TabsVariantOverridesSchema),
+  lg: Schema.optional(TabsVariantOverridesSchema),
+  xl: Schema.optional(TabsVariantOverridesSchema),
+  '2xl': Schema.optional(TabsVariantOverridesSchema),
+}).annotate({
+  title: 'Tabs Responsive Variants',
+  description:
+    'Breakpoint-specific overrides for a tab set, mobile first: a breakpoint left out inherits the nearest narrower one. `defaultTab` here names the tab open on arrival from that width up.',
+})
+
 export const tabsFields = {
   ...coreFields,
-  ...responsiveFields,
+  responsive: Schema.optional(TabsResponsiveSchema),
   ...visibilityFields,
   ...i18nFields,
   tabsOrientation: Schema.optional(TabsOrientationSchema),
@@ -229,7 +273,10 @@ export const tabsFields = {
    */
   layout: Schema.optional(TabsLayoutSchema),
   defaultTab: Schema.optional(
-    Schema.String.annotate({ description: 'ID of the tab that is active by default' })
+    Schema.String.annotate({
+      description:
+        'ID of the tab that is active by default. A per-breakpoint `responsive` override (`responsive: { md: { defaultTab: board } }`) opens a different tab from that width up; a `$query.<name>` binding ignores those overrides.',
+    })
   ),
   /**
    * The tab strip. `panels[i]` names the tab that shows `children[i]`.

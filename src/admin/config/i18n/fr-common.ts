@@ -83,6 +83,8 @@ export default {
   'admin.count.files.other': '{count} fichiers',
   'admin.count.connections.one': '{count} connexion',
   'admin.count.connections.other': '{count} connexions',
+  'admin.count.signatures.one': '{count} demande',
+  'admin.count.signatures.other': '{count} demandes',
   'admin.count.submissions.one': '{count} réponse',
   'admin.count.submissions.other': '{count} réponses',
   'admin.count.clicks.one': '{count} clic',

@@ -34,6 +34,7 @@ import { formatDayRelativeTime } from '@/domain/kernel/format/day-relative-time'
 import { usableLocale } from '@/domain/kernel/format/usable-locale'
 import { entityLabelFor } from '@/domain/models/app/auth/readable-name-service'
 import { resolveAutomationOperationalState } from '@/domain/models/app/automations/automation-operational-state'
+import { automationPlaceholders } from '@/domain/models/app/automations/todo-placeholder-service'
 import { describeTriggerChoice } from '@/domain/models/app/automations/trigger-description-service'
 import { firstTrigger } from '@/domain/models/app/automations/trigger-entries-service'
 import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
@@ -170,6 +171,8 @@ const buildItem = (
           pausedAt: toIso(pause.pausedAt),
           reason: pause.reason,
         }),
+    // What is left to set up: absent, never 0, on an automation holding no placeholder.
+    ...automationPlaceholders(automation, app.actions),
   }
 }
 

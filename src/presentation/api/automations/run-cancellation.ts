@@ -9,6 +9,7 @@ import { Effect } from 'effect'
 import { AutomationApprovalRepository } from '@/application/ports/repositories/automations/automation-approval-repository'
 import { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import { AutomationScheduler } from '@/application/ports/services/automation-scheduler'
+import { BrowserDriver } from '@/application/ports/services/browser-driver'
 import { dropClosedRunHistory } from '@/application/use-cases/automations/run/run-history-drop'
 import type { App } from '@/domain/models/app'
 
@@ -41,6 +42,9 @@ export const closeCancelledRun = (
     // boolean is ignored — a missing registration is normal for runs that
     // already completed; the DB UPDATE below is the durable signal.
     yield* scheduler.signalCancellation(id)
+    // A run parked on a browser confirmation: its held browser closes now, and
+    // with it the hold's timer, which would otherwise end the run as abandoned.
+    yield* (yield* BrowserDriver).releaseHeld(id)
     const approvals = yield* AutomationApprovalRepository
     const pendingId = yield* approvals.findPendingIdByRunId(id)
     const claimed =

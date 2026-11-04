@@ -62,7 +62,7 @@ const omitAt = (value: unknown, path: Path): unknown => {
 }
 
 /** A step without the steps it holds: those are judged at their own paths. */
-const ownPart = (step: Raw): unknown =>
+export const ownPart = (step: Raw): unknown =>
   nestedLists(step).reduce<unknown>((part, [, below]) => omitAt(part, below), step)
 
 const isLive = (automation: Raw): boolean => automation['enabled'] !== false
@@ -71,7 +71,7 @@ const message = (automation: string, where: string, name: string): string =>
   `Automation '${automation}' is enabled, but ${where} still holds the placeholder {{todo.${name}}}. Set a value for '${name}', or keep the automation at enabled: false until every placeholder is filled in.`
 
 /** Every step of a step list, at any depth, with its path, in document order. */
-const stepsIn = (steps: unknown, at: Path): readonly (readonly [Raw, Path])[] =>
+export const stepsIn = (steps: unknown, at: Path): readonly (readonly [Raw, Path])[] =>
   Array.isArray(steps)
     ? steps.flatMap((step: unknown, index) => {
         if (!isRecord(step)) return []
@@ -83,7 +83,7 @@ const stepsIn = (steps: unknown, at: Path): readonly (readonly [Raw, Path])[] =>
       })
     : []
 
-const stepName = (step: Raw): string => String(step['name'])
+export const stepName = (step: Raw): string => String(step['name'])
 
 /**
  * One issue per distinct placeholder name per step of one authored automation,
@@ -105,7 +105,7 @@ export const findTodoPlaceholders = (automation: unknown): readonly TodoPlacehol
  * Each trigger of a decoded automation with its path in the authored form the
  * schema writes back: one trigger is `trigger`, several are `triggers[j]`.
  */
-const triggersOf = (automation: Raw, at: Path): readonly (readonly [Raw, Path])[] => {
+export const triggersOf = (automation: Raw, at: Path): readonly (readonly [Raw, Path])[] => {
   const triggers = Array.isArray(automation['triggers']) ? automation['triggers'] : []
   return triggers.flatMap((entry: unknown, index) => {
     if (!isRecord(entry)) return []

@@ -7,13 +7,16 @@
 
 import { type ReactElement } from 'react'
 import { cn } from '@/presentation/design/class-merge'
-import { resolveLucideIcon } from '@/presentation/render/elements/lucide-resolver'
-import { renderPageSearch } from '@/presentation/render/elements/search-input-renderers'
+import {
+  renderPageSearch,
+  type PageSearchWords,
+} from '@/presentation/render/elements/search-input-renderers'
 import {
   SIDEBAR_DRAWER_ROOT_ATTRIBUTE,
   SidebarDrawerFrame,
 } from '@/presentation/render/registry/sidebar-drawer'
 import { DOCS_NAV_FRAME_CLASSES } from './docs-frame'
+import { renderGroupChevron, renderSectionIcon } from './docs-nav-group-icons'
 import {
   bucketByGroup,
   type DocsNavTab,
@@ -29,27 +32,6 @@ import type {
   CollectionNavEntry,
   CollectionNavTabs,
 } from '@/presentation/render/resolve/content-dir-lister'
-
-/**
- * Decorative leading icon for a nav section, driven by config. The icon name
- * comes from the group's resolved `groupIcon` (`nav.groupIcons[group]`, surfaced
- * by the content-dir lister). Returns undefined when the section has no
- * configured icon or the name does not resolve to a real Lucide icon, so the
- * label renders on its own. Always `aria-hidden` (the label carries meaning).
- */
-const renderSectionIcon = (iconName: string | undefined): Readonly<ReactElement> | undefined => {
-  const LucideIcon = resolveLucideIcon(iconName)
-  if (!LucideIcon) return undefined
-  return (
-    <LucideIcon
-      aria-hidden="true"
-      size={16}
-      color="currentColor"
-      strokeWidth={2}
-      className="shrink-0"
-    />
-  )
-}
 
 /**
  * SSR sidebar nav rendered alongside the markdown article in the `docs`
@@ -77,6 +59,8 @@ interface DocsSidebarNavProps {
   readonly closeLabel: string
   /** Placeholder of the docs search field (`nav.search: sidebar`), in the page language. */
   readonly searchLabel: string
+  /** What the docs search's results panel says, in the page language. */
+  readonly searchWords: PageSearchWords
   /** `markdown.classes` by part: `sidebar`, `navGroupLabel`, `navLink` (current state folded in). */
   readonly parts?: PartClassMap | undefined
 }
@@ -152,7 +136,7 @@ const renderGroup = (
       <details
         key={group.name}
         data-nav-group={group.name}
-        className={cn('mb-3 [&>summary]:list-none', parts?.['navGroup'])}
+        className={cn('group/nav-group mb-3 [&>summary]:list-none', parts?.['navGroup'])}
         open={groupIsActive(group) ? true : undefined}
       >
         <summary
@@ -162,12 +146,7 @@ const renderGroup = (
             {renderSectionIcon(group.icon)}
             {group.label}
           </span>
-          <span
-            aria-hidden="true"
-            className="text-foreground-subtle ml-2 transition-transform duration-150"
-          >
-            ▾
-          </span>
+          {renderGroupChevron(parts)}
         </summary>
         <div className="mt-2">{list}</div>
       </details>
@@ -243,6 +222,7 @@ export function DocsSidebarNav({
   menuLabel,
   closeLabel,
   searchLabel,
+  searchWords,
   parts,
 }: DocsSidebarNavProps): Readonly<ReactElement> {
   return (
@@ -256,8 +236,9 @@ export function DocsSidebarNav({
         label={menuLabel}
         closeLabel={closeLabel}
         triggerClassName={parts?.['menuButton']}
+        panelClassName={parts?.['drawer']}
       >
-        {renderDocsNav(nav, parts, searchLabel)}
+        {renderDocsNav(nav, parts, searchLabel, searchWords)}
       </SidebarDrawerFrame>
     </div>
   )
@@ -271,7 +252,8 @@ export function DocsSidebarNav({
  */
 const renderSidebarSearch = (
   nav: CollectionNavData,
-  searchLabel: string
+  label: string,
+  words: PageSearchWords
 ): Readonly<ReactElement> | undefined => {
   if (nav.search !== 'sidebar') return undefined
   return (
@@ -279,7 +261,13 @@ const renderSidebarSearch = (
       data-slot="sidebar-header"
       className="mb-6"
     >
-      {renderPageSearch({ props: {}, placeholder: searchLabel, sessionIndex: true })}
+      {renderPageSearch({
+        props: {},
+        placeholder: label,
+        sessionIndex: true,
+        words,
+        collectionPage: nav.pageName,
+      })}
     </div>
   )
 }
@@ -340,12 +328,13 @@ const renderZoneList = (
 function renderDocsNav(
   nav: CollectionNavData,
   parts: Parts,
-  searchLabel: string
+  searchLabel: string,
+  searchWords: PageSearchWords
 ): Readonly<ReactElement> {
   const navClass = cn(NAV_WRAPPER_CLASS, parts?.['sidebar'])
   const groups = bucketByGroup(nav.sidebar)
   const collapsed = nav.collapsed === true
-  const search = renderSidebarSearch(nav, searchLabel)
+  const search = renderSidebarSearch(nav, searchLabel, searchWords)
   // Zone filtering applies only to a collection that DECLARES its tabs
   // (`contentDir.nav.tabs`). A collection with no declared IA falls back to the
   // flat stack (all groups, no zone attribute) — tabs are opt-in. `collapsed`

@@ -296,14 +296,15 @@ export const islandOverlayComponents: Partial<
     languages,
     currentLang,
     renderedChildren,
+    designStyles,
   }) => {
-    // Schema-level field lookup + `$t:` token resolution live in
-    // buildDropdownMenuProps (island-overlay-props-builders.ts). Children, when
-    // the author declared them, are the trigger's COMPOSED content.
+    // Field lookup, `$t:` resolution and the panel's parts live in buildDropdownMenuProps;
+    // children, when declared, are the trigger's COMPOSED content.
     const props = buildDropdownMenuProps(rawProps, elementProps, component, {
       currentLang,
       languages,
       renderedChildren,
+      designStyles,
     })
     // The pre-hydration SSR trigger carries the
     // authored `props.className` (when present) so a styled CTA does not flash
@@ -332,7 +333,6 @@ export const islandOverlayComponents: Partial<
           // across SSR ↔ hydration. Inert on the SSR
           // placeholder (a disabled button never opens), but keeps the class list
           // consistent so nothing re-wires on hydration.
-          aria-label={props.triggerAriaLabel}
           // A drawn-open trigger reports itself open, so the trigger and the
           // panel below it tell one story rather than two.
           aria-expanded={depicted ? 'true' : undefined}

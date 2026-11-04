@@ -123,6 +123,9 @@
             },
             "onSuccess": {
               "navigate": "/"
+            },
+            "onTwoFactor": {
+              "navigate": "/two-factor"
             }
           },
           "props": {

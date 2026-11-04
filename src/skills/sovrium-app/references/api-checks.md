@@ -81,7 +81,7 @@ rm -f "$JAR"
 
 ## The same calls from TypeScript
 
-`sovrium client` writes `sovrium-client.ts`, a dependency-free client typed from the config's tables, fields and views (`sovrium docs cli-api/cli-client`). Regenerate it after changing a table, and run `sovrium client --check` to see whether it fell behind.
+`sovrium client` writes `sovrium-client.ts`, a dependency-free client typed from the config's tables, fields and views (`sovrium docs cli-tools/cli-client`). Regenerate it after changing a table, and run `sovrium client --check` to see whether it fell behind.
 
 ```ts
 import { createClient } from './sovrium-client'

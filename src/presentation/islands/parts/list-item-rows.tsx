@@ -63,6 +63,15 @@ export interface ListRowInputs {
    * item it landed on. Present only when the list declares `onRowClick`.
    */
   readonly onItemEvent?: (event: React.SyntheticEvent<HTMLUListElement>) => void
+  /**
+   * The item's title as the list draws it, when that is more than its text:
+   * the link a navigating item holds around it, which is then the item's one
+   * tab stop in place of the item itself.
+   */
+  readonly titleNode?: (
+    title: string | undefined,
+    record: Record<string, unknown>
+  ) => React.ReactNode
   /** The row's classes by part — `itemLayout` and the author's parts, resolved server-side. */
   readonly rowClasses?: ListRowClasses
   /** The shell `<ul>`'s classes when the author styles its `list` part, resolved server-side. */
@@ -163,15 +172,22 @@ function renderItemMetadata(
  * reads as its `displayField` label, a user field as the account's name, and a
  * formatted field (a date, an amount, an option) as the server prints it.
  * `image` is an ADDRESS site and keeps the stored value (see `withDisplayLabels`).
+ * `heading` is the title as drawn: the list's own node for it when it has one.
  */
-function resolveItemSlots(template: ItemTemplate, record: Record<string, unknown>) {
+function resolveItemSlots(
+  template: ItemTemplate,
+  record: Record<string, unknown>,
+  inputs: ListRowInputs | undefined
+) {
   const labelled = withDisplayLabels(record)
   const text = withRecordText(labelled)
   const sub = (field: string | undefined, source: Readonly<Record<string, unknown>>) =>
-    field ? substituteRecordVars(field, source) : undefined
+    field && substituteRecordVars(field, source)
+  const title = sub(template.title, text)
   return {
     labelled,
-    title: sub(template.title, text),
+    title,
+    heading: inputs?.titleNode?.(title, record) || title,
     image: sub(template.image, record),
     subtitle: sub(template.subtitle, text),
     badge: sub(template.badge, text),
@@ -236,7 +252,7 @@ const sessionMarker = (
 
 /** The row's actions — its badge and its metadata — or nothing when it has neither. */
 function renderItemActions(badge: React.ReactNode, meta: React.ReactNode): React.ReactNode {
-  if (badge === undefined && meta === undefined) return undefined
+  if (!badge && !meta) return undefined
   return (
     <div
       data-slot="item-actions"
@@ -250,7 +266,7 @@ function renderItemActions(badge: React.ReactNode, meta: React.ReactNode): React
 
 /** The row's content: the title over the description, when either exists. */
 function renderItemContent(
-  title: string | undefined,
+  title: React.ReactNode,
   subtitle: string | undefined,
   classes: ListRowClasses
 ): React.ReactNode {
@@ -260,7 +276,7 @@ function renderItemContent(
       data-slot="item-content"
       className={classes.textColumn}
     >
-      {title ? (
+      {title && (
         <div
           data-slot="item-title"
           data-list-title="true"
@@ -268,8 +284,8 @@ function renderItemContent(
         >
           {title}
         </div>
-      ) : undefined}
-      {subtitle ? (
+      )}
+      {subtitle && (
         <p
           data-slot="item-description"
           data-list-subtitle="true"
@@ -277,7 +293,7 @@ function renderItemContent(
         >
           {subtitle}
         </p>
-      ) : undefined}
+      )}
     </div>
   )
 }
@@ -292,7 +308,11 @@ export function renderItemTemplate(
   { key, separated = false }: { readonly key: string; readonly separated?: boolean },
   inputs: ListRowInputs | undefined
 ): React.ReactNode {
-  const { labelled, title, image, subtitle, badge } = resolveItemSlots(template, record)
+  const { labelled, title, heading, image, subtitle, badge } = resolveItemSlots(
+    template,
+    record,
+    inputs
+  )
   const classes = rowClassesOf(inputs)
   return (
     <li
@@ -300,11 +320,11 @@ export function renderItemTemplate(
       data-slot="item"
       data-size="sm"
       data-list-item="true"
-      tabIndex={inputs?.onItemEvent === undefined ? undefined : 0}
+      tabIndex={inputs?.onItemEvent && !inputs.titleNode ? 0 : undefined}
       className={classes.item}
       {...sessionMarker(record, inputs)}
     >
-      {image ? (
+      {image && (
         <div
           data-slot="item-media"
           data-variant="image"
@@ -315,18 +335,18 @@ export function renderItemTemplate(
             alt={title ?? ''}
           />
         </div>
-      ) : undefined}
-      {renderItemContent(title, subtitle, classes)}
+      )}
+      {renderItemContent(heading, subtitle, classes)}
       {renderItemActions(
-        badge ? renderItemBadge(badge, record, inputs) : undefined,
+        badge && renderItemBadge(badge, record, inputs),
         renderItemMetadata(template.metadata, labelled, inputs, { key, className: classes.meta })
       )}
-      {separated ? (
+      {separated && (
         <div
           data-slot="item-separator"
           className={computeListSeparatorClasses()}
         />
-      ) : undefined}
+      )}
     </li>
   )
 }

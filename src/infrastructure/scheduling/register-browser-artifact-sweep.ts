@@ -23,7 +23,7 @@ import { ProcessEnv } from '@/application/ports/services/process-env'
 import { sweepBrowserArtifacts } from '@/application/use-cases/automations/sweep-browser-artifacts'
 import { browserArtifactRetentionDays } from '@/domain/models/process-env/browser'
 import { logError } from '@/infrastructure/logging/logger'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { armSweepSchedule } from './arm-sweep-schedule'
 import type { AutomationRunRepository } from '@/application/ports/repositories/automations/automation-run-repository'
 import type { StorageService } from '@/application/ports/services/storage-service'
 import type { App } from '@/domain/models/app'
@@ -64,17 +64,10 @@ export const registerBrowserArtifactSweepScheduler = (
     yield* scheduler.runOnce(() => sweepOnce(processEnv).pipe(Effect.provide(services)), {
       jobId: BOOT_SWEEP_JOB_ID,
     })
-    return yield* scheduler
-      .schedule(SWEEP_CRON_EXPRESSION, () => sweepOnce(processEnv).pipe(Effect.provide(services)), {
-        jobId: SWEEP_JOB_ID,
-        timezone: resolveOperatorTimezone(process.env),
-      })
-      .pipe(
-        Effect.catch((err) =>
-          Effect.sync(() => {
-            logError('[browser-artifacts] failed to arm the retention sweep', err)
-            return undefined
-          })
-        )
-      )
+    return yield* armSweepSchedule(scheduler, {
+      cronExpression: SWEEP_CRON_EXPRESSION,
+      jobId: SWEEP_JOB_ID,
+      armFailure: '[browser-artifacts] failed to arm the retention sweep',
+      sweep: sweepOnce(processEnv).pipe(Effect.provide(services)),
+    })
   })

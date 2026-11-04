@@ -24,9 +24,10 @@ import { Schema } from 'effect'
  * Exactly one source, by one of two keys, because they are two namespaces:
  *
  * - `component` — the `props.id` of one data component on the page, the same
- *   id `onSuccess.refetch` names. Only a `table` and a `kanban` announce a read
- *   state, so only they can be named.
- * - `channel` — a shared-filter channel: every `table` or `kanban` whose
+ *   id `onSuccess.refetch` names. Only a data component (`table`, `kanban`,
+ *   `list`, `kpi`, `chart` or `message-scroller`) announces a read state, so
+ *   only one can be named.
+ * - `channel` — a shared-filter channel: every data component whose
  *   `dataSource.bindTo` names it counts. This is what a toolbar knows, since it
  *   publishes on the channel without knowing the grid's id.
  *
@@ -107,26 +108,27 @@ const sourceName = (description: string, examples: readonly string[]) =>
 /** The gate over ONE data component, named by its `props.id`. */
 export const ComponentReadStateGateSchema = Schema.Struct({
   component: sourceName(
-    'The `props.id` of a `table` or `kanban` on the same page whose latest read the gate follows: the id `onSuccess.refetch` would name. A name matching no table or kanban on the page is refused at startup.',
+    'The `props.id` of a data component (`table`, `kanban`, `list`, `kpi`, `chart` or `message-scroller`) on the same page whose latest read the gate follows: the id `onSuccess.refetch` would name. A name matching no data component on the page is refused at startup.',
     ['pending-erasures', 'tasks-grid']
   ),
   state: ReadStateListSchema,
 }).annotate({
   title: 'Component Read-State Gate',
-  description: 'Follows the latest read of one `table` or `kanban`, named by its `props.id`.',
+  description:
+    'Follows the latest read of one data component (`table`, `kanban`, `list`, `kpi`, `chart` or `message-scroller`), named by its `props.id`.',
 })
 
 /** The gate over every data component subscribed to a shared-filter channel. */
 export const ChannelReadStateGateSchema = Schema.Struct({
   channel: sourceName(
-    'A shared-filter channel: every `table` or `kanban` on the same page whose `dataSource.bindTo` names it counts. A channel no table or kanban on the page subscribes to is refused at startup.',
+    'A shared-filter channel: every data component (`table`, `kanban`, `list`, `kpi`, `chart` or `message-scroller`) on the same page whose `dataSource.bindTo` names it counts. A channel no data component on the page subscribes to is refused at startup.',
     ['quotes', 'invoices']
   ),
   state: ReadStateListSchema,
 }).annotate({
   title: 'Channel Read-State Gate',
   description:
-    'Follows the latest reads of every `table` or `kanban` subscribed to one shared-filter channel: `failed` if any failed, else `loading` if any has not settled, else `nonEmpty` if any holds a row, else `empty`.',
+    'Follows the latest reads of every data component (`table`, `kanban`, `list`, `kpi`, `chart` or `message-scroller`) subscribed to one shared-filter channel: `failed` if any failed, else `loading` if any has not settled, else `nonEmpty` if any holds a row, else `empty`.',
 })
 
 /**
@@ -140,7 +142,7 @@ export const ReadStateGateSchema = Schema.Union([
 ]).annotate({
   title: 'Read-State Gate',
   description:
-    'Names one source, either one `table` or `kanban` on the page by `component` or every one subscribed to a shared-filter channel by `channel`, and the read states during which the gate holds. Decided in the browser after each read, so it is not a permission: use `visibility` for who may see the button.',
+    'Names one source, either one data component (`table`, `kanban`, `list`, `kpi`, `chart` or `message-scroller`) on the page by `component` or every one subscribed to a shared-filter channel by `channel`, and the read states during which the gate holds. Decided in the browser after each read, so it is not a permission: use `visibility` for who may see the button.',
 })
 
 /** @public */

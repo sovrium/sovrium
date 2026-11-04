@@ -6,6 +6,7 @@
  */
 
 import { Schema } from 'effect'
+import { DURATION_PATTERN, DURATION_UNITS_LABEL } from '@/domain/kernel/time/parse-duration'
 import { TemplateStringSchema } from '../../template'
 import { ActionBaseFields } from '../base'
 
@@ -58,10 +59,9 @@ export const StateSetActionSchema = Schema.Struct({
     ttl: Schema.optional(
       Schema.String.pipe(
         Schema.annotate({
-          description:
-            'Time-to-live for automatic expiry: number + unit (ms, s, m, h, d). Examples: "30s", "1h", "7d"',
+          description: `Time-to-live for automatic expiry: number + unit (${DURATION_UNITS_LABEL}). Examples: "30s", "1h", "7d", "1y"`,
         }),
-        Schema.check(Schema.isPattern(/^\d+\s*(ms|s|m|h|d)$/))
+        Schema.check(Schema.isPattern(DURATION_PATTERN))
       )
     ),
   }).annotate({

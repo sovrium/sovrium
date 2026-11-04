@@ -22,10 +22,7 @@ The password is prompted for with echo disabled unless `--password` or `--passwo
 
 The account's display name, the one the console's users page shows, comes from `--name`, else from `AUTH_ADMIN_NAME` when it is set and not blank (the same variable the first-start bootstrap reads), else `Administrator`. The value is trimmed. A `--name` that is empty or only spaces is refused with exit `1` before anything is created: an empty flag is usually an unset shell variable, not a request for the default.
 
-Two things to know before scripting it:
-
-- **No TTY and no password option is an error.** In a non-interactive shell you must pass `--password-stdin` or `--password`, or the command exits `1` rather than hanging on a prompt.
-- **It is idempotent.** If the email already has an account, nothing is changed, its name included.
+Before scripting it, know that a shell with no TTY and no password option is an error: pass `--password-stdin` or `--password`, or the command exits `1` rather than hanging on a prompt. The command is also idempotent. If the email already has an account, nothing is changed, its name included.
 
 If the resolved config has no `auth` block, the command refuses and tells you to add one.
 
@@ -71,7 +68,7 @@ Neither secret has to be set. An unset `SOVRIUM_ENCRYPTION_KEY` is generated and
 
 Write the encryption key this process already has into `<data dir>/encryption-key`, where the server looks for it.
 
-This is the one command that deliberately does persist a secret, and it exists for a single migration. A deployment that has always supplied `SOVRIUM_ENCRYPTION_KEY` cannot simply stop: the next start would find no key file, generate a fresh key, and quietly orphan every stored credential the old one protected. Adopting first makes removing the variable a no-op.
+This is the one command that deliberately does persist a secret, and it exists for a single migration. A deployment that has always supplied `SOVRIUM_ENCRYPTION_KEY` cannot stop supplying it straight away: the next start would find no key file, generate a fresh key, and quietly orphan every stored credential the old one protected. Adopting first makes removing the variable a no-op.
 
 ```bash
 export SOVRIUM_ENCRYPTION_KEY=<the key currently in use>
@@ -82,7 +79,7 @@ sovrium secret adopt
 Encryption key adopted — written to /srv/app/.sovrium/encryption-key (mode 0600)
 ```
 
-Three outcomes, and the third is the point:
+It ends in one of three ways:
 
 - **Nothing in the environment**: refuses, naming the variable it expected. Nothing is written.
 - **The same key is already persisted**: says so and exits `0`, so a deploy script can run it on every release.
@@ -125,7 +122,7 @@ Homebrew and Scoop installs are recognised by where the binary itself lives (und
 
 A container is not detected either: the official `ghcr.io/sovrium/sovrium` image declares itself by setting `SOVRIUM_INSTALL_METHOD=docker`, which is what makes it print the pull command under Docker, Podman or Kubernetes alike. A binary installed with the install script inside a container, such as a devcontainer or a CI job, updates itself like any other. If you build your own image by copying the binary in, set `SOVRIUM_INSTALL_METHOD=docker` there too, so `sovrium update` does not try to replace a file your image owns.
 
-Detection is overridable with `SOVRIUM_INSTALL_METHOD`, which honours those five names and ignores anything else. A raw Windows binary that Scoop does not manage is pointed at Scoop or Docker rather than attempting to overwrite a running `.exe`.
+Detection is overridable with `SOVRIUM_INSTALL_METHOD`, which honours those five names and ignores anything else. A raw Windows binary that Scoop does not manage is pointed at Scoop or Docker instead of attempting to overwrite a running `.exe`.
 
 ### Inside the Sovrium app
 
@@ -140,7 +137,7 @@ update check — it replaces the app and this engine together, so the two
 never end up on different versions.
 ```
 
-It replaces nothing (no download, no package manager, no rename), and it reaches neither the network nor a package manager on the way. Two updaters racing leaves a shell and a sidecar on different versions, each expecting a command surface the other does not have.
+It replaces nothing: it downloads nothing, renames nothing, and reaches neither the network nor a package manager. Two updaters racing leaves a shell and a sidecar on different versions, each expecting a command surface the other does not have.
 
 It exits **`0`**, exactly as the `docker` branch does. Both are the same shape of answer (_this install is managed elsewhere, and here is where_), and both leave the system in the state you asked for. A non-zero exit would make a wrapper script treat a correct refusal as a failure, and would tell a desktop user their app is broken when it is not.
 

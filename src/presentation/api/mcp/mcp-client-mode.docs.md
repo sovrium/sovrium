@@ -63,7 +63,7 @@ agents:
     # no mcp.servers: no external tool at all
 ```
 
-The model is offered each tool as `<server>__<tool>` (for example `registry__lookup_company`), with the description and argument schema the server listed, so two servers may list a tool of the same name without colliding. An `allowedTools` entry matches a tool's own name or that qualified form. A name that matches no listed tool is simply not offered: check the real names on the tools route.
+The model is offered each tool as `<server>__<tool>` (for example `registry__lookup_company`), with the description and argument schema the server listed, so two servers may list a tool of the same name without colliding. An `allowedTools` entry matches a tool's own name or that qualified form. A name that matches no listed tool is not offered: check the real names on the tools route.
 
 Two allowlists are in play and they do not overlap. `tools` scopes what the agent may do **inside** the app: its tables and its actions. `mcp.servers` and `mcp.allowedTools` scope what it may reach **outside**.
 
@@ -109,7 +109,7 @@ Credentials are never echoed: the status carries the auth _type_ and the header 
 
 ## Calling an agent
 
-Wherever an agent runs (its chat endpoint `POST /api/agents/:name/chat`, `POST /api/ai/chat` naming it, an automation's `ai:agent` step, or a scheduled run), the model is offered the external tools that agent may use, and **a tool the model calls is called**: Sovrium sends `tools/call` to the server that listed it, with the model's arguments, and hands the result back to the model before it answers. A server that is unreachable simply offers no tool, and the agent still answers from the model.
+Wherever an agent runs (its chat endpoint `POST /api/agents/:name/chat`, `POST /api/ai/chat` naming it, an automation's `ai:agent` step, or a scheduled run), the model is offered the external tools that agent may use, and **a tool the model calls is called**: Sovrium sends `tools/call` to the server that listed it, with the model's arguments, and hands the result back to the model before it answers. A server that is unreachable offers no tool, and the agent still answers from the model.
 
 A tool's answer comes from a system you do not control, so it reaches the model as quoted data, fenced and labelled as the output of an external tool, never as instructions. A very long answer is cut off, and the cut is marked.
 

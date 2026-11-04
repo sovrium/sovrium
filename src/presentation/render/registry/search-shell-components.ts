@@ -20,6 +20,7 @@
 
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
 import * as Renderers from '../elements'
+import { resolvePageSearchWords } from '../elements/search-input-renderers'
 import type { ComponentRenderer, DispatchableComponentType } from './component-dispatch-config'
 
 export const searchShellComponents: Partial<Record<DispatchableComponentType, ComponentRenderer>> =
@@ -59,6 +60,7 @@ export const searchShellComponents: Partial<Record<DispatchableComponentType, Co
           placeholder,
           maxResults,
           sessionIndex,
+          words: resolvePageSearchWords(currentLang, languages),
         })
       }
       const debounceMs = c['debounceMs'] as number | undefined

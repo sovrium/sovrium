@@ -63,8 +63,10 @@ import {
 } from '@/domain/models/api/admin/design-system'
 import {
   CLAUDE_DESIGN_FONTS_DIR,
+  designMdAppFacts,
   exportProviderAdapters,
   PROVIDER_ADAPTER_NAMES,
+  type DesignTokenModes,
 } from '@/domain/models/app/design/adapters/export'
 import { withoutSampleMedia } from '@/domain/models/app/design/design-kit-document-service'
 import {
@@ -249,16 +251,14 @@ const logoFiles = (app: App) =>
  * under the project's `fonts/`.
  */
 const adapterEntries = (
-  appName: string,
-  modes: {
-    readonly light: Readonly<DesignSystemDocument>
-    readonly dark: Readonly<DesignSystemDocument>
-  },
+  app: App,
+  modes: DesignTokenModes,
   kit: DesignSystemKit,
   fonts: readonly DesignKitFontFile[]
 ): readonly DesignSystemBundleEntry[] =>
   exportProviderAdapters({
-    appName,
+    appName: app.name,
+    ...designMdAppFacts(app),
     light: modes.light,
     dark: modes.dark,
     components: kit.manifest.types,
@@ -310,7 +310,7 @@ const assembleBundle = (app: App) =>
       textEntry('css/theme.css', 'css', renderThemeStylesheet(light, dark, app.name)),
       textEntry('css/tailwind.css', 'css', renderTailwindStylesheet(light)),
       ...kit.files.map((file) => textEntry(file.path, 'kit', file.text)),
-      ...adapterEntries(app.name, { light, dark }, kit, fonts),
+      ...adapterEntries(app, { light, dark }, kit, fonts),
       ...fonts.flatMap((font) => copiedTwice(font, 'fonts', CLAUDE_DESIGN_FONTS_DIR, 'font')),
       ...samples.map((sample) => copied(sample, ASSETS_DIR, 'asset')),
       ...logos.map((logo) => copied(logo, ASSETS_DIR, 'asset')),

@@ -14,7 +14,7 @@ Seven field types compute their value with a language model from one or more `so
 | `ai-tag`        | Multiple tags chosen from an allow-list.                  |
 | `ai-translate`  | A translation of one source field into a target language. |
 
-Every one of them needs an AI provider configured. With none, the fields decode and the app boots. They simply never refine, which is the state the status below calls out.
+Every one of them needs an AI provider configured. With none, the fields decode and the app boots. They never refine, which is the state the status below calls out.
 
 ## How a value resolves, and how to tell
 

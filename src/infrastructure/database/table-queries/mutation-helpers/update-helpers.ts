@@ -6,25 +6,28 @@
  */
 
 import { sql, type SQL } from 'drizzle-orm'
-import { StaleWriteError } from '@/domain/errors'
+import { StaleWriteError, ValidationError } from '@/domain/errors'
+import { signatureKeptRefusal } from '@/domain/models/app/tables/fields/field-types/media/signature-value-validation'
 import { isLanguageMerge } from '@/domain/models/app/tables/translatable-write-service'
 import { DatabaseError, type PortableTx } from '@/infrastructure/database'
 import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { languageMergeSql } from '@/infrastructure/database/sql/sql-translatable-writes'
 import { validateColumnName, tableIdentifier } from '../statement/validation'
-import { encodeColumnValue } from './column-value-encoding'
+import { encodeColumnValue, givenEntries } from './column-value-encoding'
 import { rowAfterTriggers } from './record-fetch-helpers'
 import type { DatabaseDialect } from '@/domain/models/process-env/database/database-dialect'
 import type { Dialect } from '@/infrastructure/database/drizzle/layer'
 
 /**
  * Validate fields object is not empty
- * Returns entries directly or throws error (Promise-based for transaction use)
+ * Returns the given entries or throws error (Promise-based for transaction use).
+ * A key whose value is `undefined` is not given ({@link givenEntries}): it
+ * leaves its column as stored, and a write of nothing else is refused as empty.
  */
 export async function validateFieldsNotEmpty(
   fields: Readonly<Record<string, unknown>>
-): Promise<readonly [string, unknown][]> {
-  const entries = Object.entries(fields)
+): Promise<readonly (readonly [string, unknown])[]> {
+  const entries = givenEntries(fields)
 
   if (entries.length === 0) {
     throw new DatabaseError('Cannot update record with no fields', undefined)
@@ -56,7 +59,7 @@ export async function validateFieldsNotEmpty(
  */
 export function buildUpdateSetClauseCRUD(
   dialect: DatabaseDialect,
-  entries: readonly [string, unknown][],
+  entries: readonly (readonly [string, unknown])[],
   arrayColumnTypes: Readonly<Record<string, string>>
 ): Readonly<ReturnType<typeof sql.join>> {
   const setClauses = entries.map(([key, value]) => {
@@ -88,6 +91,72 @@ const updatedAtIs = (dialect: Dialect, epochMs: number): Readonly<SQL> => {
 }
 
 /**
+ * `col IS NULL AND …` over columns a write fills only while they are empty (a
+ * signature's): the one condition every write road guards them with.
+ */
+export const columnsAreEmpty = (columns: readonly string[]): Readonly<SQL> =>
+  sql.join(
+    columns.map((column) => {
+      validateColumnName(column)
+      return sql`${sql.identifier(column)} IS NULL`
+    }),
+    sql` AND `
+  )
+
+/** `AND col IS NULL …` for the columns the write fills only while empty; nothing when none. */
+export const emptyColumnsGuard = (columns: readonly string[]): Readonly<SQL> =>
+  columns.length === 0 ? sql`` : sql` AND ${columnsAreEmpty(columns)}`
+
+/**
+ * The first of `columns` the row holds a value in, read after an UPDATE that
+ * matched nothing: the write found it filled, so it is refused as the write-once
+ * rule refuses it. `undefined` when the row is gone or every column is empty.
+ */
+async function filledColumnOf(
+  tx: Readonly<PortableTx>,
+  dialect: Dialect,
+  target: { readonly tableName: string; readonly recordId: string },
+  columns: readonly string[]
+): Promise<string | undefined> {
+  if (columns.length === 0) return undefined
+  const [row] = await executeRawOn(
+    dialect.kind,
+    tx,
+    sql`SELECT ${sql.join(
+      columns.map((column) => sql.identifier(column)),
+      sql`, `
+    )} FROM ${tableIdentifier(target.tableName)} WHERE id = ${target.recordId}`
+  )
+  return columns.find((column) => row?.[column] !== null && row?.[column] !== undefined)
+}
+
+/**
+ * Why an UPDATE of one record matched nothing, thrown: a write-once column it
+ * found filled, a stale optimistic-lock token, or a record not there.
+ */
+async function refuseUnwrittenRow(
+  tx: Readonly<PortableTx>,
+  dialect: Dialect,
+  target: {
+    readonly tableName: string
+    readonly recordId: string
+    readonly expectedUpdatedAtMs?: number | undefined
+  },
+  emptyColumns: readonly string[]
+): Promise<never> {
+  const filled = await filledColumnOf(tx, dialect, target, emptyColumns)
+  if (filled !== undefined) throw signatureKeptRefusal(filled)
+  if (target.expectedUpdatedAtMs !== undefined) {
+    throw new StaleWriteError(
+      `Record ${target.recordId} in ${target.tableName} changed since it was read`,
+      target.recordId
+    )
+  }
+  // No row was updated: the record is not found, or access is denied
+  throw new Error(`Record not found or access denied`)
+}
+
+/**
  * Execute the UPDATE of one record, optionally guarded by its optimistic-lock
  * token. Promise-based for transaction use.
  *
@@ -98,6 +167,11 @@ const updatedAtIs = (dialect: Dialect, epochMs: number): Readonly<SQL> => {
  * — whose `updated_at` has moved — and match nothing. Matching nothing while a
  * token was given is a {@link StaleWriteError}; the caller has already read the
  * row inside the same transaction, so "absent" is not the explanation.
+ *
+ * `emptyColumns` (a signature's columns) are written only while they hold
+ * nothing: the same `WHERE` requires each to be `NULL`, so of two writes racing
+ * to fill one, the second matches nothing and is refused as a change to a
+ * stored signature — whichever of them read the row first.
  */
 export async function executeRecordUpdateCRUD(
   tx: Readonly<PortableTx>,
@@ -107,10 +181,12 @@ export async function executeRecordUpdateCRUD(
     readonly recordId: string
     /** The optimistic-lock token to compare, as epoch milliseconds; absent skips the check. */
     readonly expectedUpdatedAtMs?: number | undefined
+    /** Columns the write fills only while they are empty. */
+    readonly emptyColumns?: readonly string[]
   },
   setClause: Readonly<ReturnType<typeof sql.join>>
 ): Promise<Record<string, unknown>> {
-  const { tableName, recordId, expectedUpdatedAtMs } = target
+  const { tableName, recordId, expectedUpdatedAtMs, emptyColumns = [] } = target
   const tokenGuard =
     expectedUpdatedAtMs === undefined
       ? sql``
@@ -119,24 +195,12 @@ export async function executeRecordUpdateCRUD(
     const result = await executeRawOn(
       dialect.kind,
       tx,
-      sql`UPDATE ${tableIdentifier(tableName)} SET ${setClause} WHERE id = ${recordId}${tokenGuard} RETURNING *`
+      sql`UPDATE ${tableIdentifier(tableName)} SET ${setClause} WHERE id = ${recordId}${tokenGuard}${emptyColumnsGuard(emptyColumns)} RETURNING *`
     )
-
-    if (result.length === 0 && expectedUpdatedAtMs !== undefined) {
-      throw new StaleWriteError(
-        `Record ${recordId} in ${tableName} changed since it was read`,
-        recordId
-      )
-    }
-
-    // If no rows were updated, record not found or access denied
-    if (result.length === 0) {
-      throw new Error(`Record not found or access denied`)
-    }
-
+    if (result.length === 0) await refuseUnwrittenRow(tx, dialect, target, emptyColumns)
     return { ...(await rowAfterTriggers({ tx, dialect }, tableName, result[0]!)) }
   } catch (error) {
-    if (error instanceof StaleWriteError) throw error
+    if (error instanceof StaleWriteError || error instanceof ValidationError) throw error
     // Preserve "not found" or "access denied" in wrapper message for API error handling
     const errorMsg = error instanceof Error ? error.message : String(error)
     if (errorMsg.includes('not found') || errorMsg.includes('access denied')) {

@@ -9,7 +9,7 @@
 
 Server mode is the one most people mean. It turns the app into something an assistant can operate: tables become CRUD tools, manual automations become invocable, action templates become callable.
 
-**Server mode needs no AI provider at all.** When Sovrium is the MCP _server_ it exposes tools and executes them; the reasoning happens at whichever client connected. No API key, no model, no provider setting. That requirement belongs to the rest of the AI layer, client mode included, and confusing the two is the most common reason a working server-mode setup is thought to be broken.
+**Server mode needs no AI provider at all.** When Sovrium is the MCP _server_ it exposes tools and executes them; the reasoning happens at whichever client connected. It needs no API key, no model and no provider setting. That requirement belongs to the rest of the AI layer, client mode included, and confusing the two is the most common reason a working server-mode setup is thought to be broken.
 
 ## Turning server mode on
 

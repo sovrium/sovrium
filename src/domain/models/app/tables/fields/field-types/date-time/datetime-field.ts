@@ -37,15 +37,17 @@ export const DateTimeFieldSchema = BaseFieldSchema.pipe(
     format: Schema.optional(
       Schema.String.pipe(
         Schema.annotate({
-          description: 'DateTime format string for display',
-          examples: ['YYYY-MM-DD HH:mm', 'MM/DD/YYYY hh:mm A'],
+          description:
+            "A pattern the value is printed with wherever it is shown, in the page language and at the field's timeZone: yyyy, MM, MMM, MMMM, dd, d, HH, mm, ss, EEE, EEEE, and 'quoted' text. It wins over dateFormat and timeFormat. A pattern naming any other letter is refused when the app starts.",
+          examples: ['d MMMM yyyy, HH:mm', 'yyyy-MM-dd HH:mm', "HH'h'mm"],
         })
       )
     ),
     dateFormat: Schema.optional(
       Schema.Literals(['US', 'European', 'ISO']).pipe(
         Schema.annotate({
-          description: 'Date display format preset',
+          description:
+            'Writes the date as numbers wherever the value is shown: US 11/20/2026, European 20/11/2026, ISO 2026-11-20.',
           examples: ['US', 'European', 'ISO'],
         })
       )
@@ -60,7 +62,8 @@ export const DateTimeFieldSchema = BaseFieldSchema.pipe(
     timeFormat: Schema.optional(
       Schema.Literals(['12-hour', '24-hour']).pipe(
         Schema.annotate({
-          description: 'Time display format (12-hour with AM/PM or 24-hour)',
+          description:
+            'The clock the time is shown on wherever the value is shown, including a time-only reading: 12-hour (1:00 PM) or 24-hour (13:00).',
           examples: ['12-hour', '24-hour'],
         })
       )
@@ -76,7 +79,8 @@ export const DateTimeFieldSchema = BaseFieldSchema.pipe(
     timeZone: Schema.optional(
       Schema.Union([Schema.Literal('local'), Schema.String]).pipe(
         Schema.annotate({
-          description: 'Timezone setting (specific timezone or "local" for browser timezone)',
+          description:
+            "The zone the value is shown in: an IANA zone such as Europe/Paris, or local for each reader's own zone (drawn by the browser).",
           examples: ['local', 'America/New_York', 'Europe/Paris'],
         })
       )

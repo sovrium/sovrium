@@ -25,6 +25,10 @@ import { sql, type SQL } from 'drizzle-orm'
 import { Effect } from 'effect'
 import { WebhookOutboxScope } from '@/application/ports/services/record-webhook-dispatcher'
 import { DatabaseError, type PortableTx } from '@/infrastructure/database'
+import {
+  recordPendingSignatureEvidence,
+  SignatureEvidenceScope,
+} from '@/infrastructure/database/signature-evidence-queries'
 import { type RawSqlRunner } from '@/infrastructure/database/sql/dialect-execute'
 import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
 import { withPromiseTransaction, withTransaction } from '@/infrastructure/database/transaction'
@@ -128,7 +132,9 @@ const recordCommittedDeliveries = async (
  * deliveries the rows it committed owe — `changesOf` names them, the same rows
  * the repository reports to the change stream — are recorded on the same
  * transaction, as the outbox scope in effect plans them, and handed to the
- * scope once it commits.
+ * scope once it commits. The evidence of a signature the write stores is
+ * written there too (`signature-evidence-queries.ts`): a signature is never
+ * committed without its evidence.
  */
 export const tryTransactionWithOutbox = <T, E>(input: {
   readonly database: DatabaseService
@@ -138,12 +144,14 @@ export const tryTransactionWithOutbox = <T, E>(input: {
 }): Effect.Effect<T, E> =>
   Effect.gen(function* () {
     const scope = yield* WebhookOutboxScope
+    const evidence = yield* SignatureEvidenceScope
     const { client, dialect } = input.database
     const { result, recorded } = yield* withPromiseTransaction(
       client,
       async (tx) => {
         const written = await input.transaction(tx)
         const changes = input.changesOf(written)
+        await recordPendingSignatureEvidence(tx, dialect, evidence, changes)
         const deliveryIds = await recordCommittedDeliveries(tx, dialect, scope, changes)
         return { result: written, recorded: { changes, deliveryIds } }
       },
@@ -155,8 +163,9 @@ export const tryTransactionWithOutbox = <T, E>(input: {
 
 /**
  * `withTransaction(client, body, onFailure)` for a repository write whose body is
- * an Effect, with the deliveries its committed rows owe recorded on the same
- * transaction (see {@link tryTransactionWithOutbox}). A failure to record is
+ * an Effect, with the deliveries its committed rows owe, and the evidence of a
+ * signature it stores, recorded on the same transaction (see
+ * {@link tryTransactionWithOutbox}). A failure to record is
  * the write's own failure: the transaction rolls back with it.
  */
 export const withOutboxTransaction =
@@ -167,12 +176,19 @@ export const withOutboxTransaction =
   ): Effect.Effect<A, E2, R> =>
     Effect.gen(function* () {
       const scope = yield* WebhookOutboxScope
+      const evidence = yield* SignatureEvidenceScope
       const { result, recorded } = yield* withTransaction(
         database.client,
         (tx) =>
           Effect.gen(function* () {
             const written = yield* body(tx)
             const changes = changesOf(written)
+            // The batch roads write no signature today; one that ever does keeps its evidence here.
+            yield* Effect.tryPromise({
+              try: () => recordPendingSignatureEvidence(tx, database.dialect, evidence, changes),
+              catch: (cause) =>
+                new DatabaseError('Failed to record the signature evidence of a write', cause),
+            })
             const deliveryIds = yield* Effect.tryPromise({
               try: () => recordCommittedDeliveries(tx, database.dialect, scope, changes),
               catch: (cause) =>

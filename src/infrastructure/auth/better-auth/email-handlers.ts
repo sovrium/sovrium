@@ -21,7 +21,7 @@ import {
   emailVerificationEmail,
   resolveBrand,
 } from '../../email/templates'
-import { logError } from '../../logging'
+import { logMailFailure } from './mail-failure-log'
 import { createTwoFactorLockoutHandler } from './two-factor-lockout-email-handler'
 import type { Auth, AuthEmailTemplate } from '@/domain/models/app/auth'
 import type { Languages } from '@/domain/models/app/languages'
@@ -114,7 +114,7 @@ const createEmailHandler = (
       }
     } catch (error) {
       // Don't throw - silent failure prevents user enumeration attacks
-      logError(`[EMAIL] Failed to send ${config.emailType} email to ${user.email}`, error)
+      logMailFailure(`${config.emailType} email`, user.email, error)
     }
   }
 }
@@ -226,7 +226,7 @@ const createWelcomeEmailHandler = (
       }
       // No default welcome email — only sent when explicitly configured
     } catch (error) {
-      logError(`[EMAIL] Failed to send welcome email to ${user.email}`, error)
+      logMailFailure('welcome email', user.email, error)
     }
   }
 }
@@ -274,7 +274,7 @@ const createEmailOtpHandler = (
         text: `Your ${resolveBrand(appName)} verification code is: ${otp}\n\nThis code will expire in 5 minutes.`,
       })
     } catch (error) {
-      logError(`[EMAIL] Failed to send OTP email to ${email}`, error)
+      logMailFailure('OTP email', email, error)
     }
   }
 }
@@ -325,7 +325,7 @@ const createTwoFactorBackupCodesHandler = (
         text: `Your ${resolveBrand(appName)} two-factor authentication backup codes:\n\n${formattedCodes}\n\nSave these codes in a safe place. Each code can only be used once.`,
       })
     } catch (error) {
-      logError(`[EMAIL] Failed to send two-factor backup codes email to ${email}`, error)
+      logMailFailure('two-factor backup codes email', email, error)
     }
   }
 }
@@ -419,7 +419,7 @@ const createInvitationEmailHandler = (
         ...buildInvitationDefaultEmail({ name, url, inviterName, appName, words: wordsFor() }),
       })
     } catch (error) {
-      logError(`[EMAIL] Failed to send invitation email to ${email}`, error)
+      logMailFailure('invitation email', email, error)
     }
   }
 }

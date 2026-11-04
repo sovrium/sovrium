@@ -7,6 +7,7 @@
 
 import accessibilityBody from '@/docs/guides/accessibility.md' with { type: 'file' }
 import buildACrmBody from '@/docs/guides/build-a-crm.md' with { type: 'file' }
+import collectSignaturesBody from '@/docs/guides/collect-signatures.md' with { type: 'file' }
 import guidesBody from '@/docs/guides/guides.md' with { type: 'file' }
 import migrateFromAirtableBody from '@/docs/guides/migrate-from-airtable.md' with { type: 'file' }
 import migrateFromMakeBody from '@/docs/guides/migrate-from-make.md' with { type: 'file' }
@@ -36,7 +37,7 @@ export const section = defineSection({
       slug: 'guides',
       title: 'Guides',
       description:
-        'Task-based guides for building with Sovrium — each answers one question with a complete, runnable config.',
+        'Task-based guides for building with Sovrium. Each answers one question with a complete, runnable config.',
       keywords: [
         'sovrium',
         'guides',
@@ -111,6 +112,25 @@ export const section = defineSection({
       order: 10_020,
       sidebarLabel: 'Build a CRM',
       body: buildACrmBody,
+      documents: [],
+      stories: [],
+    }),
+    defineArticle({
+      slug: 'collect-signatures',
+      title: 'Collect signatures on a document',
+      description:
+        'Ask the people a record names to sign its PDF from a link of their own, verify them by email code, and keep the evidence file.',
+      keywords: [
+        'sovrium',
+        'electronic signature',
+        'collect signatures',
+        'signing flow',
+        'sign a pdf',
+        'evidence file',
+      ],
+      order: 10_025,
+      sidebarLabel: 'Collect signatures',
+      body: collectSignaturesBody,
       documents: [],
       stories: [],
     }),

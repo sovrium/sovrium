@@ -1,0 +1,60 @@
+# Signing an employment contract: the employee first, then the manager.
+#
+# A `signature/send` step starts one request per contract (see
+# config/automations/send-contract-for-signature.yaml). Each signer gets a
+# link of her own by email, opens the contract-signing page, and signs. What
+# this produces is a simple electronic signature with an evidence file: every
+# step is recorded, and `sovrium signature verify` checks the exported
+# evidence.
+name: employment_contract
+table: contracts
+document:
+  field: draft_pdf
+# Resolved once per signer when the request is sent, and stored with it: the
+# sentence she reads is the sentence she signs.
+statement: I have read and accept the contract "$record.title".
+# The manager's link goes out once the employee has signed.
+order: sequential
+expires: 30d
+reminders:
+  every: 3d
+  max: 4
+# To also ask each signer for a six-digit code mailed to her address before
+# she signs, set SIGNATURE_OTP_SECRET and add:
+#
+#   verify:
+#     email: true
+#
+# With `verify` on, the app refuses to start until that secret is set, which
+# is why the flow leaves it off: the template then runs with no environment.
+surface:
+  page: contract-signing
+  # The only field of the contract the signing page may read. Salary and the
+  # rest of the record never reach it.
+  fields:
+    - title
+signers:
+  - name: employee
+    email: $record.employee_email
+    displayName: $record.employee_name
+    field: employee_signature
+    placement:
+      page: last
+      at: { x: 72, y: 600 }
+  - name: manager
+    email: $record.manager_email
+    displayName: $record.manager_name
+    field: manager_signature
+    placement:
+      page: last
+      at: { x: 330, y: 600 }
+output:
+  signedFile: signed_pdf
+  proofFile: proof_pdf
+  status: signing_status
+# Required, with no default: how long the evidence is kept and why. An
+# employment record is kept because the law asks for it; set the length your
+# own obligations call for.
+evidence:
+  keep: 6y
+  basis: legal-obligation

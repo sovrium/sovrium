@@ -101,6 +101,37 @@ const automationHeadFields = {
   ),
 }
 
+/**
+ * When the platform's failure email goes out for this automation.
+ *
+ * Without the block (or with `afterConsecutiveFailures: 1`) every final
+ * failure counts, as it always has. A threshold above one holds the email
+ * back until that many runs in a row have ended in a final failure, so an
+ * every-minute poll whose next run is its own retry does not alert on a
+ * failure that heals itself. Only a `completed` run resets the count; an
+ * interrupted run neither counts nor resets. The count is kept per
+ * automation and survives a restart.
+ */
+const AutomationNotifySchema = Schema.Struct({
+  afterConsecutiveFailures: Schema.optional(
+    Schema.Finite.pipe(
+      Schema.annotate({
+        description:
+          'How many runs in a row must end in a final failure before the failure email is sent. The email then says how many runs failed in a row and when the first of them failed; later failures within the hour are held back for the hourly summary as usual. A run that completes resets the count, and a run that completes with errors does not. The count survives a restart.',
+        defaultNote: '1 (every final failure is emailed)',
+        examples: [3],
+      }),
+      Schema.check(Schema.isInt(), Schema.isGreaterThanOrEqualTo(1))
+    )
+  ),
+}).pipe(
+  Schema.annotate({
+    identifier: 'AutomationNotify',
+    description:
+      "When the platform's failure email is sent for this automation. Without it, every final failure is emailed.",
+  })
+)
+
 /** The fields after the trigger keys, in the order the manual lists them. */
 const automationTailFields = {
   /** Sequential list of actions to execute */
@@ -111,6 +142,9 @@ const automationTailFields = {
 
   /** Automation-level retry configuration (applies to the entire workflow) */
   retry: Schema.optional(RetryConfigSchema),
+
+  /** When the failure email goes out — see {@link AutomationNotifySchema}. */
+  notify: Schema.optional(AutomationNotifySchema),
 
   /**
    * Timeout for the entire automation run in milliseconds. Counts only the

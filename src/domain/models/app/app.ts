@@ -58,6 +58,7 @@ import { NotificationsSchema } from './notifications'
 import { PagesSchema } from './pages'
 import { PaletteSchema } from './palette'
 import { RedirectsSchema } from './redirects'
+import { SignaturesSchema } from './signatures'
 import { SystemSourceCatalogSchema } from './system-sources'
 import { TablesSchema } from './tables'
 import { VersionSchema } from './version'
@@ -272,6 +273,16 @@ export const AppSchema = Schema.Struct({
 
   /** In-app notifications (optional): the kinds the app sends, their channels and retention. */
   notifications: Schema.optional(NotificationsSchema),
+
+  /**
+   * Signing flows (optional): ask people to sign the PDF a record holds, each
+   * through a link of her own, and keep an evidence file of every step.
+   *
+   * A `signature/send` step starts a request for one record; the engine writes
+   * each signature, the signed document, the proof file and the status back
+   * into the fields the flow names, and no client may write them.
+   */
+  signatures: Schema.optional(SignaturesSchema),
 
   /**
    * AI agent configurations (optional).

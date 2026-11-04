@@ -72,7 +72,7 @@ A table slug outside `scopeTables` answers `404`.
 
 ### Why the cookie is safe to trust
 
-One cookie per scope table, `httpOnly` and `SameSite=Lax`, so it is not readable by client JavaScript. Unlike the session cookie above, this one takes its `Secure` attribute from `NODE_ENV=production` rather than from the bind address. So on a public deployment that does not set `NODE_ENV`, set it, or the two cookies on the same request disagree about whether the connection can be trusted.
+One cookie per scope table, `httpOnly` and `SameSite=Lax`, so it is not readable by client JavaScript. It takes its `Secure` attribute from the same bind address as the session cookie above, never from `NODE_ENV`: on a public origin it carries `Secure`, on a loopback one it does not, so the two cookies on one request always agree about whether the connection can be trusted.
 
 Beyond that, **every write and every read is re-validated server-side**. A write verifies the record is in the user's access rows before setting anything; a read re-checks the cookie against those rows when resolving the token, and discards a tampered, stale or now-revoked value in favour of the user's first accessible record.
 

@@ -6,6 +6,9 @@ intro: |
   with a screenshot and no account; the team works every ticket from one queue by status, with who
   holds it; a ticket opens over the grid with its conversation; the requester rates the answer once
   it is resolved.
+audience: >-
+  A small software company that answers its customers: requesters who write in from a public form
+  with no account, the agents who work the queue, and the team lead who also reads the reports.
 glance:
   - '**Tables** (3): tickets, ticket_replies (the conversation of a ticket), ratings'
   - '**Forms** (2): contact-support (rendered on `/`), rate-answer (rendered on `/rate`)'

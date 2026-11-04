@@ -130,9 +130,7 @@ export const dtcgDurationValueSchema = Schema.Struct({
 // DTCG tokens
 // ---------------------------------------------------------------------------
 
-const withDescription = {
-  $description: optionalField(Schema.String),
-}
+const withDescription = { $description: optionalField(Schema.String) }
 
 export const dtcgColorTokenSchema = Schema.Struct({
   $type: Schema.Literal('color'),
@@ -328,6 +326,8 @@ export const colorRoleGuidanceSchema = Schema.Struct({
   pairsWith: optionalField(
     Schema.String.annotate({ description: 'The token this one is designed to sit against' })
   ),
+  value: optionalField(Schema.String.annotate({ description: 'The light-scheme value' })),
+  dark: optionalField(Schema.String.annotate({ description: 'The dark-scheme value' })),
 }).annotate({ strictKeys: true, title: 'sovrium:strict-keys', identifier: 'ColorRoleGuidance' })
 
 /** Per-component usage guidance, mirroring `design.components`. */

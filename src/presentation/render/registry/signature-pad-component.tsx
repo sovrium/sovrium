@@ -13,13 +13,14 @@
  * over the field's stored value, the record's id and its table. A signed field
  * is written once, so it draws only its reading — "Signed by … on …" with the
  * statement agreed to — and no well. An unsigned one mounts the pad island,
- * which uploads the mark and writes the signature through the records API, so
- * the server's write-once rule is the one that holds.
+ * which posts the mark to the field's signing route with the page it is drawn
+ * on and the digest of the statement it shows: the server resolves that
+ * statement itself and authors the value it stores.
  */
 
 import { fillPlaceholders } from '@/domain/kernel/format/placeholder-format'
-import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveInterpreterString } from '@/domain/models/app/languages/translation-resolver'
+import { statementDigest } from '@/domain/models/app/signatures/signature-capture-service'
 import { cn } from '@/presentation/design/class-merge'
 import {
   computeItemClasses,
@@ -32,9 +33,11 @@ import {
   SignatureSignedItem,
   type SignedItemClasses,
 } from '@/presentation/design/signature-signed-item'
+import { signingPadFactsOf } from '@/presentation/render/resolve/signing-context-resolver'
+import { signingPageOf } from '@/presentation/render/resolve/signing-page-stamp'
+import { signaturePadFlow } from './signature-pad-flow-component'
 import type { ComponentRenderer } from './component-dispatch-config'
 import type { Languages } from '@/domain/models/app/languages'
-import type { Tables } from '@/domain/models/app/tables'
 import type { ReactElement } from 'react'
 
 interface PadRoot {
@@ -117,15 +120,6 @@ function signedReading(
   )
 }
 
-/** The bucket the field's signature images go to: its own, else the system bucket. */
-function bucketOf(tables: Tables | undefined, table: unknown, field: string | undefined): string {
-  const column = tables
-    ?.find((candidate) => candidate.name === table)
-    ?.fields.find((candidate) => candidate.name === field) as
-    { readonly bucket?: string } | undefined
-  return column?.bucket ?? SYSTEM_BUCKET_NAME
-}
-
 /** The words the pad island draws, in the page language: all of them (it carries no English). */
 const PAD_ISLAND_WORDS = [
   'well',
@@ -148,21 +142,19 @@ const padWords = (lang: string | undefined, languages: Languages | undefined) =>
 function padIslandProps(ctx: {
   readonly root: PadRoot
   readonly rawProps: Record<string, unknown> | undefined
-  readonly tables: Tables | undefined
-  readonly signerName: string | undefined
   readonly label: unknown
   readonly lang: string | undefined
   readonly languages: Languages | undefined
 }): Readonly<Record<string, unknown>> {
   const { root, rawProps } = ctx
-  const table = rawProps?.['_recordTable']
+  const statement = root.statement ?? ''
   return {
-    table,
+    table: rawProps?.['_recordTable'],
     recordId: rawProps?.['_recordId'],
     field: root.field,
-    bucket: bucketOf(ctx.tables, table, root.field),
-    statement: root.statement ?? '',
-    signerName: ctx.signerName ?? '',
+    page: signingPageOf(rawProps),
+    statement,
+    statementDigest: statementDigest(statement),
     height: root.height ?? 160,
     penWidth: root.penWidth ?? 2,
     allowTyped: root.allowTyped !== false,
@@ -176,27 +168,38 @@ function padIslandProps(ctx: {
   }
 }
 
+/** The pad's accessible name: the author's, else the pad's own word. */
+const padLabel = (label: unknown, word: PadWord): string =>
+  typeof label === 'string' ? label : word('signaturePad.label')
+
 export const signaturePadComponent: ComponentRenderer = ({
   component,
   rawProps,
   elementProps,
-  tables,
-  session,
   currentLang,
   languages,
 }) => {
   const root = (component ?? {}) as PadRoot
   const className = elementProps['className'] as string | undefined
-  const signature = storedSignature(rawProps?.['_recordValue'])
   const word: PadWord = (key) => resolveInterpreterString(key, currentLang, languages)
-  if (signature !== undefined) {
-    return signedReading(signature, { lang: currentLang, className, word })
+  // On a flow's signing page the pad signs for the flow, as the session's signer.
+  const flow = signingPadFactsOf(rawProps)
+  const signature = storedSignature(
+    flow === undefined ? rawProps?.['_recordValue'] : flow.signedValue
+  )
+  if (signature !== undefined || flow?.signerStatus === 'signed') {
+    return signedReading(signature ?? {}, { lang: currentLang, className, word })
+  }
+  if (flow !== undefined) {
+    return signaturePadFlow({
+      ...{ facts: flow, root, lang: currentLang, languages, className },
+      label: padLabel(elementProps['aria-label'], word),
+      signedClasses: signedItemClasses(),
+    })
   }
   const islandProps = padIslandProps({
     root,
     rawProps,
-    tables,
-    signerName: session?.name,
     label: elementProps['aria-label'],
     lang: currentLang,
     languages,

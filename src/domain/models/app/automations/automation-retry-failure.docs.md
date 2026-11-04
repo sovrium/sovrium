@@ -1,6 +1,6 @@
 # Retry & Failure Handling
 
-> Retry policies, the two timeout scopes, continuing past a failed step, the dead letter, and why replay is safe to press twice.
+> Retry policies, the two timeout scopes, continuing past a failed step, the dead letter, and what a replay runs again.
 
 An automation is made resilient by configuration: retry the transient failures with backoff, fence a runaway step with a timeout, recover a partially failed run without repeating what already worked, and route an exhausted run to a handler.
 
@@ -95,7 +95,7 @@ An address that appears in both is emailed once. `SOVRIUM_NOTIFY_AUTOMATIONS=off
 
 The footer carries the app's version and the Sovrium version (`acme-ops v2.3.1 (Sovrium v0.28.0)`), and the email arrives from the app's name unless `SMTP_FROM_NAME` says otherwise.
 
-The body's first sentence says the automation failed, and adds that it did so after using all of its retries only when a retry policy allowed more than one attempt and every one of them failed; a run with no retries to use is simply reported as failed. A run skipped because a connection it needs is not configured is not a failure and sends no email.
+The body's first sentence says the automation failed, and adds that it did so after using all of its retries only when a retry policy allowed more than one attempt and every one of them failed; a run with no retries to use is reported as failed. A run skipped because a connection it needs is not configured is not a failure and sends no email.
 
 A run that exceeded its `timeout` reads `Automation timed out: <name>` and says it timed out. The body names the automation, the error (shown as text, never interpreted as markup) and when it happened. The error is summarised before it is sent: its first line only, with a database's detail block removed except the column a duplicate key names, whose value is replaced (`Key (email)=(…)`), any password in a connection URL masked, and at most 200 characters. The full error stays in the run's history in the console. The email itself is headed with the app's name. When `BASE_URL` is set, it links to the console's automations catalogue, where a paused automation is resumed, and, in its footer, to the profile page where each operator switches the email off; without `BASE_URL` no link can be built, so the run id is printed instead.
 
@@ -105,9 +105,11 @@ A timed-out run is alerted but is still NOT passed to `automation-failure` handl
 
 ### One email, then one summary an hour
 
-An automation that fails every minute does not send sixty emails an hour. Its first failure is emailed at once. Every further failure of that automation within the next hour is held back, and at the top of each hour, in the operator timezone (`SOVRIUM_TIMEZONE`), one summary email lists every automation with held-back failures: how many more times it failed, its last error, and, when a later run succeeded, the time it recovered, so nobody investigates a failure that has already fixed itself.
+An automation that fails every minute does not send sixty emails an hour. Its first failure is emailed at once. Every further failure of that automation within the next hour is held back, and once an hour, at a minute of the hour fixed per instance (derived from the app name and printed when the server starts), one summary email names the hour it covers and lists every automation with held-back failures: how many more times it failed, its last error, and, when a later run succeeded, the time it recovered, so nobody investigates a failure that has already fixed itself. A recovery is reported whatever the trigger's `history` level keeps: the server sees every run that succeeds, even one that leaves no row.
 
-A failure more than an hour after the previous one of the same automation is emailed at once again. An hour with nothing held back sends no summary. The summary is not caught up after a restart: every automation in it already had its first failure emailed.
+A failure more than an hour after the previous one of the same automation is emailed at once again. A failure is either emailed at once or counted in one summary, never both. An hour with nothing held back sends no summary. The summary is not caught up after a restart: every automation in it already had its first failure emailed.
+
+An automation whose next run is its own retry, such as a poll every minute, can wait for a failure to last before anyone is told. With `notify: { afterConsecutiveFailures: 3 }`, the email is sent only when three runs in a row have ended in a final failure; it says how many runs failed in a row and when the first of them failed, with the last error, and further failures within the hour are held back for the summary as above. Below the threshold nothing is emailed and nothing is held back. A run that completes resets the count, a run that completes with errors does not, and an interrupted run neither counts nor resets. The count is read from the run history, so a restart does not lose it; under `history: none`, which keeps no row of a successful run, a success does not reset it. Without `notify`, or with `1`, every final failure counts.
 
 The hold-back does not depend on the run history being written: when the database refuses writes (a full disk, a read-only file), the server still holds back an automation's further failures for the hour and counts them in the next summary.
 
@@ -119,7 +121,7 @@ The alert is sent through the instance's SMTP settings (see the Email section of
 
 ## Partial failure and idempotent resume
 
-When a run fails mid-pipeline, the completed steps read `completed`, the failing step reads `failed`, and everything downstream reads `skipped`. Replaying runs only the steps the failure left `skipped`: the ones after the failed step. Neither a completed step nor the failed step runs again, so the replay is safe to press without auditing what the first attempt got through. A run that stopped on purpose (stopped by a filter, waiting for an approval, or refused one) left no step `skipped`, so its replay runs no step.
+When a run fails mid-pipeline, the completed steps read `completed`, the failing step reads `failed`, and everything downstream reads `skipped`. Replaying resumes at the failed step: that step runs again, and so does every step after it. The steps that completed do not run again. The replay records them `skipped` and reuses the output each one recorded, so a later step reading `{{<step>.<key>}}` sees the value the first run produced. If the failed step fails again, the steps after it stay `skipped` and the replay ends `failed`. A completed step never runs twice, so a replay cannot repeat what the first attempt finished; the failed step itself does run twice, so a step that can fail halfway through should be safe to run again. A run that stopped on purpose (stopped by a filter, waiting for an approval, or refused one) has no failed step, so its replay runs no step. A run that timed out resumes at the step the timeout interrupted. To run every step again from the start, trigger the automation again rather than replaying the run.
 
 Replay creates a new run rather than mutating the original.
 

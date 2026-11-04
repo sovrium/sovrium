@@ -145,12 +145,20 @@ export const DesignComponentsSchema = Schema.Struct({
    * one layer under it: recipe < this < the page's own `markdown.classes`.
    */
   markdown: Schema.optional(ComponentStyleSchema),
+  /**
+   * The consent banner the engine draws when the app declares `consent`. Not a
+   * component type either: no page places it, every page carries it. `root` is
+   * its card; `title` and `description` its two lines of text; `action` every
+   * one of its buttons at once, so a style can never make Accept easier to see
+   * than Refuse. Where the banner sits stays the engine's.
+   */
+  'consent-banner': Schema.optional(ComponentStyleSchema),
 }).pipe(
   Schema.annotate({
     identifier: 'DesignComponents',
     title: 'Component Styles',
     description:
-      "Per-engine-type styling: the classes an operator adds to the components Sovrium draws. Keys are component types (`button`, `table`), not the app's own `components[]` names, which carry their styling on the template; `markdown` styles every markdown article, under a page's own `markdown.classes`.",
+      "Per-engine-type styling: the classes an operator adds to the components Sovrium draws. Keys are component types (`button`, `table`), not the app's own `components[]` names, which carry their styling on the template; `markdown` styles every markdown article, under a page's own `markdown.classes`; `consent-banner` styles the consent banner.",
     examples: [
       {
         button: {

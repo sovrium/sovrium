@@ -96,6 +96,14 @@ const beforeThePark = (rows: readonly PersistedStep[]) => {
 export const toleratedInRows = (rows: readonly PersistedStep[]): number =>
   beforeThePark(rows).priorTolerated
 
+/**
+ * The outputs the stored steps `rows` leave a run that resumes after them (a
+ * replay), by step name: what `{{<earlier step>.…}}` read in the run they ran in.
+ */
+export const outputsOfRows = (
+  rows: readonly PersistedStep[]
+): Readonly<Record<string, Record<string, unknown>>> => beforeThePark(rows).seed
+
 /** The row a resumed wait step is rewritten to. */
 const waitRowOf = (
   row: PersistedStep,

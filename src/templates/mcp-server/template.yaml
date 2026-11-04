@@ -9,6 +9,10 @@ intro: |
   `x-api-key`, and every call runs as the key's owner. One landing page at `/` says how to switch
   the server on and connect a client. Nobody can open an account; the admin comes from
   `AUTH_ADMIN_*`, the demo editor and viewer from the seed.
+audience: >-
+  A team that wants its AI assistants to read and add shared documents over MCP. An admin does
+  everything, editors read and add documents, viewers only read, and each assistant acts as the
+  person whose key it carries.
 glance:
   - |-
     **Tables** (2): tags, documents (each with `aiAccess` — the tools and the fields a model sees —

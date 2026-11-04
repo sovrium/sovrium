@@ -36,7 +36,7 @@ The server decides: it checks the condition on the whole record, even a field th
 
 ### Following what a data component read
 
-`hiddenWhenRead` and `disabledWhenRead` make a button follow what a `table` or a `kanban` on its page last read: name one by its `props.id` (`component`), or every one subscribed to a shared-filter channel (`channel`), and the read states (`loading`, `failed`, `empty`, `nonEmpty`) during which the button is hidden or disabled; it comes back, without a reload, as soon as a later read leaves them. Both are decided in the browser after the read, so they are not a permission: use `visibility` for who may see the button.
+`hiddenWhenRead` and `disabledWhenRead` make a button follow what a `table`, `kanban`, `list`, `kpi`, `chart` or `message-scroller` on its page last read: name one by its `props.id` (`component`), or every one subscribed to a shared-filter channel (`channel`), and the read states (`loading`, `failed`, `empty`, `nonEmpty`) during which the button is hidden or disabled (a `kpi` reads `empty` when its figure is absent or zero, a `message-scroller` when it draws no message); it comes back, without a reload, as soon as a later read leaves them. Both are decided in the browser after the read, so they are not a permission: use `visibility` for who may see the button.
 
 ### A pre-filled picker on a record
 

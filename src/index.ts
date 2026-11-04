@@ -613,6 +613,7 @@ export type {
   DesignConfig,
   EnvConfig,
   FormConfig,
+  SignatureConfig,
   LanguageConfig,
   PageConfig,
   TableConfig,

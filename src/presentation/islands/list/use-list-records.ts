@@ -5,11 +5,14 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { settledReadState } from '@/domain/models/app/pages/read-state-gate-service'
 import { useLazySharedFilter } from '../hooks/use-lazy-shared-filter'
+import { useReadState } from '../hooks/use-read-state'
 import { useLiveRefresh } from '../hooks/use-realtime-subscription'
 import {
   buildFilterParam,
   useRecordsPagesQuery,
+  type FetchResult,
   type RecordsDataSource,
   type RecordsPages,
 } from '../hooks/use-records-query'
@@ -34,18 +37,30 @@ export type ListRecordsDataSource = RecordsDataSource
  * instead of the DB-table records API, paged the same way. The list's row→item
  * mapping stays in the list/search renderers — this hook only owns the fetch.
  *
+ * `drawn` is the first page the server drew for this reader: it stands in
+ * until the first answer lands, so mounting wipes nothing the page showed.
+ *
  * A `dataSource.refreshMode` reads the pages again on its interval or on a
  * change to the table (`useLiveRefresh`).
  */
-export function useListRecords(dataSource: ListRecordsDataSource | undefined): RecordsPages {
+export function useListRecords(
+  dataSource: ListRecordsDataSource | undefined,
+  drawn?: FetchResult
+): RecordsPages {
   const pages = useRecordsPagesQuery(
     'list',
     dataSource,
     useLazySharedFilter(
       { bindTo: dataSource?.bindTo, sharedFilter: dataSource?.sharedFilter },
       buildFilterParam(dataSource?.filter)
-    )
+    ),
+    drawn
   )
   useLiveRefresh(dataSource, pages.retry)
+  // What the list last read, for the buttons that follow it (`hiddenWhenRead`).
+  useReadState(
+    dataSource?.bindTo,
+    settledReadState(pages.isError, pages.isLoading ? undefined : pages.records.length)
+  )
   return pages
 }

@@ -9,7 +9,7 @@
 - What stays the operator's
 - Checks
 
-Manual: `sovrium docs operations/gdpr-privacy`, `sovrium docs operations/logs-and-personal-data`, `sovrium docs tables/table-retention`, `sovrium docs configuration/env-vars-ai`, `sovrium docs admin/analytics`, `sovrium docs guides-ops/analytics-and-consent`.
+Manual: `sovrium docs operations/gdpr-privacy`, `sovrium docs operations/logs-and-personal-data`, `sovrium docs tables/table-retention`, `sovrium docs configuration/env-vars-ai`, `sovrium docs admin/analytics`, `sovrium docs guides-ops/analytics-and-consent`, `sovrium docs signatures/signing-flows`.
 
 ## The two self-service rights
 
@@ -24,6 +24,7 @@ Tell the operator, before launch, so the privacy notice is true:
 
 - **Kept on purpose**: the audit trail, with the actor's id and email removed; the deletion event keeps the erased address as proof the erasure happened.
 - **Shed, not deleted**: rows that belong to someone else lose her identifier and stay (grants she issued, links she published, fields naming her in other people's records).
+- **Kept until a signing flow's retention ends**: the signed document and the proof file still carry the name she signed with. Her contact details, a decline reason and what ties her to the log are erased on request (`POST /api/signatures/requests/<id>/erasures`, an admin call) or with her account; the log still verifies.
 - **Out of reach**: files stored with no uploader (an anonymous form, an automation, `sovrium seed`); webhook delivery payloads; content embeddings of records she wrote; values typed into free text that name her; log lines already written.
 
 ## Retention you can declare
@@ -32,6 +33,7 @@ Tell the operator, before launch, so the privacy notice is true:
 - `tables[].activityLog: false` keeps a machine-written table out of the activity log (no before and after values stored per change). Only where nobody will ask who changed a row.
 - `AI_MEMORY_MAX_AGE_DAYS` deletes a user's chat conversations, and the files sent in them, once idle that long. Unset, they are kept until she deletes them or her account is erased.
 - `analytics.retentionDays` bounds page-view analytics. The tracker sets no cookie. `analytics.profile` decides what its rows hold: `audience-only`, the default, keeps page paths without their query string, the referring host, device, browser, operating system, language and a server-computed visitor identifier rotated daily, with one shared identifier on short-link clicks, QR scans and form submissions; `full` adds page titles, full referrers, UTM values, screen size and per-visitor identifiers on those three events. A `consent` purpose with the id `analytics` holds the tracker until a visitor accepts; short-link clicks, QR scans, form submissions and an automation's analytics events are recorded by the server and stay outside it. Whether visitors must consent before it runs is the operator's to assess: walk them through `sovrium docs guides-ops/analytics-and-consent`, and never tell them a setup settles the question.
+- A signing flow's `evidence: { keep, basis }` is required and has no default: the evidence of each request is deleted within the hour after `keep` has passed since the request ended, and not before, even when the record or the account goes. `basis` records why it is kept. Both are the operator's decision; never choose them.
 - Soft-deleted records stay recoverable and are not purged on a timer.
 
 ## Logs
@@ -51,5 +53,5 @@ A privacy notice and a record of processing (Article 30), the reverse proxy's ac
 - [ ] After the purge (or the immediate link): the record, the file bytes and the chat are gone
 - [ ] Every table where people's own data lives has a created-by field
 - [ ] Log-like tables declare retention; AI_MEMORY_MAX_AGE_DAYS is set if chats hold personal data
-- [ ] The privacy notice names the log, backup and chat retention periods
+- [ ] The privacy notice names the log, backup and chat retention periods, and each signing flow's evidence period
 ```

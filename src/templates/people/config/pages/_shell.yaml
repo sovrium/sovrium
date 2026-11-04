@@ -2,8 +2,9 @@
 #
 # A column holding the app's name, the `sidebar` and a sign-out control. The
 # sidebar is drawn twice, once per role, and `visibility` keeps exactly one of
-# them in each response: HR (the admin) gets the Requests queue and the HR
-# overview under their own heading, everyone else the directory and time off.
+# them in each response: HR (the admin) gets the Requests queue, the HR
+# overview and the contracts under their own heading, everyone else the
+# directory and time off.
 # A member's page carries no link to a page they may not open — the pages
 # themselves refuse a member too (`access` on requests.yaml and overview.yaml).
 #
@@ -74,6 +75,7 @@ children:
               endpoint: /api/tables/time_off_requests/records?limit=1&filter=status:Pending
               valuePath: pagination.total
           - { label: Overview, href: /overview, icon: chart-column }
+          - { label: Contracts, href: /contracts, icon: file-text }
   - type: sidebar
     visibility:
       roles: [member]

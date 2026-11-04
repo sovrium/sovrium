@@ -112,10 +112,11 @@ export const runActionsWithTimeout = (
     //     `'skipped'` so callers can audit what was intentionally not run.
     //     `'completed-with-errors'` is NOT a terminal failure — its defining
     //     property is that subsequent actions DO continue.
-    //  3. The action's `name` is in `skipActionNames` — set by the replay
-    //     endpoint so a resumed run does not re-execute steps that already
-    //     fired in the original run. Preserves
-    //     the side-effects-once-only guarantee at replay time.
+    //  3. The action's `name` is in `skipActionNames` — set by a replay (the
+    //     steps before the one that failed) or an approval resume (the steps
+    //     up to the approval) so a resumed run does not re-execute steps that
+    //     already fired. Preserves the side-effects-once-only guarantee; what
+    //     those steps produced reaches later steps through `seedOutputs`.
     const step = (acc: RunAccumulator, rawAction: Readonly<Record<string, unknown>>) => {
       if (acc.halted) return Effect.succeed(acc)
       if (isTerminalFailureStatus(acc.runStatus))

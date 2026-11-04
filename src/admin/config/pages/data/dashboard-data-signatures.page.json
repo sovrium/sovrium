@@ -1,0 +1,221 @@
+{
+  "id": "dashboard-data-signatures",
+  "name": "dashboard-data-signatures",
+  "path": "/signatures",
+  "meta": {
+    "title": "$t:admin.meta.signatures"
+  },
+  "requires": ["signatures"],
+  "components": [
+    {
+      "component": "console-shell",
+      "key": "container-1",
+      "vars": {
+        "bodyClass": "flex min-w-0 flex-1 flex-col gap-6 px-4 py-4 lg:px-6 md:py-6"
+      },
+      "slots": {
+        "trail": [
+          {
+            "type": "breadcrumb",
+            "separator": "›",
+            "props": {
+              "className": "min-w-0 flex-initial overflow-hidden [&_ol]:min-w-0 [&_ol]:flex-nowrap [&_li]:shrink-0 [&_li:first-child]:min-w-0 [&_li:first-child]:shrink [&_li:first-child>*]:block [&_li:first-child>*]:truncate [&_li:last-child]:min-w-0 [&_li:last-child]:shrink [&_li:last-child>*]:block [&_li:last-child>*]:truncate max-sm:[&_li:not(:first-child):not(:nth-last-child(-n+2))]:hidden",
+              "data-testid": "breadcrumb"
+            },
+            "derive": "path",
+            "home": {
+              "label": "$app.label"
+            },
+            "labels": {
+              "signatures": "$t:admin.crumb.signatures"
+            }
+          },
+          {
+            "component": "console-header-end",
+            "key": "chrome-end"
+          }
+        ]
+      },
+      "children": [
+        {
+          "type": "container",
+          "key": "header",
+          "element": "header",
+          "props": {
+            "className": "flex flex-col gap-1"
+          },
+          "children": [
+            {
+              "type": "text",
+              "element": "h1",
+              "props": {
+                "className": "text-foreground text-2xl font-semibold tracking-tight"
+              },
+              "content": "$t:admin.signatures.heading"
+            },
+            {
+              "type": "text",
+              "element": "p",
+              "props": {
+                "className": "text-muted-foreground max-w-3xl text-sm"
+              },
+              "content": "$t:admin.signatures.blurb"
+            }
+          ]
+        },
+        {
+          "type": "container",
+          "key": "admin-toolbar-row",
+          "element": "div",
+          "props": {
+            "className": "flex min-h-10 flex-wrap items-center gap-2",
+            "data-testid": "admin-toolbar-row",
+            "role": "toolbar",
+            "aria-label": "$t:admin.common.gridControls"
+          },
+          "children": [
+            {
+              "component": "console-toolbar-search",
+              "key": "toolbar-search",
+              "vars": {
+                "ariaLabel": "$t:admin.signatures.search",
+                "placeholder": "$t:admin.signatures.search",
+                "publishes": {
+                  "bindTo": "signatures-filter",
+                  "param": "q",
+                  "url": true
+                }
+              }
+            }
+          ]
+        },
+        {
+          "component": "console-grid",
+          "key": "grid",
+          "vars": {
+            "id": "admin-signatures-grid",
+            "ariaLabel": "$t:admin.signatures.region",
+            "dataSource": {
+              "system": {
+                "endpoint": "/api/admin/signatures",
+                "rowsKey": "requests",
+                "idKey": "id",
+                "bindTo": "signatures-filter",
+                "sharedFilter": {}
+              }
+            },
+            "columns": [
+              {
+                "field": "flow",
+                "label": "$t:admin.signatures.col.flow",
+                "minWidth": 160
+              },
+              {
+                "field": "record",
+                "label": "$t:admin.signatures.col.record",
+                "width": 120
+              },
+              {
+                "field": "status",
+                "label": "$t:admin.signatures.col.status",
+                "cellStyle": [
+                  {
+                    "when": {
+                      "eq": "sent"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                  },
+                  {
+                    "when": {
+                      "eq": "in-progress"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-warning-solid"
+                  },
+                  {
+                    "when": {
+                      "eq": "sealing"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-warning-solid"
+                  },
+                  {
+                    "when": {
+                      "eq": "completed"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-success-solid"
+                  },
+                  {
+                    "when": {
+                      "eq": "declined"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-destructive [&:is(span)]:before:bg-destructive"
+                  },
+                  {
+                    "when": {
+                      "eq": "cancelled"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                  },
+                  {
+                    "when": {
+                      "eq": "expired"
+                    },
+                    "className": "[&:is(span)]:inline-flex [&:is(span)]:items-center [&:is(span)]:gap-1.5 [&:is(span)]:rounded-md [&:is(span)]:border [&:is(span)]:border-border [&:is(span)]:px-1.5 [&:is(span)]:py-0.5 [&:is(span)]:text-xs [&:is(span)]:font-medium [&:is(span)]:before:size-1.5 [&:is(span)]:before:shrink-0 [&:is(span)]:before:rounded-full [&:is(span)]:before:content-[''] [&:is(span)]:text-muted-foreground [&:is(span)]:before:bg-muted-foreground/50"
+                  }
+                ],
+                "valueLabels": {
+                  "sent": "$t:admin.signatures.status.sent",
+                  "in-progress": "$t:admin.signatures.status.inProgress",
+                  "sealing": "$t:admin.signatures.status.sealing",
+                  "completed": "$t:admin.signatures.status.completed",
+                  "declined": "$t:admin.signatures.status.declined",
+                  "cancelled": "$t:admin.signatures.status.cancelled",
+                  "expired": "$t:admin.signatures.status.expired"
+                },
+                "width": 120
+              },
+              {
+                "field": "signers",
+                "label": "$t:admin.signatures.col.signers",
+                "sortable": false,
+                "minWidth": 200
+              },
+              {
+                "field": "sentAt",
+                "label": "$t:admin.signatures.col.sent",
+                "format": "day-relative-time",
+                "width": 120
+              },
+              {
+                "field": "endedAt",
+                "label": "$t:admin.signatures.col.ended",
+                "format": "day-relative-time",
+                "width": 120
+              },
+              {
+                "field": "keepUntil",
+                "label": "$t:admin.signatures.col.keepUntil",
+                "format": "short-date",
+                "width": 140
+              }
+            ],
+            "emptyMessage": "$t:admin.signatures.empty",
+            "noMatchMessage": "$t:admin.signatures.noMatch",
+            "pagination": {
+              "pageSize": 25
+            },
+            "phoneLayout": "rows",
+            "onRowClick": {
+              "type": "navigate",
+              "path": "/signatures/$record.id"
+            },
+            "viewOptions": "toolbar",
+            "countLabel": {
+              "one": "$t:admin.count.signatures.one",
+              "other": "$t:admin.count.signatures.other"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

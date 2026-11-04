@@ -7,6 +7,9 @@ intro: |
   documentation itself: a sidebar of sections, the page with its outline, the date it was last
   updated, a link to edit its source, previous and next across sections, typed callouts and
   highlighted code. Every page is public; there is no database content and no sign-in.
+audience: >-
+  A project that publishes its documentation as markdown files in its repository. Every reader is
+  anonymous; there is no sign-in.
 glance:
   - |-
     **Pages** (3): docs (`/docs/:path*`, one route per file under `content/docs/`, `/docs`

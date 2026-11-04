@@ -96,6 +96,7 @@ function readViewProps({ props, setup, failure }: ViewWiringInput) {
 function drawViewProps({ props, setup }: ViewWiringInput) {
   return {
     layout: props.layout,
+    embedded: props.embedded === true,
     phoneLayout: props.phoneLayout,
     viewOptions: props.viewOptions,
     selectionConfig: effectiveSelection({

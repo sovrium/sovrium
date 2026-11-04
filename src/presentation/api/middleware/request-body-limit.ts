@@ -73,3 +73,11 @@ export const apiBodyLimit = (maxSize: number): MiddlewareHandler => {
   const limit = bodyLimit({ maxSize, onError: payloadTooLarge })
   return async (c, next) => (routeTakesUploadSizedBody(c) ? next() : limit(c, next))
 }
+
+/**
+ * A tighter limit for one route that takes a form post: a form route is
+ * otherwise upload-sized, which a route taking one small file need not be.
+ * Mounted beside the handler, it refuses `413` before the handler reads a byte.
+ */
+export const formBodyLimit = (maxSize: number): MiddlewareHandler =>
+  bodyLimit({ maxSize, onError: payloadTooLarge })

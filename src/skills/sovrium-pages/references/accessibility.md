@@ -79,8 +79,8 @@ the rendered page:
 | Radio group    | `radio-group`, `toggle-group`                                     | Tab enters the group once; arrows move the choice                                                           |
 | Tooltip        | `tooltip`, `hover-card`                                           | Appears on focus as well as hover; Escape dismisses; never holds the only copy of essential information     |
 
-Component options and behaviour: `sovrium docs components/overlay-components`,
-`sovrium docs components/navigation-components`, `sovrium docs form-controls/form-controls`,
+Component options and behaviour: `sovrium docs components-presentation/overlay-components`,
+`sovrium docs components-presentation/navigation-components`, `sovrium docs form-controls/form-controls`,
 `sovrium docs data-components/data-components-grid-editing`.
 
 ## Motion and time

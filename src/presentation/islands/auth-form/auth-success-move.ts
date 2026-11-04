@@ -12,6 +12,7 @@
  * outcome runtime reads them, rather than importing that runtime, which would
  * add its whole module to this island's mount cost.
  *
+ * - `$query.<name>` reads that parameter of the page's address, encoded.
  * - A relative address (`welcome`, `?signed-in=1`) is resolved against the
  *   page, and the result is a path on this site or nothing.
  * - When the move leaves the page, the success toast is carried to the page
@@ -20,6 +21,18 @@
 
 import { isAnotherDocument, resolveRedirectAgainst } from '@/domain/kernel/url/redirect-resolution'
 import { carryToast } from '@/presentation/design/carried-toast'
+import { pageQueryParam } from './page-query-param'
+
+/**
+ * `address` with each `$query.<name>` replaced by that parameter of this
+ * page's address, percent-encoded so it stays one value (`a&admin=1`) and
+ * cannot start another address (`/evil.example`); a parameter the address
+ * does not carry reads as an empty string.
+ */
+const withQueryValues = (address: string | undefined): string | undefined =>
+  address?.replace(/\$query\.([\w-]+)/g, (_, name: string) =>
+    encodeURIComponent(pageQueryParam(name))
+  )
 
 /**
  * The path `address` moves the reader to, resolved against this page — and,
@@ -30,7 +43,7 @@ export function successMoveAddress(
   toast: { readonly message?: string; readonly variant?: string } | undefined
 ): string | undefined {
   const { href, origin } = globalThis.location
-  const target = resolveRedirectAgainst(address, href, origin)
+  const target = resolveRedirectAgainst(withQueryValues(address), href, origin)
   if (target !== undefined && toast?.message && isAnotherDocument(target, href)) {
     carryToast({ message: toast.message, variant: toast.variant })
   }

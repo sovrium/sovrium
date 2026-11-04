@@ -19,6 +19,7 @@ import {
   canonicalColorName,
   colorGroundOf,
 } from '@/domain/models/app/design/inherited-tokens'
+import { codeRoleProjection } from './design-system-code-token-projection-service'
 import { buildDesignSystem } from './design-system-service'
 import {
   colourProjection,
@@ -184,19 +185,29 @@ export const designTokenFacet = (app: App, group?: string): DesignTokenFacetResp
     const value = scheme === 'light' ? entry?.row.value : entry?.paint?.darkValue
     return value === undefined ? undefined : { name, value }
   }
+  const projectColour = (row: FlatTokenRow) => {
+    const paint = darkPaintOf(row, paints)
+    const ground = colorGroundOf(leafOf(row))
+    return colourProjection(
+      row,
+      { light: groundIn(ground, 'light'), dark: groundIn(ground, 'dark') },
+      paint?.darkValue
+    )
+  }
+  // A `code.*` row carries the colour group's projection of the token it names,
+  // graded on the code block rather than the page.
+  const colourOf = (name: string) => {
+    const entry = painted.get(name)
+    return entry === undefined ? undefined : projectColour(entry.row)
+  }
   const items = filtered.map((row) => {
     const leaf = leafOf(row)
     const paint = darkPaintOf(row, paints)
-    const ground = colorGroundOf(leaf)
     return {
       ...row,
       leaf,
       ...(paint ?? {}),
-      ...colourProjection(
-        row,
-        { light: groundIn(ground, 'light'), dark: groundIn(ground, 'dark') },
-        paint?.darkValue
-      ),
+      ...(codeRoleProjection(row, design ?? {}, colourOf) ?? projectColour(row)),
       // The typography half rides on the same pass, for the reason the colour one
       // does: a `typography.*` token's `$value` is a composite, `value` renders it
       // as `key: value; …`, and a config page can neither cut that string nor walk

@@ -8,7 +8,7 @@ Sovrium normally migrates your database as part of starting the server. `sovrium
 Usage: sovrium migrate [config] [options]
 ```
 
-That separation buys two things. A platform can run migrations as a **release phase** instead of inside the web process. And when a deploy will not boot, you still have a route to its own database: the command constructs no application runtime, so it stays available where `sovrium start` cannot complete.
+Separating them lets a platform run migrations as a **release phase** instead of inside the web process. It also leaves you a route to a deploy's own database when that deploy will not boot: the command constructs no application runtime, so it stays available where `sovrium start` cannot complete.
 
 All it needs is the connection: `DATABASE_URL` for PostgreSQL, or nothing at all for the embedded SQLite. A config path is accepted, and auto-discovered when omitted, exactly as `start` does it.
 
@@ -129,4 +129,4 @@ Splitting them keeps schema work out of the web process, and gives a failed migr
 
 **It does not write any data.** Migrations shape the schema; rows come from `sovrium seed` or from the app itself. It also skips the best-effort work boot does after the schema is in place, so that a command named `migrate` has no side effects its name does not promise.
 
-**It does not replace a correct boot.** `sovrium start` still migrates on its own. This command makes a broken upgrade recoverable and a deploy pipeline explicit; it is a route to the database, not a repair of the boot sequence.
+**It does not replace a correct boot.** `sovrium start` still migrates on its own. This command makes a broken upgrade recoverable and a deploy pipeline explicit, and leaves the boot sequence as it is.

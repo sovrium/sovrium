@@ -102,8 +102,6 @@ export const section = defineSection({
         'US-APP-SCHEMA-APP-METADATA-001',
         'US-APP-SCHEMA-APP-METADATA-002',
         'US-APP-SCHEMA-APP-METADATA-003',
-        'US-LINKS-CLICK-EVENTS',
-        'US-LINKS-ON-PAGE-CLICK-TRACKING',
       ],
     }),
     defineArticle({
@@ -220,6 +218,7 @@ export const section = defineSection({
       documents: [LinkSchema, LinkLifecycleSchema],
       stories: [
         'US-LINKS-ADVANCED-ROUTING',
+        'US-LINKS-CLICK-EVENTS',
         'US-LINKS-LIFECYCLE',
         'US-LINKS-ORGANISATION',
         'US-LINKS-QR-CODES',

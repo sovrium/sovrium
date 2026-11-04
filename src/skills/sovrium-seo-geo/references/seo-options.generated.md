@@ -80,7 +80,7 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | `sovrium docs config pages[].meta.twitter.appUrl.iPhone` | string | Deep-link URL for iPhone app |
 | `sovrium docs config pages[].meta.twitter.appUrl.iPad` | string | Deep-link URL for iPad app |
 | `sovrium docs config pages[].meta.twitter.appUrl.googlePlay` | string | Deep-link URL for Google Play app |
-| `sovrium docs config pages[].meta.schema` | unknown | Schema.org structured data describing this page, either in the shorthand form (organization, faqPage, …) or as a full Schema.org object. Passed through to the page as JSON-LD without validation; the shorthand keys are in `sovrium docs seo-structured-data`. |
+| `sovrium docs config pages[].meta.schema` | unknown | Schema.org structured data describing this page, either in the shorthand form (organization, faqPage, …) or as a full Schema.org object, passed through to the page as JSON-LD. One key is read rather than passed through: `itemList` builds an ItemList from a table's rows for each reader. The shorthand keys are in `sovrium docs seo-structured-data`. |
 | `sovrium docs config pages[].meta.preload` | array | Preload critical resources for performance optimization |
 | `sovrium docs config pages[].meta.preload[]` | object | Preload resource |
 | `sovrium docs config pages[].meta.preload[].href` | string | Resource URL to preload |
@@ -200,6 +200,7 @@ Every option that decides how a Sovrium app is found — page metadata, sitemaps
 | `sovrium docs config llms.title` | string | Override the H1 title at the top of /llms.txt; a $t: key resolves in each route language |
 | `sovrium docs config llms.description` | string | Override the blockquote description in /llms.txt; a $t: key resolves in each route language |
 | `sovrium docs config llms.full` | boolean | Serve /llms-full.txt with concatenated bodies |
+| `sovrium docs config llms.includeConfigPages` | boolean | Also list in /llms.txt each public config page with no dynamic segment that declares a meta.description |
 
 ## `languages`
 

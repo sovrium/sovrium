@@ -68,7 +68,7 @@ const renderDocsMarkdownAffordances = (
  * when there is no collection nav (e.g. a non-`docs` layout) so the header only
  * appears in the docs three-column layout.
  *
- * The breadcrumb is a `<nav aria-label="Breadcrumb">` containing an ordered
+ * The breadcrumb is a named `<nav>` containing an ordered
  * list — it is NOT a heading, and the copy control is a `<button>`, so the
  * single-`<h1>` document-outline invariant is
  * preserved. The button's accessible name (`Copy as Markdown`) is deliberately
@@ -102,6 +102,7 @@ export const renderDocsArticleHeader = (
         current={current}
         rootCrumb={markdown.docsRootCrumb}
         homeLabel={labels.home}
+        label={labels.breadcrumb}
       />
       {markdown.frame?.articleActions !== false &&
         renderDocsMarkdownAffordances(markdownHref, labels, markdown.parts)}

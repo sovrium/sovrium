@@ -33,7 +33,7 @@ export const section = defineSection({
       slug: 'introduction',
       title: 'Welcome to Sovrium',
       description:
-        'What Sovrium is, why it exists, and how one configuration file becomes a complete web application.',
+        'What Sovrium is, why it exists, and how one configuration file becomes a running web application.',
       keywords: [
         'sovrium',
         'documentation',
@@ -98,7 +98,7 @@ export const section = defineSection({
       slug: 'quick-start',
       title: 'Quick Start',
       description:
-        'From an empty file to a running app — in YAML driven by the CLI, or in TypeScript with full type safety.',
+        'From an empty file to a running app, in YAML driven by the CLI, or in TypeScript with type checking and autocompletion.',
       keywords: [
         'sovrium',
         'quick start',
@@ -118,7 +118,7 @@ export const section = defineSection({
       slug: 'concepts',
       title: 'Core Concepts',
       description:
-        'The anatomy of a Sovrium app — the configuration object, its root sections, and the philosophy that turns one file into a full-stack application.',
+        'The anatomy of a Sovrium app: the configuration object, its root sections, and the philosophy that turns one file into a full-stack application.',
       keywords: [
         'sovrium',
         'concepts',
@@ -143,7 +143,7 @@ export const section = defineSection({
       slug: 'troubleshooting',
       title: 'Troubleshooting: Startup & Config',
       description:
-        'The errors Sovrium prints when it will not start — port conflicts, a stale lock, an unusable DATABASE_URL, validation failures and unreadable config files.',
+        'Why Sovrium will not start: port conflicts, a stale lock, a bad DATABASE_URL, validation failures, an unwritable data directory, and unreadable config files.',
       keywords: [
         'sovrium',
         'troubleshooting',
@@ -167,7 +167,7 @@ export const section = defineSection({
       slug: 'troubleshooting-runtime',
       title: 'Troubleshooting: Auth, Email & MCP',
       description:
-        'The warnings and errors that appear once Sovrium is running — signing keys, email and AI disabled when the config needs them, and MCP refusing to start.',
+        'Warnings once Sovrium runs: signing keys and credentials it cannot read, email or AI disabled while the config needs them, and MCP refusing a retired variable.',
       keywords: [
         'sovrium',
         'troubleshooting',

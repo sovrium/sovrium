@@ -94,7 +94,7 @@ export const SelectSystemOptionSourceSchema = Schema.Struct({
     Schema.Finite.pipe(
       Schema.annotate({
         description:
-          'Maximum number of options to resolve. Default 100, hard max 1000, since the list is server-rendered into the page.',
+          'Maximum number of options to resolve. Default 100, hard max 1000, because the list is server-rendered into the page.',
         examples: [50, 200],
       }),
       Schema.check(Schema.isInt(), Schema.isGreaterThan(0), Schema.isLessThanOrEqualTo(1000))

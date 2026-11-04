@@ -11,6 +11,7 @@ import { optionalField } from '@/domain/kernel/config-parsing/optional-field'
 import { transformed } from '@/domain/kernel/config-parsing/transform'
 import { isIssuedAvatarUrl } from '@/domain/models/app/auth/avatar-url'
 import { timestampSchema } from '../../common'
+import { signatureIdentitySchema } from '../../signatures/common'
 import {
   accountExportNotificationPreferenceSchema,
   accountExportNotificationSchema,
@@ -466,6 +467,54 @@ export const accountExportEmailSuppressionSchema = Schema.Struct({
 }).annotate({ identifier: 'AccountExportEmailSuppression' })
 
 /**
+ * Account export — one signature the caller gave
+ *
+ * Every signature given from her account: as a signer of a signing flow whose
+ * invitation reached her account, or on a record she signed while signed in.
+ * What she signed and how, and the contact details the evidence keeps of her,
+ * in clear: they are hers. Nothing of another signer of the same request.
+ */
+export const accountExportSignatureSchema = Schema.Struct({
+  requestId: Schema.String.annotate({
+    description: 'The signing request the signature belongs to',
+  }),
+  flow: optionalField(
+    Schema.String.annotate({
+      description: 'The signing flow, absent for a signature given on a record outside any flow',
+    })
+  ),
+  signer: optionalField(
+    Schema.String.annotate({
+      description: 'Her role in the flow (the signer name), absent outside any flow',
+    })
+  ),
+  table: Schema.String.annotate({ description: 'The table of the signed record' }),
+  recordId: Schema.String.annotate({ description: 'The signed record' }),
+  field: optionalField(
+    Schema.String.annotate({ description: 'The signature field her signature filled' })
+  ),
+  signedAt: looseIsoDateTime({
+    description: 'ISO 8601 instant she signed, as the server stamped it',
+  }),
+  method: Schema.String.annotate({ description: 'How she signed: drawn or typed' }),
+  statement: Schema.String.annotate({
+    description: 'The statement she agreed to, as it was frozen',
+  }),
+  identity: signatureIdentitySchema,
+  contact: Schema.Struct({
+    name: optionalField(Schema.String.annotate({ description: 'Her name as she signed' })),
+    email: optionalField(
+      Schema.String.annotate({ description: 'Her address as the evidence keeps it' })
+    ),
+    phone: optionalField(
+      Schema.String.annotate({ description: 'Her phone as the evidence keeps it' })
+    ),
+  }).annotate({
+    description: 'The contact details the evidence keeps of her; empty once she was erased',
+  }),
+}).annotate({ identifier: 'AccountExportSignature' })
+
+/**
  * Account export response schema
  *
  * The complete personal-data footprint of the authenticated caller, returned by
@@ -540,6 +589,9 @@ export const accountExportResponseSchema = Schema.Struct({
   emailSuppressions: Schema.Array(accountExportEmailSuppressionSchema).annotate({
     description:
       "The mailing-list categories the caller's address is suppressed from, and why, newest first",
+  }),
+  signatures: Schema.Array(accountExportSignatureSchema).annotate({
+    description: 'Every signature the caller gave from her account, oldest first',
   }),
 }).annotate({ identifier: 'AccountExportResponse' })
 
@@ -725,3 +777,5 @@ export type AccountPendingErasureItem = typeof accountPendingErasureItemSchema.T
 export type AccountPendingErasureResponse = typeof accountPendingErasureResponseSchema.Type
 
 export * from './lists'
+
+export type AccountExportSignature = typeof accountExportSignatureSchema.Type

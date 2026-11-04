@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-import { useCallback, useMemo } from 'react'
+import { useId, useMemo } from 'react'
 import { cn } from '@/presentation/design/class-merge'
 import { SearchLucideGlyph } from '@/presentation/design/control-glyphs'
 import {
@@ -13,16 +13,11 @@ import {
   computeInputGroupClasses,
   computeInputGroupFieldClasses,
 } from '@/presentation/design/input-group-default-classes'
-import {
-  computeSearchInputItemClasses,
-  computeSearchInputItemExcerptClasses,
-  computeSearchInputItemTitleClasses,
-  computeSearchInputResultsClasses,
-  computeSearchInputRootClasses,
-} from '@/presentation/design/search-input-default-classes'
-import { usePageSearch } from './use-page-search'
-import type { SearchResult } from './page-search-matcher'
-import type { MouseEvent, ReactElement } from 'react'
+import { computeSearchInputRootClasses } from '@/presentation/design/search-input-default-classes'
+import { PageSearchPanels } from './page-search-panels'
+import { ENGLISH_WORDS, optionId, type PageSearchWords } from './page-search-words'
+import { usePageSearch, type PageSearchSource } from './use-page-search'
+import type { ReactElement } from 'react'
 
 /**
  * `page-search-island` — hydrates the SSR `<input type="search">` rendered
@@ -32,9 +27,13 @@ import type { MouseEvent, ReactElement } from 'react'
  * {@link ./page-search-matcher}; the state machine lives in
  * {@link ./use-page-search}. This file is the render layer only.
  *
- * Behaviour (drives `[internal ref]-*`): debounced (150ms) search
- * on every keystroke; `Escape` clears + collapses; `Enter` navigates to the
- * first result; outside-click collapses (preserving the query). Each option
+ * Behaviour: debounced (150ms) search on every keystroke; the arrow keys move
+ * a highlighted result the field names as its active descendant, `Enter`
+ * opens it (the first when none is), `Escape` collapses then clears
+ * (`page-search-keys.ts`); outside-click collapses (preserving the query). A
+ * query nothing matches opens the panel on one line naming it, a pending
+ * session query says it is searching while the previous results stay listed,
+ * and a polite status announces how many results are listed. Each option
  * shows the page `title` (bold) followed by the body `excerpt`, both rendered
  * as plain-text React children — never `dangerouslySetInnerHTML`.
  *
@@ -49,76 +48,18 @@ import type { MouseEvent, ReactElement } from 'react'
  */
 interface PageSearchIslandProps {
   readonly placeholder?: string
+  readonly words?: PageSearchWords
   readonly maxResults?: number
   /** `'session'` — ask the server per query for the pages this reader may open. */
   readonly index?: 'session'
+  /** The collection page whose articles alone a session query searches (the docs sidebar). */
+  readonly page?: string
   readonly id?: string
   readonly className?: string
   readonly 'data-testid'?: string
 }
 
-// ── Results panel + option subcomponents ─────────────────────────────────────
-
-interface PageSearchResultsPanelProps {
-  readonly results: ReadonlyArray<SearchResult>
-  readonly onNavigate: (url: string) => void
-}
-
-function PageSearchResultsPanel({
-  results,
-  onNavigate,
-}: PageSearchResultsPanelProps): ReactElement {
-  return (
-    <ul
-      id="page-search-listbox"
-      role="listbox"
-      data-slot="search-input-results"
-      className={computeSearchInputResultsClasses()}
-    >
-      {results.map((result) => (
-        <PageSearchResultOption
-          key={result.url}
-          result={result}
-          onNavigate={onNavigate}
-        />
-      ))}
-    </ul>
-  )
-}
-
-interface PageSearchResultOptionProps {
-  readonly result: SearchResult
-  readonly onNavigate: (url: string) => void
-}
-
-function PageSearchResultOption({ result, onNavigate }: PageSearchResultOptionProps): ReactElement {
-  const handleClick = useCallback(
-    (e: MouseEvent<HTMLLIElement | HTMLAnchorElement>): void => {
-      e.preventDefault()
-      onNavigate(result.url)
-    },
-    [onNavigate, result.url]
-  )
-
-  return (
-    <li
-      role="option"
-      aria-selected={false}
-      onClick={handleClick}
-      data-slot="search-input-item"
-      className={computeSearchInputItemClasses()}
-    >
-      <a
-        href={result.url}
-        onClick={handleClick}
-        className="contents"
-      >
-        <span className={computeSearchInputItemTitleClasses()}>{result.title}</span>
-        <span className={computeSearchInputItemExcerptClasses()}>{result.excerpt}</span>
-      </a>
-    </li>
-  )
-}
+// ── Top-level component ──────────────────────────────────────────────────────
 
 /** The magnifier in an addon at the group's start, hidden from assistive technology. */
 function SearchMark(): ReactElement {
@@ -133,26 +74,36 @@ function SearchMark(): ReactElement {
   )
 }
 
-// ── Top-level component ──────────────────────────────────────────────────────
+/** The index the box reads, and how many results it lists (ten unless the author says). */
+function useSearchSource(
+  maxResults: number | undefined,
+  index: 'session' | undefined,
+  page: string | undefined
+): PageSearchSource {
+  return useMemo(
+    () => ({
+      maxResults: typeof maxResults === 'number' && maxResults > 0 ? maxResults : 10,
+      sessionIndex: index === 'session',
+      page,
+    }),
+    [maxResults, index, page]
+  )
+}
 
 export default function PageSearchIsland({
   placeholder,
+  words = ENGLISH_WORDS,
   maxResults,
   index,
+  page,
   id,
   className,
   'data-testid': testId,
 }: PageSearchIslandProps): ReactElement {
   const effectivePlaceholder = placeholder ?? 'Search...'
-  const effectiveMaxResults = useMemo(
-    () => (typeof maxResults === 'number' && maxResults > 0 ? maxResults : 10),
-    [maxResults]
-  )
-
-  const { query, results, isOpen, containerRef, onChange, onKeyDown, onNavigate } = usePageSearch(
-    effectiveMaxResults,
-    index === 'session'
-  )
+  const listboxId = `${useId()}-listbox`
+  const controller = usePageSearch(useSearchSource(maxResults, index, page))
+  const { query, results, isOpen, active, containerRef, onChange, onKeyDown } = controller
   const listed = isOpen && results.length > 0
 
   return (
@@ -176,19 +127,19 @@ export default function PageSearchIsland({
           placeholder={effectivePlaceholder}
           aria-label={effectivePlaceholder}
           aria-autocomplete="list"
-          aria-controls={listed ? 'page-search-listbox' : undefined}
+          aria-controls={listed ? listboxId : undefined}
+          aria-activedescendant={listed && active >= 0 ? optionId(listboxId, active) : undefined}
           aria-expanded={isOpen}
           data-slot="input-group-control"
           className={computeInputGroupFieldClasses()}
         />
         <SearchMark />
       </div>
-      {listed && (
-        <PageSearchResultsPanel
-          results={results}
-          onNavigate={onNavigate}
-        />
-      )}
+      <PageSearchPanels
+        controller={controller}
+        listboxId={listboxId}
+        words={words}
+      />
     </div>
   )
 }

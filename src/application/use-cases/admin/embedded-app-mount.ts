@@ -88,10 +88,9 @@ import type { SovriumAdminMode } from '@/domain/models/process-env'
 /**
  * The console's public sign-in card, relative to whatever mount serves it.
  *
- * Exported because the startup banner PUBLISHES this address: nothing on a
- * Sovrium site links to the console, so the banner is where an operator learns
- * where to sign in — and it must name the same path this module makes public,
- * or it advertises a 404.
+ * Exported because the startup banner PUBLISHES this address: nothing on a Sovrium site links
+ * to the console, so the banner is where an operator learns where to sign in — and it must
+ * name the same path this module makes public, or it advertises a 404.
  */
 export const LOGIN_RELATIVE_PATH = '/login'
 
@@ -101,11 +100,12 @@ const FORGOT_PASSWORD_RELATIVE_PATH = '/forgot-password'
 /** The password-recovery completion form (reached from the emailed link). */
 const RESET_PASSWORD_RELATIVE_PATH = '/reset-password'
 
+/** The sign-in code step: public like the card, and served only where `auth.twoFactor` is on. */
+const TWO_FACTOR_RELATIVE_PATH = '/two-factor'
+
 /**
- * A thunk answering ONE value, computed on first call (the stylesheet hash
- * needs one object). The cell is filled by the one upsert, so a second call can
- * never recompute it.
- */
+ * A thunk answering ONE value, computed on first call (the stylesheet hash needs one object);
+ * the cell is filled by the one upsert, so a second call can never recompute it. */
 const memoizeOnce = <T>(compute: () => T): (() => T) => {
   const cell = new Map<'value', T>()
   return () => cell.getOrInsertComputed('value', compute)
@@ -122,10 +122,9 @@ const memoizeOnce = <T>(compute: () => T): (() => T) => {
  * onto the object the renderer hashes (`resolveScopedMountApp` re-stamps it after
  * its own spread). No step writes into the shared preset.
  *
- * The preset is read on the first access to `presetApp` (or `publicPaths`,
- * which lists its invitation pages), never while the mount is built: decoding
- * the console is a sixth of a cold start, and what registration and the
- * startup banner read (`basePath`, the two fixed path sets) needs none of it.
+ * The preset is read on the first access to `presetApp` (or `publicPaths`, which lists its
+ * invitation pages), never while the mount is built: decoding the console is a sixth of a cold
+ * start, and what registration and the banner read (`basePath`, the fixed path sets) needs none.
  */
 const buildMount = (
   resolvePreset: () => App,
@@ -133,16 +132,16 @@ const buildMount = (
   operatorApp: App
 ): EmbeddedAppMount => {
   const at = (relative: string): string => mountHref(basePath, relative)
-  // The preset's links are authored relative to the mount (`/login`); they move
-  // onto this base exactly once, here.
+  // The preset's mount-relative links (`/login`) move onto this base once, here; the
+  // operator's design joins AFTER, as its font `url` is relative to its own site.
   const presetApp = memoizeOnce(() =>
     withMountBasePath(
-      prefixMountHrefs(
-        withOperatorDesignCascade(
+      withOperatorDesignCascade(
+        prefixMountHrefs(
           withOperatorLocales(prunePagesByRequirements(resolvePreset(), operatorApp), operatorApp),
-          operatorApp
+          basePath
         ),
-        basePath
+        operatorApp
       ),
       basePath
     )
@@ -154,6 +153,7 @@ const buildMount = (
         at(LOGIN_RELATIVE_PATH),
         at(FORGOT_PASSWORD_RELATIVE_PATH),
         at(RESET_PASSWORD_RELATIVE_PATH),
+        at(TWO_FACTOR_RELATIVE_PATH),
         ...invitationPages().map((page) => page.path),
       ])
   )

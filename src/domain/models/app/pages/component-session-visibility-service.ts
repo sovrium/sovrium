@@ -88,27 +88,41 @@ function conditionHolds(condition: VisibilityCondition, subject: object | undefi
 
 /**
  * Who reads a page that renders WITHOUT a session — a mounted operator console:
- * the viewer's id and email, and nothing else. An identity cannot be read as a
- * role and reaches no row filter; it answers only a `$user.id` / `$user.email`
- * comparison, so a page can tell "this account is the reader's own".
+ * the viewer's id and email, whether her own account has two-step verification
+ * on, and nothing else. An identity cannot be read as a role and reaches no row
+ * filter; it answers only a `$user.id` / `$user.email` /
+ * `$user.twoFactorEnabled` comparison, so a page can tell "this account is the
+ * reader's own" and show her profile the half of its two-step row that applies.
  */
 export interface ViewerIdentity {
   readonly id: string
   readonly email?: string
+  /** Present only on an app offering two-step verification, as on the session. */
+  readonly twoFactorEnabled?: boolean
 }
 
 /** The viewer identity of a signed-in caller, or `undefined` without one. */
 export const viewerIdentityOf = (session: SessionInfo | undefined): ViewerIdentity | undefined =>
   session === undefined
     ? undefined
-    : { id: session.userId, ...(session.email !== undefined ? { email: session.email } : {}) }
+    : {
+        id: session.userId,
+        ...(session.email !== undefined ? { email: session.email } : {}),
+        ...(session.twoFactorEnabled !== undefined
+          ? { twoFactorEnabled: session.twoFactorEnabled }
+          : {}),
+      }
 
-/** The two `$user.*` fields a {@link ViewerIdentity} answers. */
-const IDENTITY_FIELDS: ReadonlySet<string> = new Set(['$user.id', '$user.email'])
+/** The `$user.*` fields a {@link ViewerIdentity} answers. */
+const IDENTITY_FIELDS: ReadonlySet<string> = new Set([
+  '$user.id',
+  '$user.email',
+  '$user.twoFactorEnabled',
+])
 
 /**
  * The verdict a viewer identity gives a node's `visibility.condition`: `true`
- * or `false` when the condition compares `$user.id` or `$user.email`, and
+ * or `false` when the condition compares one of the identity's fields, and
  * `undefined` when the node has no condition or compares any other field — a
  * condition the identity does not answer is left to the session gate, where a
  * session-less render resolves it to nothing, exactly as before.

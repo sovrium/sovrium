@@ -24,13 +24,8 @@ import {
   validateBootEnvironment,
   type BootEnvironmentError,
 } from '@/application/use-cases/server/validate-boot-environment'
-import {
-  selfSeedBootNotice,
-  withholdSelfSeedAutomations,
-} from '@/domain/models/app/automations/actions/app/self-seed-gate-service'
+import { servedAppOf } from '@/domain/models/app/app-served-config-service'
 import { ENGINE_KEY_NOTICE_TOKENS } from '@/domain/models/app/languages/engine-key-prefix-validation'
-import { prunePagesByRequirements } from '@/domain/models/app/pages/page-requires'
-import { parseSovriumSelfSeed } from '@/domain/models/process-env/self-seed'
 import { Logger } from '@/infrastructure/logging/logger'
 import { sweepAnalyticsToProfile } from './boot-analytics-sweep'
 import { bootstrapAdminAndToken } from './boot-bootstrap'
@@ -105,13 +100,10 @@ const bootNoticesOf = (notices: readonly string[]): readonly string[] =>
   )
 
 /**
- * The app the server runs, and the notices it prints once at boot: pages whose
- * `requires` the app does not meet are dropped, and so is every automation an
- * `app/seed` step the host's `SOVRIUM_SELF_SEED` does not allow would run —
- * withheld before anything reads `automations`, so no trigger is armed, no
- * listing shows it and no route can start it.
+ * The app the server runs, and the notices it prints once at boot — the shared
+ * served-app derivation ({@link servedAppOf}) plus the decode's own notices.
  */
-const servedAppOf = (
+const servedBootAppOf = (
   decoded: {
     readonly app: App
     readonly authoredTableIds: AuthoredTableIds
@@ -119,12 +111,11 @@ const servedAppOf = (
   },
   env: Readonly<Record<string, string | undefined>>
 ) => {
-  const gate = parseSovriumSelfSeed(env)
-  const { app, withheld } = withholdSelfSeedAutomations(prunePagesByRequirements(decoded.app), gate)
+  const { app, selfSeedNotices } = servedAppOf(decoded.app, env)
   return {
     app,
     authoredTableIds: decoded.authoredTableIds,
-    notices: [...decoded.bootNotices, ...withheld.map((entry) => selfSeedBootNotice(entry, gate))],
+    notices: [...decoded.bootNotices, ...selfSeedNotices],
   }
 }
 
@@ -160,8 +151,6 @@ const runBootSequenceAndBootstrap = (
     // After the admin bootstrap, so a first boot's admin is already a recipient
     // of the interrupted-run alerts this may send.
     yield* sweepInterruptedRuns(validatedApp, logger, bootedAt)
-    // Before the listener binds, so no reader sees a field the profile excludes.
-    yield* sweepAnalyticsToProfile(validatedApp, logger)
     // The address a degraded phase held is the address the real bind takes.
     return { bootstrapToken, options: port === undefined ? options : { ...options, port } }
   })
@@ -319,7 +308,7 @@ export const startServer = (
     // the search index all take their view of the app from this object. Gating
     // later would deliver the 404 and none of the rest, leaving the app
     // advertising URLs it refuses to serve.
-    const served = servedAppOf(yield* decodeAndValidateApp(app), yield* ProcessEnv)
+    const served = servedBootAppOf(yield* decodeAndValidateApp(app), yield* ProcessEnv)
     const { app: validatedApp, authoredTableIds, notices: bootNotices } = served
     yield* validateBootEnvironment(validatedApp)
     // No encryption-key gate here. A server does not refuse to boot without
@@ -360,6 +349,9 @@ export const startServer = (
       validatedApp,
       authoredTableIds
     )
+    // After the schema initialisation, which creates the row recording the profile the sweep ran
+    // under; before the listener binds, so no reader sees a field the profile excludes.
+    yield* sweepAnalyticsToProfile(validatedApp, logger)
 
     // Page-search artifacts, before the listener binds. Used to be the CLI's
     // job, which meant every other caller of `startServer` served a 404 for

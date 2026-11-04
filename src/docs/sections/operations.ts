@@ -14,6 +14,7 @@ import migrationsBody from '@/docs/operations/migrations.md' with { type: 'file'
 import notificationsBody from '@/docs/operations/notifications.md' with { type: 'file' }
 import securityHardeningBody from '@/docs/operations/security-hardening.md' with { type: 'file' }
 import securityModelBody from '@/docs/operations/security-model.md' with { type: 'file' }
+import signingKeysBody from '@/docs/operations/signing-keys.md' with { type: 'file' }
 import { defineArticle, defineSection } from './define'
 
 /**
@@ -228,7 +229,7 @@ export const section = defineSection({
       slug: 'ecoconception',
       title: 'Ecoconception',
       description:
-        'Environmental footprint as a first-class platform property — performance-first by default, frugality opt-in, operator-controlled through ECO_* variables.',
+        'Environmental footprint as a platform property: performance-first by default, frugality opt-in via `ECO_*` variables, measured by the `X-Eco-Index` header.',
       keywords: [
         'sovrium',
         'ecoconception',
@@ -273,6 +274,28 @@ export const section = defineSection({
       // The alert stories are cited by the automations articles that own them
       // (a story is cited by one article); this one owns the weekly summary.
       stories: ['US-ADMIN-NOTIFICATIONS-WEEKLY-DIGEST'],
+    }),
+    defineArticle({
+      slug: 'signing-keys',
+      title: 'Signing Keys',
+      description:
+        'The four SIGNATURE_* variables: the organisation seal, the timestamp authority that anchors the evidence, and the one-time-code secret.',
+      keywords: [
+        'sovrium',
+        'signing keys',
+        'organisation seal',
+        'timestamp authority',
+        'pkcs12',
+        'SIGNATURE_SEAL_KEY',
+        'SIGNATURE_SEAL_CERT_CHAIN',
+        'SIGNATURE_TSA_URL',
+        'SIGNATURE_OTP_SECRET',
+      ],
+      order: 1655,
+      sidebarLabel: 'Signing Keys',
+      body: signingKeysBody,
+      documents: [],
+      stories: ['US-SIGNATURES-SEAL-AND-TIMESTAMP'],
     }),
     defineArticle({
       slug: 'third-party-licenses',

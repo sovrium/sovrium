@@ -42,6 +42,14 @@ import type { ReadAccessPlan } from '@/domain/models/app/tables/read-access-plan
  */
 const RECORD_IDENTITY_KEYS: ReadonlySet<string> = new Set(['id', 'updatedAt', 'updated_at'])
 
+/**
+ * The verdicts the server judged on the WHOLE row for this reader, kept
+ * whatever a form lists: `_locks` (its business rules) and `_disabled` (its
+ * controls). They are not columns, and a listed form drawing its fields
+ * without them would offer edits the save is sure to refuse.
+ */
+const RECORD_VERDICT_KEYS: ReadonlySet<string> = new Set(['_locks', '_disabled'])
+
 /** The names a form lists; empty when it lists none, which means every field. */
 function listedFieldNames(component: Component): readonly string[] {
   const { fields } = component as { readonly fields?: readonly { readonly field?: string }[] }
@@ -50,7 +58,8 @@ function listedFieldNames(component: Component): readonly string[] {
 
 /**
  * The record a `form` serialises into the page, narrowed to the fields it
- * lists (all of them when it lists none) plus {@link RECORD_IDENTITY_KEYS}.
+ * lists (all of them when it lists none) plus {@link RECORD_IDENTITY_KEYS} and
+ * {@link RECORD_VERDICT_KEYS}.
  *
  * A form prefills its inputs from `_record`, and `_record` reaches the HTML
  * whole — as the island's props — whatever the inputs show. So a column the
@@ -68,7 +77,10 @@ export function narrowRecordToComponent(
   if (listed.length === 0) return record
   return Object.fromEntries(
     Object.entries(record).filter(
-      ([key]) => RECORD_IDENTITY_KEYS.has(key) || listed.some((name) => fieldNamesMatch(key, name))
+      ([key]) =>
+        RECORD_IDENTITY_KEYS.has(key) ||
+        RECORD_VERDICT_KEYS.has(key) ||
+        listed.some((name) => fieldNamesMatch(key, name))
     )
   )
 }
@@ -149,7 +161,7 @@ interface LinkReader {
  * to a row in the trash is dropped. The form would otherwise key, count and —
  * through the picker's label lookup — name a row the records API refuses.
  */
-async function readableLinkedIds(
+export async function readableLinkedIds(
   ids: readonly (string | number)[],
   relatedTable: string,
   reader: LinkReader

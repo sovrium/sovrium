@@ -17,7 +17,7 @@ export const entry = defineLibraryEntry({
   description: 'Authenticated calls to the Brevo API with an API key.',
   notes: [
     'Brevo reads the key from an `api-key` header. Create a key in your Brevo account under SMTP & API, API keys, and set it as the environment variable.',
-    'Call the API at `https://api.brevo.com/v3/...` from an `http` action that names this connection.',
+    'The connection points at the versioned Brevo API root, `https://api.brevo.com/v3`: an installed Brevo operation is addressed relative to it, and an `http` action that names this connection calls a full `https://api.brevo.com/v3/...` address.',
   ],
   params: [],
   env: ['BREVO_API_KEY'],
@@ -32,7 +32,7 @@ export const entry = defineLibraryEntry({
     type: 'apiKey',
     label: 'Brevo',
     description: 'Brevo API, authenticated with an API key',
-    baseUrl: 'https://api.brevo.com',
+    baseUrl: 'https://api.brevo.com/v3',
     props: {
       key: '$env.BREVO_API_KEY',
       header: 'api-key',

@@ -273,6 +273,7 @@ export function FormBody({
           form={form}
           languages={app.languages}
           activeLang={activeLang}
+          design={app.design}
         />
       )}
     </>

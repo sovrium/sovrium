@@ -34,6 +34,8 @@ forms:
 
 An unresolvable reference is removed from the map rather than rendered, so the literal text `$query.utm_campaign` never leaks into the HTML.
 
+On a multi-step form, every step starts from the same map: a step after the first is filled from the query string of the page the form was opened on, as the first step is. An answer the visitor has already given on a step wins over the prefill when she comes back to it, and it is the one filed.
+
 ## Dates and times
 
 A `datetime` column is drawn as the browser's date-and-time control, which holds a wall-clock reading such as `2026-11-04T10:00`, never an instant with a zone. Whatever the field starts from (`$now`, a literal instant like `2026-11-04T09:00:00Z`, a query parameter) is written as that instant's reading in the field's `timeZone`, or the app's when the field names none, at the offset in force **at that instant**: a meeting on 4 November reads 10:00 in Paris even when the form is opened in October, on summer time. Submitting the field untouched stores the instant it started from. A reading the visitor types is stored as the instant that wall-clock time means in the same zone (the field's `timeZone`, else `SOVRIUM_TIMEZONE`, else UTC): 09:00 typed in a Europe/Paris column on 4 November is stored as `08:00Z` and displays as 09:00 Paris. A column whose zone is `local`, or an impossible reading such as 30 February, is stored as typed. Automations receive an ISO instant ending in `Z`. A `date` column receives the day alone.
@@ -54,7 +56,7 @@ A request carrying `?ref=partner-x` now stores `partner-x` in the record's campa
 
 ## `$user` needs a session
 
-A user reference resolves only when the request carries an authenticated session, which in practice means the form requires one. On a public form the reference simply drops and the field renders empty, with no error and no leaked session state.
+A user reference resolves only when the request carries an authenticated session, which in practice means the form requires one. On a public form the reference drops and the field renders empty, with no error and no leaked session state.
 
 That tolerance is specific to this map. A per-field `defaultValue` referencing the user on a public form is a configuration mistake rather than a runtime shrug, and it is refused when the configuration is decoded, naming the form and the field. Either require authentication, or move the reference here.
 

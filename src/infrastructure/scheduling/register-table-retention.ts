@@ -12,7 +12,7 @@ import { purgeReadNotifications } from '@/infrastructure/database/notification-r
 import { describeSweepFailure } from '@/infrastructure/database/read-write-sweep'
 import { purgeExpiredTableRows } from '@/infrastructure/database/table-retention'
 import { logError } from '@/infrastructure/logging/logger'
-import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
+import { armSweepSchedule } from './arm-sweep-schedule'
 import type { App } from '@/domain/models/app'
 import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
@@ -95,17 +95,10 @@ export const registerTableRetentionScheduler = (
     if (!declaresRetention(app)) return undefined
     const database = yield* Database
     const scheduler = yield* CronScheduler
-    return yield* scheduler
-      .schedule(TABLE_RETENTION_CRON_EXPRESSION, () => dailySweep(database, app), {
-        jobId: TABLE_RETENTION_JOB_ID,
-        timezone: resolveOperatorTimezone(process.env),
-      })
-      .pipe(
-        Effect.catch((err) =>
-          Effect.sync(() => {
-            logError('[table-retention] failed to arm the table retention sweep', err)
-            return undefined
-          })
-        )
-      )
+    return yield* armSweepSchedule(scheduler, {
+      cronExpression: TABLE_RETENTION_CRON_EXPRESSION,
+      jobId: TABLE_RETENTION_JOB_ID,
+      armFailure: '[table-retention] failed to arm the table retention sweep',
+      sweep: dailySweep(database, app),
+    })
   }).pipe(Effect.withSpan('scheduling.register-table-retention'))

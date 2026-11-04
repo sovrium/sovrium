@@ -217,6 +217,10 @@ export const applyApiAuthGuards = (
         // per-form gate decides.
         .use('/forms/*', authMiddleware(auth))
         .use('/api/forms/*', authMiddleware(auth))
+        // Signing requests: extract the session so the request status and the
+        // evidence routes judge their reader. Never requireAuth(): the sign and
+        // decline routes are a link-holder's, answered from her signing cookie.
+        .use('/api/signatures/*', authMiddleware(auth))
         // Active-scope session API (P-6): cookie-backed per-tableSlug
         // active assignment. Every handler re-validates the session, but
         // we still apply authMiddleware here so the existing session-

@@ -6,7 +6,7 @@
  */
 
 /**
- * Shared numeric aggregate functions for data-bound islands.
+ * Shared numeric aggregate functions for data-bound components.
  *
  * Both the chart aggregate (`chart-aggregate.ts`) and the KPI metric
  * (`kpi-compute.ts`) reduce a group of numeric values down to a single
@@ -15,7 +15,7 @@
  * the two stay in lock-step.
  */
 
-import type { AggregatePercentile } from '@/domain/models/app/tables/aggregate-percentile-service'
+import type { AggregatePercentile } from './aggregate-percentile-service'
 
 /** The set of numeric aggregate functions a data island can apply. */
 export type AggregateFunction = 'count' | 'sum' | 'avg' | 'min' | 'max' | AggregatePercentile

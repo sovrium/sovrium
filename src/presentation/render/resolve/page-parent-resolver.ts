@@ -22,6 +22,7 @@ import { synthesizedComponent, tableBindingOf } from './component-rewrite'
 import { resolveCurrentUserFilters } from './current-user-filter-pass'
 import { scopeTablesOf } from './current-user-resolver'
 import { UNAUTHORIZED, type DataSourceDb } from './data-source-contracts'
+import { repeatedFieldNames } from './linked-rows'
 import { bindRouteParams } from './route-param-binding'
 import { readBoundRecordForCaller, type SingleBindingQuery } from './single-record-read'
 import type { App } from '@/domain/models/app'
@@ -140,7 +141,12 @@ export async function resolvePageParentRecord(
   return {
     kind: 'record',
     table: dataSource.table,
-    // Its many-to-many links and its labels, as the records API reads it for her.
-    record: await withLinksAndLabels(record, { ...reader, tableName: dataSource.table }),
+    // Its to-many links and its labels, as the records API reads it for her —
+    // and the linked rows of the fields a `repeat` on the page iterates.
+    record: await withLinksAndLabels(record, {
+      ...reader,
+      tableName: dataSource.table,
+      repeated: repeatedFieldNames(page.components),
+    }),
   }
 }

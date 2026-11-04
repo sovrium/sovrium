@@ -84,7 +84,7 @@ export const FEATURE_BLOCK_DEFAULTS: Readonly<Record<string, BlockDefault>> = {
   },
   AUTH_ADMIN_EMAIL: {
     example: 'admin@example.com',
-    description: 'Bootstrap an admin on first start — or run: sovrium admin create <email>',
+    description: 'Bootstrap an admin on first start, or run: sovrium admin create <email>',
   },
   AUTH_ADMIN_PASSWORD: NO_DEFAULT,
 }

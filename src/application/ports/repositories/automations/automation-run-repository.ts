@@ -274,6 +274,8 @@ export class AutomationRunRepository extends Context.Service<
       readonly park?: { readonly resumeAt: Date; readonly cursor: unknown }
       /** A run pausing: the files it stored and read so far. Absent, the column is cleared. */
       readonly filesLedger?: unknown
+      /** A run pausing: the trigger data its resume reads. Absent, the column is left as it is. */
+      readonly triggerData?: unknown
     }) => Effect.Effect<PersistedRun | undefined, AutomationRunDatabaseError>
     /**
      * Record on a finalised run the internal error it was abandoned on — its
@@ -289,6 +291,15 @@ export class AutomationRunRepository extends Context.Service<
      * status, trigger name, timings, error — stays.
      */
     readonly clearRunHistory: (runId: string) => Effect.Effect<void, AutomationRunDatabaseError>
+    /**
+     * Replace the trigger data a run's row keeps: what a resumed run of a
+     * `history: 'minimal'` or `'none'` trigger writes, without its request body,
+     * once it is under way again.
+     */
+    readonly replaceTriggerData: (
+      runId: string,
+      triggerData: unknown
+    ) => Effect.Effect<void, AutomationRunDatabaseError>
     /**
      * Delete a run and, by cascade, everything kept under it: what a run of a
      * `history: 'none'` trigger leaves once it succeeded.

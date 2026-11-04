@@ -9,6 +9,7 @@ import {
   appendToastDismissControl,
   appendToastMessage,
   appendToastRetry,
+  applyToastDesign,
   keepToastsClearOfFocus,
   markToastPoliteness,
   resolveToastDismissLabel,
@@ -80,6 +81,7 @@ export function showToast(message: string, options: ToastOptions = {}): Element 
   const toast = document.createElement('div')
   toast.setAttribute('data-toast', '')
   markToastTiming(toast, options)
+  applyToastDesign(toast, options.variant)
 
   // A failure interrupts; everything else waits its turn. Set BEFORE insertion,
   // so assistive technology sees an alert at the moment the toast arrives.

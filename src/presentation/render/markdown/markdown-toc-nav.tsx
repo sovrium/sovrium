@@ -43,7 +43,7 @@ export const renderToc = (
       data-component="markdown-toc"
       data-component-type="toc"
       data-position={markdown.tocPosition ?? 'top'}
-      aria-label="Table of contents"
+      aria-label={labels.outline}
       className={cn(
         sidebar
           ? // The offset clears the two-row docs header (6.5rem) unless `frame.stickyOffset` says otherwise.

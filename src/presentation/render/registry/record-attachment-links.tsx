@@ -16,6 +16,7 @@
  * parsed here, at the boundary, so a list of keys is never read as one key.
  */
 
+import { stripStorageKeyUuidPrefix } from '@/domain/kernel/identity/storage-key'
 import { parseJsonArrayCell, parseJsonObjectCell } from '@/domain/kernel/sql/sqlite-json-cell'
 import { toSafeAssetUrl } from '@/domain/kernel/url/asset-url-safety'
 import type { ReactElement } from 'react'
@@ -74,10 +75,20 @@ function toAttachmentList(value: unknown): readonly AttachmentValue[] {
   return Array.isArray(decoded) ? decoded.flatMap(fileOf) : fileOf(decoded)
 }
 
+/**
+ * The name a file is drawn under: the one it was stored with, else its key
+ * less the `<uuid>-` prefix an upload gives it — the name the edit form shows
+ * and the download serves it under.
+ */
+const fileLabel = (item: AttachmentValue): string =>
+  item.filename ??
+  item.name ??
+  (item.key === undefined ? 'file' : stripStorageKeyUuidPrefix(item.key))
+
 /** One file as a link to its address, or its name alone when it has none. */
 function fileLink(item: AttachmentValue, bucket: string, index: number): ReactElement {
   const href = attachmentHref(item, bucket)
-  const label = item.filename ?? item.name ?? item.key ?? 'file'
+  const label = fileLabel(item)
   return href ? (
     <a
       key={index}

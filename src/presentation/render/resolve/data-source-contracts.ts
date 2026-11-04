@@ -40,6 +40,7 @@ import type { ViewerIdentity } from '@/domain/models/app/pages/component-session
 import type { Component } from '@/domain/models/app/pages/components'
 import type { DataFilter, DataSort } from '@/domain/models/app/pages/components/data-source'
 import type { InvitationFacts } from '@/domain/models/app/pages/invitation-vars-service'
+import type { SigningPage } from '@/domain/models/app/signatures/signing-page-service'
 import type { CallerFieldReader } from '@/domain/models/app/tables/field-read-filter-service'
 import type { RecordTextContext } from '@/presentation/render/props/record-value-format'
 
@@ -114,6 +115,21 @@ export interface DataSourceDb {
   ) => Promise<Readonly<Record<string, readonly (string | number)[]>>>
 
   /**
+   * Optional — for each of `sourceIds`, the ids of the rows of each field's
+   * `relatedTable` whose `reciprocalField` points at it: a `one-to-many` field's
+   * values (`recordId -> fieldName -> relatedIds`). Absent, a bound record
+   * carries no one-to-many links.
+   */
+  readonly fetchOneToManyLinks?: (input: {
+    readonly sourceIds: readonly (string | number)[]
+    readonly fields: readonly {
+      readonly fieldName: string
+      readonly relatedTable: string
+      readonly reciprocalField: string
+    }[]
+  }) => Promise<Readonly<Record<string, Readonly<Record<string, readonly string[]>>>>>
+
+  /**
    * Reads the user's accessible record-ids from `user_access` for one scope
    * table. Mandatory: `$currentUser.assignments.<table>` and
    * `$currentUser.activeAssignment` both resolve into data filters, and this
@@ -162,13 +178,30 @@ export interface DataSourceDb {
   readonly readTableAsCaller?: ReadTableAsCaller
 
   /**
+   * Optional — one of THIS server's own API routes read as the page's reader,
+   * her identity borrowed (`infrastructure/egress/system-rows-fetcher.ts`): the
+   * rows of a field under `rowsKey`. A list bound to one of its table's views
+   * draws its first page from that view's own records route, so the view's
+   * grant decides what it shows. Absent (a static build, a unit test), such a
+   * list is not drawn on the server.
+   */
+  readonly fetchSystemRows?: (
+    endpoint: string,
+    rowsKey: string
+  ) => Promise<readonly Readonly<Record<string, unknown>>[]>
+
+  /**
    * Optional — the role and groups of a caller the page renders without a
    * session for: a mounted operator console's. Read by the record sheet's field
    * access alone, so a field the records API answers her is in her sheet.
    */
   readonly callerFieldReader?: CallerFieldReader
 
-  /** Optional — that mounted caller's id and email, for a `$user.id` / `$user.email` condition only. */
+  /**
+   * Optional — that mounted caller's id, email and two-step state, for a
+   * `$user.id` / `$user.email` / `$user.twoFactorEnabled` condition, and the
+   * signal that a form acting on her own account may be drawn for her.
+   */
   readonly viewerIdentity?: ViewerIdentity
 
   /**
@@ -219,6 +252,13 @@ export interface DataSourceDb {
    * accepted or revoked invitation). Absent, every token reads as invalid.
    */
   readonly readInvitation?: (token: string) => Promise<InvitationFacts | undefined>
+
+  /**
+   * Optional — the signing page its gate admitted this request to: the
+   * `$signing` context of a flow's signing page. Absent, or answering
+   * `undefined`, a signing page is not rendered at all.
+   */
+  readonly readSigningPage?: () => SigningPage | undefined
 
   /**
    * Optional — the two-step sign-in the request's cookies carry, for a page

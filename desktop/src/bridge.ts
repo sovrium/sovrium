@@ -256,7 +256,12 @@ export interface CodeStep {
  * with `bundlePending()` on every boot as well as from the event.
  */
 export type BundleView =
-  | { readonly kind: 'fetching'; readonly host: string }
+  | {
+      readonly kind: 'fetching'
+      /** Which road the address came by; optional, so a view without it still renders. */
+      readonly road?: ImportRoad
+      readonly host: string
+    }
   | {
       readonly kind: 'ready'
       /** A bundle carries a publisher verdict; a document never does. */
@@ -274,7 +279,13 @@ export type BundleView =
       readonly containsCode: readonly CodeStep[]
       readonly folderSuggestion: string
     }
-  | { readonly kind: 'refused'; readonly host: string; readonly reason: string }
+  | {
+      readonly kind: 'refused'
+      /** Which road the address came by; optional, so a view without it still renders. */
+      readonly road?: ImportRoad
+      readonly host: string
+      readonly reason: string
+    }
 
 /** The admin a bundle import created. Shown once; never stored anywhere. */
 export interface BundleCredentials {

@@ -6,6 +6,9 @@ intro: |
   what needs attention this week before how the portfolio is doing; the board holds open tasks by
   status and opens a task in a drawer; the timeline lays every task out by project with what it
   waits on; and the calendar shows the month's deadlines beside your own tasks.
+audience: >-
+  A small team that delivers projects: the people who work their tasks, and the project lead who
+  also deletes projects and tasks.
 glance:
   - '**Tables** (2): projects, tasks'
   - '**Pages** (5): dashboard (`/`), board, timeline, calendar, sign-in'

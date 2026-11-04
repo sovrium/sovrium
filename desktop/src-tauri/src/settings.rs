@@ -763,7 +763,10 @@ mod tests {
         let mut s = Settings::default();
         s.open_project(project("/tmp/crm"));
         s.open_project(project("/tmp/blog"));
-        assert_eq!(s.project(Path::new("/tmp/crm")).unwrap().mcp_entry_name, None);
+        assert_eq!(
+            s.project(Path::new("/tmp/crm")).unwrap().mcp_entry_name,
+            None
+        );
 
         s.set_mcp_entry_name(Path::new("/tmp/crm"), Some("sovrium-crm".into()));
         s.open_project(project("/tmp/crm"));
@@ -771,10 +774,16 @@ mod tests {
             s.active_project.as_ref().unwrap().mcp_entry_name.as_deref(),
             Some("sovrium-crm")
         );
-        assert_eq!(s.mcp_entry_names_except(Path::new("/tmp/blog")), ["sovrium-crm"]);
+        assert_eq!(
+            s.mcp_entry_names_except(Path::new("/tmp/blog")),
+            ["sovrium-crm"]
+        );
         assert!(s.mcp_entry_names_except(Path::new("/tmp/crm")).is_empty());
 
         s.set_mcp_entry_name(Path::new("/tmp/crm"), None);
-        assert_eq!(s.project(Path::new("/tmp/crm")).unwrap().mcp_entry_name, None);
+        assert_eq!(
+            s.project(Path::new("/tmp/crm")).unwrap().mcp_entry_name,
+            None
+        );
     }
 }

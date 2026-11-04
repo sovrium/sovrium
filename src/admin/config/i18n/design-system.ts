@@ -155,6 +155,11 @@ export default {
     'This app declares no dark colours: each one keeps its light value or falls back to the platform dark default, printed and measured below. Declare design.darkColors to choose your own.',
   'admin.ds.components.emptyBody':
     'This app declares no reusable components. Declare one under the components key of your config and embed it by name from a page; it appears here, on its own, the moment you do.',
+  'admin.ds.found.code': 'Code',
+  'admin.ds.found.codeLight': 'Light',
+  'admin.ds.found.codeDark': 'Dark',
+  'admin.ds.found.codeIntro':
+    'A syntax role listed here takes its colour from your palette. Every other role keeps the default colours. Declare design.code.tokens to colour one.',
   'admin.ds.found.noSpacing':
     'This app declares no spacing scale. Sovrium components space themselves with Tailwind utilities rather than through a token, so there is nothing to override until you declare design.spacing.',
   'admin.ds.voice.noTone':

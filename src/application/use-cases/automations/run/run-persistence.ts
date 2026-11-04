@@ -23,6 +23,8 @@ import { boundStoredTriggerBody } from '@/domain/models/app/automations/stored-t
 import {
   dropsRunHistory,
   dropsRunRow,
+  storesBodyOnPause,
+  triggerDataUnderWay,
 } from '@/domain/models/app/automations/trigger/trigger-history-service'
 import { triggerEntryName } from '@/domain/models/app/automations/trigger-list-validation'
 import { logError } from '@/infrastructure/logging/logger'
@@ -111,7 +113,10 @@ export const persistQueuedRun = (input: {
         automationId: input.automationId,
         status: 'queued',
         triggerName: triggerEntryName(input.trigger),
-        triggerData: boundStoredTriggerBody(input.triggerData) as unknown,
+        // A minimal or none run keeps no body while under way: it runs on the one in memory.
+        triggerData: boundStoredTriggerBody(
+          triggerDataUnderWay(input.trigger, input.triggerData)
+        ) as unknown,
         ...runActorOverlay(input.userId, input.startedByHand, input.startedAsGuest),
         ...(input.relay === undefined ? {} : { relay: input.relay }),
         // A pinned development host stamps the run on its timeline.
@@ -323,6 +328,10 @@ const finaliseRunFallback = (input: FinaliseRunInput) =>
  */
 const parkOverlay = (input: FinaliseRunInput) => ({
   ...(input.filesLedger === undefined ? {} : { filesLedger: input.filesLedger }),
+  // A minimal or none run pausing stores the body its resume reads (`run-body-storage.ts`).
+  ...(storesBodyOnPause(triggerOf(input), input.engineStatus)
+    ? { triggerData: boundStoredTriggerBody(input.triggerData) as unknown }
+    : {}),
   ...parkedOrCompleted(input),
 })
 

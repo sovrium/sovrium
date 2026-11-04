@@ -297,15 +297,39 @@ export const getUserDisplayFieldNames = (
       : []
   })
 
-/** Every account id a page of records stores in `fieldNames`, once each. */
+/** A record as the label enrichment reads it: its fields and its authorship stamps. */
+interface StampedRecord {
+  readonly fields: Readonly<Record<string, unknown>>
+  readonly createdBy?: string | undefined
+  readonly updatedBy?: string | undefined
+  readonly deletedBy?: string | undefined
+}
+
+/**
+ * A record's fields with its authorship stamps put back under their column
+ * names. The record transform lifts `created_by`, `updated_by` and `deleted_by`
+ * out of `fields` to the record's root, so a `created-by` / `updated-by` /
+ * `deleted-by` field of those names would otherwise never be labelled. A stamp
+ * reaches the root only when the reader may read its field, so the label rides
+ * only where the account id already does. A key `fields` still carries wins.
+ */
+export const withAuthorshipStamps = (record: StampedRecord): Readonly<Record<string, unknown>> => ({
+  ...(record.createdBy === undefined ? {} : { created_by: record.createdBy }),
+  ...(record.updatedBy === undefined ? {} : { updated_by: record.updatedBy }),
+  ...(record.deletedBy === undefined ? {} : { deleted_by: record.deletedBy }),
+  ...record.fields,
+})
+
+/** Every account id a page of records stores in `fieldNames` or stamps, once each. */
 export const collectReferencedUserIds = (
   fieldNames: readonly string[],
-  records: readonly { readonly fields: Readonly<Record<string, unknown>> }[]
+  records: readonly StampedRecord[]
 ): readonly string[] => [
   ...new Set(
-    records.flatMap((record) =>
-      fieldNames.flatMap((name) => keysOf(record.fields[name]).map(String))
-    )
+    records.flatMap((record) => {
+      const fields = withAuthorshipStamps(record)
+      return fieldNames.flatMap((name) => keysOf(fields[name]).map(String))
+    })
   ),
 ]
 

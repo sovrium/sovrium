@@ -13,21 +13,16 @@ import cliImportFormsBody from '@/cli/commands/cli-import-forms.docs.md' with { 
 import cliImportPagesBody from '@/cli/commands/cli-import-pages.docs.md' with { type: 'file' }
 import cliImportTablesBody from '@/cli/commands/cli-import-tables.docs.md' with { type: 'file' }
 import cliImportBody from '@/cli/commands/cli-import.docs.md' with { type: 'file' }
-import { defineArticle } from './define'
+import { defineArticle, defineSection } from './define'
 import type { DocArticle } from './define'
 
 /**
- * The migration articles, as articles of the CLI section.
+ * The migration articles: `sovrium import` and its pages per source family.
+ * They form their own section, `cli-migration` (declared at the end of this
+ * file), so the CLI groups stay short enough to scan.
  *
- * `sovrium import` and its pages per source family live in their own module
- * rather than in `cli-api.ts` because that file reached its line ceiling. They
- * stay part of the CLI section and the section assembles them by spread, as it
- * does the operating commands.
- *
- * Their orders are one contiguous block (1450–1457), after the operating
- * commands (1430–1441) and before `cli-validate` (1480), so the sidebar shows
- * the migration pages together: the overview first, then tables, automations
- * and forms, then pages.
+ * Their orders are one contiguous block (1450–1457): the overview first, then
+ * tables, automations and forms, then pages.
  */
 export const importCliArticles: readonly DocArticle[] = [
   defineArticle({
@@ -200,3 +195,12 @@ export const importCliArticles: readonly DocArticle[] = [
     stories: ['US-CLI-IMPORT-PAGES'],
   }),
 ]
+
+/** The import articles as their own rail group, beside the other CLI groups. */
+export const cliMigration = defineSection({
+  slug: 'cli-migration',
+  title: 'Importing From Other Tools',
+  order: 1402,
+  tab: 'platform',
+  articles: importCliArticles,
+})

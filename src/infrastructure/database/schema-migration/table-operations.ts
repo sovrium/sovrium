@@ -351,7 +351,7 @@ export interface ViewTopologyStep {
  *    checksum fast path already treats a missing view as "migrate").
  *
  * Indexes under the old relation's prefix survive a rename as idempotent
- * duplicates. Engine triggers do NOT: Bun's SQLite (`legacy_alter_table`) keeps
+ * duplicates. Engine triggers do NOT: `legacy_alter_table`, pinned ON, keeps
  * their old bodies, so {@link runViewTopologyStep} drops them after a rename.
  */
 export const planViewTopology = (

@@ -41,6 +41,8 @@ export default function MenuIsland({
   popupVariant = 'default',
   openOnHover,
   menuKind,
+  contentClassName,
+  itemClassName,
   ...triggerProps
 }: MenuIslandProps): ReactElement {
   const hoverEnabled = triggerProps.triggerLabel !== undefined && openOnHover === true
@@ -62,6 +64,8 @@ export default function MenuIsland({
           footerContent={footerContent}
           host={host}
           kind={menuKind ?? 'dropdown-menu'}
+          contentClassName={contentClassName}
+          itemClassName={itemClassName}
         />
       </Menu.Root>
     </div>

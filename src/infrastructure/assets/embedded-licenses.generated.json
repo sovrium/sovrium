@@ -1088,6 +1088,16 @@
       "textId": "7c9b48b52decb983"
     },
     {
+      "name": "@peculiar/asn1-ess",
+      "version": "2.11.1",
+      "spdx": "MIT",
+      "declared": "MIT",
+      "copyright": [
+        "Copyright (c) 2021 Peculiar Ventures, LLC"
+      ],
+      "textId": "7c9b48b52decb983"
+    },
+    {
       "name": "@peculiar/asn1-pfx",
       "version": "2.11.1",
       "spdx": "MIT",
@@ -1134,6 +1144,16 @@
       "declared": "MIT",
       "copyright": [
         "Copyright (c) 2020"
+      ],
+      "textId": "7c9b48b52decb983"
+    },
+    {
+      "name": "@peculiar/asn1-tsp",
+      "version": "2.11.1",
+      "spdx": "MIT",
+      "declared": "MIT",
+      "copyright": [
+        "Copyright (c) 2021 Peculiar Ventures, LLC"
       ],
       "textId": "7c9b48b52decb983"
     },

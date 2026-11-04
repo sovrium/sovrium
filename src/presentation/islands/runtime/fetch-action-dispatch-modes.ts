@@ -17,6 +17,16 @@ import type { FetchAction } from '@/domain/models/app/pages/components/action'
  * download a response as a file.
  */
 
+/**
+ * `address` with the current params of the channel `action` reads (`bindTo`)
+ * merged into its query (`channelAddress`). The channel module is loaded only
+ * by a button that reads one, so every other page keeps it out of its payload.
+ */
+async function withChannelParams(address: string, action: FetchAction): Promise<string> {
+  const { channelAddress } = await import('./shared-filter-channel')
+  return channelAddress(address, action.bindTo ?? '', action.sharedFilter?.params)
+}
+
 /** A successful browser-driven dispatch (navigate) — no HTTP envelope. */
 const DISPATCHED: FetchActionResult = { ok: true, status: 0, body: undefined }
 
@@ -28,11 +38,33 @@ const DISPATCHED: FetchActionResult = { ok: true, status: 0, body: undefined }
 export function performNavigate(
   action: FetchAction,
   options: ExecuteFetchActionOptions
+): FetchActionResult | Promise<FetchActionResult> {
+  const address = substituteRecord(action.url, options.record)
+  return action.bindTo === undefined
+    ? navigateTo(address, action, options)
+    : withChannelParams(address, action).then(
+        (url) => navigateTo(url, action, options),
+        () => refuseNavigation(action, options)
+      )
+}
+
+/** Follow `url`, or report the refusal of an address that is not a web address. */
+function navigateTo(
+  url: string,
+  action: FetchAction,
+  options: ExecuteFetchActionOptions
 ): FetchActionResult {
-  const url = substituteRecord(action.url, options.record)
   if (followAddress(url, { openInNewTab: action.openInNewTab })) return DISPATCHED
   // Not a web address (a row storing `javascript:…`): nothing is followed, and
   // the action reports the refusal the way a failed request does.
+  return refuseNavigation(action, options)
+}
+
+/** Nothing was followed: said the way a failed request is. */
+function refuseNavigation(
+  action: FetchAction,
+  options: ExecuteFetchActionOptions
+): FetchActionResult {
   renderActionToast(action.onError, options)
   return { ok: false, status: 0, body: undefined }
 }
@@ -49,10 +81,11 @@ export async function performDownload(
   action: FetchAction,
   options: ExecuteFetchActionOptions
 ): Promise<FetchActionResult> {
-  const url = substituteRecord(action.url, options.record)
+  const address = substituteRecord(action.url, options.record)
   const filename = action.filename ? substituteRecord(action.filename, options.record) : ''
   const again = () => void performDownload(action, options)
   try {
+    const url = action.bindTo === undefined ? address : await withChannelParams(address, action)
     const res = await fetch(url, { method: 'GET', credentials: 'include' })
     if (!res.ok) {
       // A refused download is said, like a refused fetch: without this the

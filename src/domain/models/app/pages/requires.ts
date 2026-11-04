@@ -83,6 +83,9 @@ export const PAGE_CAPABILITIES = [
   'analytics.full',
   // The app records why its config is the way it is (`decisions`)
   'decisions',
+  // The app declares at least one signing flow (`signatures`), so it may hold
+  // signing requests and their evidence to read
+  'signatures',
   // The app serves at least one page of its own. A host with none has no
   // audience to measure, so an analytics surface draws only what the instance
   // itself spends

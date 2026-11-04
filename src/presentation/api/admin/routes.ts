@@ -23,6 +23,7 @@ import {
   RELEASE_READ_OPERATIONS,
   REPORTS_READ_OPERATIONS,
   SCHEMA_READ_OPERATIONS,
+  SIGNATURES_READ_OPERATIONS,
   TEMPLATES_READ_OPERATIONS,
 } from '@/application/use-cases/admin/admin-read-registry'
 import { chainAdminAgentsRoutes } from '@/presentation/api/admin/agents-routes'
@@ -190,5 +191,8 @@ export const chainAdminApiRoutes = <T extends Hono>(honoWithForms: T, app: App) 
   // missing-session AND non-admin callers, S1 anti-enumeration).
   const honoWithAdminOrganisation = chainAdminOrganisationRoutes(honoWithAdminLinks, app)
 
-  return honoWithAdminOrganisation
+  // Chain the Signatures page's list: GET /api/admin/signatures, one row per
+  // signing request, read-only. Auth gating is applied above via authMiddleware →
+  // requireAdminTier on `/api/admin/signatures` (404 for anyone else, S1).
+  return chainAdminReadRoutes(honoWithAdminOrganisation, app, SIGNATURES_READ_OPERATIONS)
 }

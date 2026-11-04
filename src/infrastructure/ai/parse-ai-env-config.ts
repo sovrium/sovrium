@@ -15,4 +15,4 @@
  * used by `parseStorageEnvConfig` consumers.
  */
 
-export { parseAiEnvConfig } from '@/domain/models/process-env/ai/ai'
+export { aiEnvRefusal, parseAiEnvConfig } from '@/domain/models/process-env/ai/ai'

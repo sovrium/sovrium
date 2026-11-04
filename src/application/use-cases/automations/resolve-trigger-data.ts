@@ -304,6 +304,8 @@ export const buildAutomationContext = (
     'caller',
     'depth',
     'project',
+    // The signature trigger's `{{trigger.signature.X}}`: request id, event, status, signer, reason.
+    'signature',
   ] as const
   const triggerTopLevel = Object.fromEntries(
     TOPLEVEL_KEYS.filter((key) => td[key] !== undefined).map((key) => [key, td[key]] as const)

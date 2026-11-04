@@ -4,7 +4,7 @@
 
 Three components exist to document a design system. Sovrium's own design-system console is built from them, and your app can build its own page the same way.
 
-They read your design rather than repeating it, which is the whole point. A page that writes out its own copy of a button shows what that button looked like the day it was typed. A specimen draws the one your app renders now.
+They read your design instead of repeating it. A page that writes out its own copy of a button shows what that button looked like the day it was typed. A specimen draws the one your app renders now.
 
 The design tokens themselves are drawn by ordinary kit types: `swatch` paints a colour token and plots an easing one, `badge` with `variant: contrast` grades a pair for legibility, and `card` with `variant: scoped` marks a design boundary on a page showing two systems at once.
 
@@ -97,7 +97,7 @@ components:
 
 ### It draws one value, not a variant
 
-`specimen` draws a component in a state (a variant, a size, a resting or hovered appearance), and its axis fields are genuinely optional, because a type has a default variant and a default size. A preview draws one **option** at one **value**, and no option has a "default option": that is why all three parts of `subject` are required rather than optional.
+`specimen` draws a component in a state (a variant, a size, a resting or hovered appearance), and its axis fields are genuinely optional, because a type has a default variant and a default size. A preview draws one **option** at one **value**, and no option has a "default option": that is why all three parts of `subject` are required.
 
 A structured value is deliberately out. An option whose value is an object is not one a reader learns from a single picture, and admitting one would make the caption unwritable. The empty string, by contrast, is deliberately **in**: a real option's interesting value is sometimes `''` (an empty `placeholder`, an empty `emptyText`), and a picture of it is exactly what a reader needs.
 

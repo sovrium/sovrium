@@ -138,7 +138,7 @@ const actionResponseFields = {
   navigate: Schema.optional(
     Schema.String.annotate({
       description:
-        'URL path to navigate to. Supports $variable references. A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): an answered action moves the reader within the app, so on a page an `http://` or `https://` address is refused: use a link to send the reader to another site. Any other address (`javascript:`, `data:`, `mailto:`, or one starting with `//`) is refused when the config is read. A lone `$response.<path>` reads the address the run returned and is checked when it is followed: an address on this site, or one on an origin `allowOrigins` lists.',
+        'URL path to navigate to. Supports $variable references. A path on this site (`/thanks`, `thanks`, `?sent=1`, `#done`): an answered action moves the reader within the app, so on a page an `http://` or `https://` address is refused: use a link to send the reader to another site. Any other address (`javascript:`, `data:`, `mailto:`, or one starting with `//`) is refused when the config is read. A lone `$response.<path>` reads the address the run returned and is checked when it is followed: an address on this site, or one on an origin `allowOrigins` lists. On an auth form, `$query.<name>` reads that parameter of the address of the page the form is on, percent-encoded; a parameter the address does not carry reads as an empty string.',
       examples: ['/dashboard', '/posts/$record.slug', '$response.output.url'],
     }).pipe(Schema.check(successNavigateCheck))
   ),

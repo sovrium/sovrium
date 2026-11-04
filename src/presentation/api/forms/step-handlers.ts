@@ -21,6 +21,10 @@
  *     on a multi-step form: the flow restarts at step 1, and only the
  *     `preserveFields` values keep prefilling later steps.
  *
+ *   POST /api/forms/:name/steps/:stepId/keep
+ *     Merges the step's answers into the draft unchecked. Backs Previous,
+ *     so the way back loses nothing answered on the step it leaves.
+ *
  *   POST /api/forms/:name/steps/:stepId/advance
  *     Validates the current step's required + visible fields, merges the
  *     submitted values into the per-session draft, evaluates `goToWhen`
@@ -85,6 +89,7 @@ export interface StepFragmentRenderer {
     state: {
       readonly draftValues: Readonly<Record<string, unknown>>
       readonly optionSets?: FormOptionSets
+      readonly query?: Readonly<Record<string, string>>
     }
   ) => string
   /** The table API's answer to what this request's caller may see of a form's table. */
@@ -169,7 +174,7 @@ export const handleGetStepFragment = (
       if (!name || !stepId) return yield* answerNotFound(c)
       const form = findFormByName(app, name)
       if (!form) return yield* answerNotFound(c)
-      const { decision, session } = yield* evaluateFormAccessForRequest(c, form)
+      const { decision, session } = yield* evaluateFormAccessForRequest(c, form, app)
       const denied = denyFormAccess(c, form.name, decision, 'html')
       if (denied !== undefined) return yield* awaitForm(() => denied)
       const step = findStep(form, stepId)
@@ -187,9 +192,11 @@ export const handleGetStepFragment = (
       const optionSets = yield* resolveFormOptionSources({ app, form: shown, visitor })
       // The step speaks the language its page was served in (the runtime forwards it).
       const activeLang = c.req.query('lang')
+      // The page's own query string, forwarded too: a `$query` prefill fills every step.
       const html = renderer.renderStepFragment(app, shown, stepId, {
         draftValues: draft,
         optionSets,
+        query: c.req.query(),
         ...(activeLang !== undefined && activeLang !== '' ? { activeLang } : {}),
       })
       return c.html(html)
@@ -223,7 +230,7 @@ export const handlePostStepAdvance = (
       if (!name || !stepId) return yield* answerNotFound(c)
       const form = findFormByName(app, name)
       if (!form) return yield* answerNotFound(c)
-      const { decision, session } = yield* evaluateFormAccessForRequest(c, form)
+      const { decision, session } = yield* evaluateFormAccessForRequest(c, form, app)
       const denied = denyFormAccess(c, form.name, decision, 'json')
       if (denied !== undefined) return yield* awaitForm(() => denied)
       const step = findStep(form, stepId)
@@ -258,6 +265,37 @@ export const handlePostStepAdvance = (
       )
     })
   )
+
+/**
+ * `POST /api/forms/:name/steps/:stepId/keep` — merge the step's answers into
+ * the draft WITHOUT checking them, and answer 204. Backs Previous: the way
+ * back leaves a step that may be half answered, and what was answered there
+ * must still be there on the way on, and reach the submission.
+ *
+ * Gated exactly as the advance is, and a value for a field the form does not
+ * offer this caller is kept nowhere.
+ */
+export const keepStep =
+  (app: App, read: ((c: Context) => ReadTableAsCaller) | undefined) =>
+  (c: Context): Promise<Response> =>
+    runFormProgram(
+      c,
+      Effect.gen(function* () {
+        const name = c.req.param('name')
+        const stepId = c.req.param('stepId')
+        if (!name || !stepId) return yield* answerNotFound(c)
+        const form = findFormByName(app, name)
+        if (!form) return yield* answerNotFound(c)
+        const { decision, session } = yield* evaluateFormAccessForRequest(c, form, app)
+        const denied = denyFormAccess(c, form.name, decision, 'json')
+        if (denied !== undefined) return yield* awaitForm(() => denied)
+        if (!findStep(form, stepId)) return yield* answerNotFound(c)
+        const shown = yield* formForCaller(c, app, form, { session, read })
+        const body = withoutWithheldAnswers(yield* awaitForm(() => readJsonBody(c)), form, shown)
+        mergeDraft(ensureDraftSession(c), name, body)
+        return c.body(null, 204)
+      })
+    )
 
 /**
  * Resolve the id of the next step the submitter should see, or `undefined`
@@ -303,7 +341,7 @@ export const handlePostDraftReset = (c: Context, app: App): Promise<Response> =>
       if (!name) return yield* answerNotFound(c)
       const form = findFormByName(app, name)
       if (!form) return yield* answerNotFound(c)
-      const { decision } = yield* evaluateFormAccessForRequest(c, form)
+      const { decision } = yield* evaluateFormAccessForRequest(c, form, app)
       const denied = denyFormAccess(c, form.name, decision, 'json')
       if (denied !== undefined) return yield* awaitForm(() => denied)
 

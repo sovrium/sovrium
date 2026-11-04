@@ -62,6 +62,7 @@ import {
 import { isAdminRole } from '@/domain/models/app/auth/permission-evaluation'
 import { SHARED_POOL_FANOUT_CONCURRENCY } from '@/infrastructure/database/sql/db-effect'
 import type { EmailSuppressionEntry } from '@/application/ports/repositories/automations/email-deliverability-repository'
+import type { SignatureExport } from '@/application/use-cases/auth/account-export-signatures'
 import type { SocialExport } from '@/application/use-cases/auth/account-export-social'
 
 /** Grace period (days) before a scheduled erasure is hard-purged. */
@@ -120,7 +121,7 @@ interface ExportSources {
   readonly uploads: readonly AccountChatAttachmentRow[]
   readonly ai: AccountAiFootprint
   readonly entityLists: AccountEntityLists
-  readonly social: SocialExport
+  readonly social: SocialExport & SignatureExport
   readonly emailSuppressions: readonly EmailSuppressionEntry[]
 }
 
@@ -234,7 +235,7 @@ export type ExportAccountOutcome =
 export const exportAccount = (
   userId: string,
   tables: readonly AuthoredTableCandidate[],
-  social: SocialExport
+  social: SocialExport & SignatureExport
 ): Effect.Effect<ExportAccountOutcome, AccountDatabaseError, AccountRepository> =>
   Effect.gen(function* () {
     const repo = yield* AccountRepository

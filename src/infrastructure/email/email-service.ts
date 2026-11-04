@@ -6,6 +6,7 @@
  */
 
 import { Context, Duration, Effect, Layer, Data } from 'effect'
+import { redactEmailAddresses } from '@/domain/kernel/sanitize/email-redaction'
 import { parseEmailTransport } from '@/domain/models/process-env/email-transport'
 import { isEmailConfigured } from '@/infrastructure/process/env'
 import { sendThroughEmailApi, type EmailApiTransport } from './email-api-transport'
@@ -147,10 +148,15 @@ const sendThroughSmtp = (
     }
   ).pipe(Effect.map((info) => info.messageId))
 
-/** A send's failure as the port's `EmailError`, carrying the transport's own value. */
+/**
+ * A send's failure as the port's `EmailError`, carrying the transport's own value
+ * as its cause. The message every `catch` site reads is the transport's text
+ * with the addresses in it masked: a refusal names the recipient it refused,
+ * and the message is what a catch site logs.
+ */
 const toEmailError = (error: unknown): EmailError =>
   new EmailError({
-    message: `Failed to send email: ${error instanceof Error ? error.message : String(error)}`,
+    message: `Failed to send email: ${redactEmailAddresses(error instanceof Error ? error.message : String(error))}`,
     cause: error,
   })
 

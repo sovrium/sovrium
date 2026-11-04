@@ -12,6 +12,7 @@ import {
   type CommittedRowChange,
 } from '@/application/ports/services/record-change-feed'
 import { BusinessRuleViolationError } from '@/domain/errors'
+import { signatureKeptRefusal } from '@/domain/models/app/tables/fields/field-types/media/signature-value-validation'
 import { isLanguageMerge } from '@/domain/models/app/tables/translatable-write-service'
 import { DatabaseError, type ValidationError, type PortableTx } from '@/infrastructure/database'
 import { executeRawOn } from '@/infrastructure/database/sql/dialect-execute'
@@ -19,9 +20,10 @@ import { languageMergeSql } from '@/infrastructure/database/sql/sql-translatable
 import { withOutboxTransaction } from '@/infrastructure/webhooks/webhook-outbox-queries'
 import { confirmBatchAccounts } from '../mutation-helpers/account-confirmation'
 import { injectUpdateAuthorship } from '../mutation-helpers/authorship-helpers'
-import { encodeColumnValue } from '../mutation-helpers/column-value-encoding'
+import { encodeColumnValue, givenEntries } from '../mutation-helpers/column-value-encoding'
 import { fetchRecordsByIds } from '../mutation-helpers/record-fetch-helpers'
 import { judgeInTransaction } from '../mutation-helpers/rule-judgement'
+import { columnsAreEmpty } from '../mutation-helpers/update-helpers'
 import { logCommittedRowChanges } from '../query-helpers/activity-log-helpers'
 import {
   wrapDatabaseErrorWithValidation,
@@ -148,6 +150,37 @@ const buildSetClause = (
     sql.raw(', ')
   )
 
+/** An update filling columns it may fill only while they are empty (a signature's). */
+type EmptyColumnsGuard = {
+  readonly id: string
+  readonly columns: readonly string[]
+  /** The update's position in the batch, which its refusal names. */
+  readonly index: number
+}
+
+/** The updates that fill a write-once column, each with the columns it fills. */
+const emptyColumnsGuards = (
+  updates: readonly MergedUpdate[],
+  writeOnce: readonly string[]
+): readonly EmptyColumnsGuard[] =>
+  updates.flatMap((update, index) => {
+    const columns = writeOnce.filter((column) => Object.hasOwn(update.fields, column))
+    return columns.length === 0 ? [] : [{ id: update.id, columns, index }]
+  })
+
+/**
+ * `AND NOT (…)`: a row whose write-once column is already filled is left out of
+ * the UPDATE, so of two writes racing to fill it the second changes nothing.
+ */
+const excludeFilled = (guards: readonly EmptyColumnsGuard[]): Readonly<SQL> => {
+  if (guards.length === 0) return sql``
+  const filled = guards.map(
+    ({ id, columns }) =>
+      sql`(${sql.identifier('id')} = ${id} AND NOT (${columnsAreEmpty(columns)}))`
+  )
+  return sql` AND NOT (${sql.join(filled, sql.raw(' OR '))})`
+}
+
 /** `id IN (…)` over a list of ids, each bound. */
 const idList = (ids: readonly unknown[]): Readonly<SQL> =>
   sql.join(
@@ -162,18 +195,20 @@ const idList = (ids: readonly unknown[]): Readonly<SQL> =>
  * PostgreSQL's already reflects its `BEFORE` triggers.
  */
 const updateRows = async (
-  tx: Readonly<PortableTx>,
-  dialect: Dialect,
+  { tx, dialect }: TransactionOn,
   tableName: string,
-  updates: readonly MergedUpdate[]
+  updates: readonly MergedUpdate[],
+  guards: readonly EmptyColumnsGuard[]
 ): Promise<ReadonlyArray<Record<string, unknown>>> => {
   const columns = [...new Set(updates.flatMap((update) => Object.keys(update.fields)))]
+  if (columns.length === 0)
+    throw new DatabaseError('Cannot update records with no fields', undefined)
   const columnTypes = await readColumnTypes(tx, dialect, tableName, columns)
   const setClause = buildSetClause(dialect.kind, updates, columns, columnTypes)
   const returned = await executeRawOn(
     dialect.kind,
     tx,
-    sql`UPDATE ${tableIdentifier(tableName)} SET ${setClause} WHERE id IN (${idList(updates.map((u) => u.id))}) RETURNING *`
+    sql`UPDATE ${tableIdentifier(tableName)} SET ${setClause} WHERE id IN (${idList(updates.map((u) => u.id))})${excludeFilled(guards)} RETURNING *`
   )
   if (dialect.kind !== 'sqlite' || returned.length === 0) return returned
   return executeRawOn(
@@ -183,12 +218,31 @@ const updateRows = async (
   )
 }
 
+/**
+ * The refusal of a batch one of whose rows held a write-once column it would
+ * fill: the row existed before the UPDATE and the UPDATE left it out.
+ */
+const filledRefusal = (
+  guards: readonly EmptyColumnsGuard[],
+  before: readonly Readonly<Record<string, unknown>>[],
+  after: readonly Readonly<Record<string, unknown>>[]
+): ValidationError | undefined => {
+  const existed = new Map(before.map((row) => [String(row['id']), row] as const))
+  const written = new Set(after.map((row) => String(row['id'])))
+  const guard = guards.find(({ id }) => existed.has(id) && !written.has(id))
+  if (guard === undefined) return undefined
+  const held = existed.get(guard.id)
+  const [first = ''] = guard.columns
+  const filled = guard.columns.find((name) => held?.[name] !== null && held?.[name] !== undefined)
+  return signatureKeptRefusal(filled ?? first, guard.index)
+}
+
 /** Write every update in one statement and answer the committed changes, in request order. */
 const writeBatch = (
   { tx, dialect }: TransactionOn,
   tableName: string,
   session: Readonly<Session>,
-  merged: readonly MergedUpdate[]
+  batch: { readonly merged: readonly MergedUpdate[]; readonly writeOnce: readonly string[] }
 ): Effect.Effect<readonly CommittedRowChange[], DatabaseError | ValidationError> =>
   Effect.gen(function* () {
     const onFailure = wrapWriteStatementError(`Failed to update a batch of records in ${tableName}`)
@@ -196,19 +250,24 @@ const writeBatch = (
       try: () => injectUpdateAuthorship({}, session.userId, { tx, dialect }, tableName),
       catch: onFailure,
     })
-    const updates = merged.map((update) => ({
+    // A key whose value is `undefined` is not given: its column keeps the
+    // stored value, as in every other write path (`givenEntries`).
+    const updates = batch.merged.map((update) => ({
       id: update.id,
-      fields: { ...update.fields, ...authorship },
+      fields: Object.fromEntries(givenEntries({ ...update.fields, ...authorship })),
     }))
+    const guards = emptyColumnsGuards(updates, batch.writeOnce)
     const before = yield* fetchRecordsByIds(
       { tx, dialect },
       tableName,
       updates.map((update) => update.id)
     )
     const after = yield* Effect.tryPromise({
-      try: () => updateRows(tx, dialect, tableName, updates),
+      try: () => updateRows({ tx, dialect }, tableName, updates, guards),
       catch: onFailure,
     })
+    const refused = filledRefusal(guards, before, after)
+    if (refused !== undefined) return yield* Effect.fail(refused)
     const previousById = new Map(before.map((row) => [String(row['id']), row] as const))
     const rowById = new Map(after.map((row) => [String(row['id']), { ...row }] as const))
     return updates.flatMap((update): readonly CommittedRowChange[] => {
@@ -275,12 +334,14 @@ export const batchUpdateRecords =
     written: {
       readonly accounts?: readonly AccountReference[] | undefined
       readonly judge?: InTransactionRuleJudge | undefined
+      /** Columns written only while empty: a batch finding one filled is refused whole. */
+      readonly writeOnce?: readonly string[] | undefined
     } = {}
   ): Effect.Effect<
     readonly Record<string, unknown>[],
     DatabaseError | ValidationError | BusinessRuleViolationError
   > => {
-    const { accounts, judge } = written
+    const { accounts, judge, writeOnce = [] } = written
     const wrap = wrapDatabaseErrorWithValidation(`Failed to batch update records in ${tableName}`)
     return Effect.gen(function* () {
       const merged = mergeUpdates(updates)
@@ -294,7 +355,7 @@ export const batchUpdateRecords =
               (tx) =>
                 Effect.andThen(confirmBatchAccounts(tx, dialect, accounts), () =>
                   Effect.andThen(judgedBatch({ tx, dialect }, tableName, updates, judge), () =>
-                    writeBatch({ tx, dialect }, tableName, session, merged)
+                    writeBatch({ tx, dialect }, tableName, session, { merged, writeOnce })
                   )
                 ),
               (error) => (error instanceof BusinessRuleViolationError ? error : wrap(error))

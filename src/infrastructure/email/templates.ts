@@ -130,6 +130,22 @@ export const resolveBrand = (appName: string | undefined): string =>
 const requestedEmailNotice = (brand: string, words: EmailWords): string =>
   `<p>${words.t('requestedNotice', { app: escapeHtmlAttribute(brand) })}</p>`
 
+/**
+ * The call to action of an email carrying one link: a centred button, then the
+ * same address spelled out for a client that does not draw the button.
+ * `escapedHref` must already be escaped for an attribute; `fallback` is the
+ * line before the spelled-out address. Written for the six-space indent of the
+ * `content` blocks it sits in, so the HTML it yields is unchanged.
+ */
+export const actionLinkBlock = (escapedHref: string, label: string, fallback: string): string =>
+  `<p style="text-align: center;">
+        <a href="${escapedHref}" class="button">${label}</a>
+      </p>
+      <p class="link-fallback">
+        ${fallback}<br>
+        ${escapedHref}
+      </p>`
+
 /** What {@link emailLayout} frames its content with. */
 export interface EmailLayoutOptions {
   /** The sending app's name; heads the email. Falls back to "Sovrium". */
@@ -205,13 +221,7 @@ export function passwordResetEmail(data: PasswordResetEmailData): {
       <p>${greeting.html}</p>
       <p>${words.t('resetPassword.intro', { app: htmlBrand })}</p>
       <p>${words.t('resetPassword.cta')}</p>
-      <p style="text-align: center;">
-        <a href="${escapeHtmlAttribute(data.resetUrl)}" class="button">${words.t('resetPassword.button')}</a>
-      </p>
-      <p class="link-fallback">
-        ${words.t('linkFallback')}<br>
-        ${escapeHtmlAttribute(data.resetUrl)}
-      </p>
+      ${actionLinkBlock(escapeHtmlAttribute(data.resetUrl), words.t('resetPassword.button'), words.t('linkFallback'))}
       <div class="warning">
         ${expires} ${words.t('resetPassword.ignore')}
       </div>
@@ -268,13 +278,7 @@ export function emailVerificationEmail(data: EmailVerificationData): {
       <p>${greeting.html}</p>
       <p>${words.t('verification.intro', { app: htmlBrand })}</p>
       <p>${words.t('verification.cta')}</p>
-      <p style="text-align: center;">
-        <a href="${escapeHtmlAttribute(data.verifyUrl)}" class="button">${words.t('verification.button')}</a>
-      </p>
-      <p class="link-fallback">
-        ${words.t('linkFallback')}<br>
-        ${escapeHtmlAttribute(data.verifyUrl)}
-      </p>
+      ${actionLinkBlock(escapeHtmlAttribute(data.verifyUrl), words.t('verification.button'), words.t('linkFallback'))}
       <div class="warning">
         ${expires} ${words.t('verification.ignore', { app: htmlBrand })}
       </div>
@@ -325,13 +329,7 @@ export function accountDeletionEmail(data: AccountDeletionEmailData): {
       <p>${htmlGreeting}</p>
       <p>We received a request to delete your ${htmlBrand} account.</p>
       <p>Following the link below erases your account and everything in it, for good. This cannot be undone.</p>
-      <p style="text-align: center;">
-        <a href="${escapeHtmlAttribute(data.confirmUrl)}" class="button">Delete my account</a>
-      </p>
-      <p class="link-fallback">
-        If the button doesn't work, copy and paste this link into your browser:<br>
-        ${escapeHtmlAttribute(data.confirmUrl)}
-      </p>
+      ${actionLinkBlock(escapeHtmlAttribute(data.confirmUrl), 'Delete my account', "If the button doesn't work, copy and paste this link into your browser:")}
       <div class="warning">
         This link will expire in ${expiry} and works only while you are signed in to this account. If you didn't ask to delete your account, ignore this email: nothing changes.
       </div>

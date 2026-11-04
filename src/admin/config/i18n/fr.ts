@@ -98,12 +98,14 @@ import frData from './fr-data'
 import frDesignSystem from './fr-design-system'
 import frDevelopers from './fr-developers'
 import frEngineVoice from './fr-engine-voice'
+import frSignatures from './fr-signatures'
 import frSurfaces from './fr-surfaces'
 
 export default {
   ...frChrome,
   ...frConsole,
   ...frData,
+  ...frSignatures,
   ...frDevelopers,
   ...frCommon,
   ...frSurfaces,

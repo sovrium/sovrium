@@ -1,6 +1,6 @@
 # Images
 
-Images are usually the heaviest bytes on a page. Sovrium stores the original untouched and derives every variant from its URL: the format, the size and the quality are request parameters, and the result is cached. Manual: `sovrium docs images/image-formats`, `sovrium docs images/image-transforms`, `sovrium docs images/image-presets-caching`, `sovrium docs components/media-components`.
+Images are usually the heaviest bytes on a page. Sovrium stores the original untouched and derives every variant from its URL: the format, the size and the quality are request parameters, and the result is cached. Manual: `sovrium docs images/image-formats`, `sovrium docs images/image-transforms`, `sovrium docs images/image-presets-caching`, `sovrium docs components-presentation/media-components`.
 
 ## Contents
 

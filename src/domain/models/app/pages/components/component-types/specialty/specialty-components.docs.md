@@ -29,7 +29,7 @@ It declares no schema option of its own: `props` carries the HTML attributes and
 
 The switcher never prints the app's `fallback` language. When one is declared it is exposed on the switcher as `data-fallback-language`, for a script or a stylesheet to read. Reference: shadcn/ui Dropdown Menu, Button. The default variant is a dropdown menu: an outline trigger showing a globe, the current language and a chevron, and a menu of languages in which the current one shows a check. The arrow keys move through the menu, Enter picks a language and Escape closes it. It needs no styling of its own to sit in a header beside the navigation.
 
-`props.variant: toggle`, for an app with exactly two languages, renders one link to the same page in the other language, reading its code and named by its label. The toggle's link is drawn as a ghost button.
+`props.variant: toggle`, for an app with exactly two languages, renders one link to the same page in the other language, reading its code and named by that code followed by its label (`FR Français`), so a voice-control user who says the visible code reaches it. The toggle's link is drawn as a ghost button.
 
 Whichever variant it draws, the switcher's outer element carries `data-component-type="language-switcher"` and the HTML attributes given in `props`, `className` among them. No element inside it carries the name.
 

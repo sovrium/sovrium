@@ -10,6 +10,7 @@ import type {
   DatabaseError,
   ForeignKeyViolationError,
   StaleWriteError,
+  ValidationError,
 } from '@/domain/errors'
 
 /**
@@ -29,6 +30,13 @@ export interface RecordWriteExtras<Link> {
   readonly accounts?: readonly AccountReference[]
 }
 
-/** How a single-record update can fail, a business rule's refusal included. */
+/**
+ * How a single-record update can fail: a business rule's refusal included, and
+ * a `ValidationError` when a column it may write only while empty is filled.
+ */
 export type UpdateRecordFailure =
-  DatabaseError | StaleWriteError | ForeignKeyViolationError | BusinessRuleViolationError
+  | DatabaseError
+  | StaleWriteError
+  | ForeignKeyViolationError
+  | BusinessRuleViolationError
+  | ValidationError

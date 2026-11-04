@@ -24,7 +24,7 @@ analytics:
 
 **Under `audience-only`, reports are rounded.** A count from 1 to 9 reads 10, any other count the nearest 10, and 0 stays 0. Shares are computed from the rounded counts, and an hourly series is refused. `GET /api/analytics/events` lists custom events only, without identifiers. The console follows: a short link's page explains that individual clicks are not listed instead of drawing a click log.
 
-**Switching to `audience-only` also changes what is already stored.** At the next start, a sweep strips the excluded fields from existing events. Every row is kept and rewritten, none is deleted, and the original values cannot be recovered. Take a backup first if you may need them. Switching to `full` touches nothing: older rows stay minimised, and only new events carry the extra fields.
+**Switching to `audience-only` also changes what is already stored.** At the next start, before the app answers, a sweep strips the excluded fields from existing events. Every row is kept and rewritten, none is deleted, and the original values cannot be recovered. Take a backup first if you may need them. Later starts on `audience-only` leave the events alone. Switching to `full` touches nothing: older rows stay minimised, and only new events carry the extra fields. The profile the last start ran under is kept in the database, so restoring a backup taken under `full` sweeps again at the next start.
 
 ## Decide how to treat browser signals
 
@@ -35,7 +35,7 @@ Two settings decide whether the browser's own privacy signals stop measuring. Bo
 | `respectDoNotTrack`           | Do Not Track (`DNT: 1`)               |
 | `respectGlobalPrivacyControl` | Global Privacy Control (`Sec-GPC: 1`) |
 
-While a setting is on, a browser sending that signal has no page views, outbound clicks, short-link clicks or QR scans recorded. Set one to `false` and those visitors are recorded like any others.
+While a setting is on, a browser sending that signal has no page views, outbound clicks, short-link clicks, QR scans or form-submission events recorded. Its form submissions are still saved. Set one to `false` and those visitors are recorded like any others.
 
 The Global Privacy Control specification names United States privacy law as its main motivation. What the signal means for a site elsewhere is not settled by this setting, so say in your notice how you treat it.
 
@@ -79,10 +79,12 @@ Declaring a purpose holds back page scripts naming it, the built-in tracker and 
 | ---------------------------------- | --------------------- | ------------------------------ | -------------------------------------- |
 | Short-link click                   | Yes                   | Per visitor                    | Turn analytics off                     |
 | QR scan                            | Yes                   | Per visitor                    | Turn analytics off                     |
-| Form submission                    | No                    | Per submitter                  | `analytics.enabled: false` on the form |
+| Form submission                    | Yes                   | Per submitter                  | `analytics.enabled: false` on the form |
 | An automation's `analytics` action | No                    | None; the event has no visitor | Remove the action, or what it sends    |
 
 Under `audience-only`, short-link clicks, QR scans and form submissions carry only the identifier they all share. An automation's event holds whatever properties you send it, so a person's data placed there is stored as written, on either profile.
+
+**Erasure.** Erasing a signed-in person deletes their form submissions and, under `full`, the analytics events that pointed at them; events never tied to an account (page views, clicks) carry no name to erase and age out with `retentionDays`.
 
 **What the page itself loads.** Iframes and embeds, images and fonts from another site, the markup of a `customHTML` block, and any request a script makes once it has been accepted. What the browser acts on as the page loads also stays outside: `meta.dnsPrefetch`, `meta.preload` and the tags in `meta.customElements`. Review each one on its own terms; an embed from another site sends that site the visitor's request whatever your banner says.
 
@@ -125,7 +127,7 @@ This is a starting point to adapt, not legal advice. Keep the paragraph for your
 >
 > _(`full`)_ For a page view we keep the page address, its title, the full address you came from, campaign values, your screen size, and your device type, browser, operating system and language. For a link you follow out of this site, we keep the full addresses. For a short link, a QR code or a form submission, we also keep a per-visitor identifier, and for a form, the id of your submission. Our reports show counts by the hour, and our administrators can list individual events.
 >
-> **How to object.** Use the control at [link to your `consent-choice`]. Your choice stays in your browser and holds no identifier. If your browser sends Global Privacy Control or Do Not Track, we record no page views, outbound clicks, short-link clicks or QR scans. The control does not reach short-link clicks or QR scans, because our server answers them without reading your choice. Form submission events are recorded whatever you choose; [how to reach us about them].
+> **How to object.** Use the control at [link to your `consent-choice`]. Your choice stays in your browser and holds no identifier. If your browser sends Global Privacy Control or Do Not Track, we record no page views, outbound clicks, short-link clicks, QR scans or form submission events. The control does not reach short-link clicks, QR scans or form submission events, because our server answers them without reading your choice; [how to reach us about them].
 
 If you declare an `analytics` purpose, add that page views wait until the visitor accepts, and that short-link clicks, QR scans and form submission events do not. If you set `respectDoNotTrack` or `respectGlobalPrivacyControl` to `false`, change that sentence.
 

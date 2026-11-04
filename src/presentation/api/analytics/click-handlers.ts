@@ -32,7 +32,7 @@
 
 import { Effect } from 'effect'
 import { collectOutboundClick } from '@/application/use-cases/analytics/collect-outbound-click'
-import { matchesAnyGlobPattern } from '@/domain/kernel/matching/glob-matcher'
+import { isPathExcludedFromAnalytics } from '@/domain/models/app/analytics/excluded-paths-service'
 import { requestDeclinesTracking } from '@/domain/models/app/analytics/privacy-signals-service'
 import { provideDomain } from '@/infrastructure/logging/request-effect'
 import { resolveOperatorTimezone } from '@/infrastructure/process/operator-timezone'
@@ -45,9 +45,13 @@ import type { ValidatedContext } from '@/presentation/api/runtime/effect-validat
 export interface ClickHandlerConfig {
   readonly appName: string
   readonly excludedPaths?: readonly string[]
+  /** The app's language codes, for the excluded paths that name no language. */
+  readonly languages: readonly string[]
   readonly respectDoNotTrack: boolean
   readonly respectGlobalPrivacyControl: boolean
   readonly profile: AnalyticsProfile
+  /** `analytics.sessionTimeout`, resolved to its 30-minute default. */
+  readonly sessionTimeout: number
 }
 
 /** Record one outbound click, or decline to, and answer 204 either way. */
@@ -59,7 +63,9 @@ export function handleClick(
 
   const noContent = (): Response => c.body(null, 204)
 
-  if (matchesAnyGlobPattern(config.excludedPaths, body.pagePath)) return noContent()
+  if (isPathExcludedFromAnalytics(config.excludedPaths, body.pagePath, config.languages)) {
+    return noContent()
+  }
   if (requestDeclinesTracking(config, (name) => c.req.header(name))) return noContent()
 
   void Effect.runPromise(
@@ -74,6 +80,7 @@ export function handleClick(
         userAgent: c.req.header('user-agent') ?? '',
         timeZone: resolveOperatorTimezone(process.env),
         profile: config.profile,
+        sessionTimeoutMinutes: config.sessionTimeout,
       })
     ).pipe(
       // effect-swallow: an outbound-click beacon. The visitor has already left for the destination, so there is nobody to report a failure to, and the endpoint answers 204 either way.

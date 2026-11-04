@@ -11,6 +11,7 @@ import type { Persistence } from './use-field-persistence'
 import type { RecordButtonConfig } from '../runtime/record-button'
 import type { CalendarWeekday } from '@/domain/kernel/format/calendar-date'
 import type { CurrencyDisplayOptions } from '@/domain/kernel/format/currency-format'
+import type { DateRecipe } from '@/domain/kernel/format/date-recipe'
 import type { DurationDisplayFormat } from '@/domain/kernel/format/duration-format'
 import type { AutoSaveConfig } from '@/domain/models/app/pages/components/auto-save'
 import type { RollupResultKind } from '@/domain/models/app/tables/rollup-currency-service'
@@ -76,6 +77,10 @@ export interface FieldDisplayMeta extends CurrencyDisplayOptions {
   readonly chipClassName?: string
   /** `date` / `datetime` — the day of the week printed before the date. */
   readonly weekday?: CalendarWeekday
+  /** `datetime` — how it reads by its own `format`, `dateFormat` and `timeFormat`. */
+  readonly recipe?: DateRecipe
+  /** The clock a `time` reading is written on, from the field's `timeFormat`. */
+  readonly clock?: DateRecipe
 }
 
 /**

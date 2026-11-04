@@ -92,14 +92,31 @@ export function selectParams(
  * untouched filter must not force a re-read on mount.
  */
 function readDomPublisherContributions(bindTo: string): Record<string, string> {
+  return Object.fromEntries(domPublisherValues(bindTo).filter(([, value]) => value !== ''))
+}
+
+/** Each DOM publisher on `bindTo` as `[param, what it holds now]`, a cleared one as `''`. */
+function domPublisherValues(bindTo: string): ReadonlyArray<readonly [string, string]> {
   return Array.from(document.querySelectorAll<HTMLElement>('[data-publishes-bind-to]'))
     .filter((element) => element.getAttribute('data-publishes-bind-to') === bindTo)
-    .reduce<Record<string, string>>((bag, element) => {
+    .flatMap((element) => {
       const param = element.getAttribute('data-publishes-param')
-      const value = readPublishedDomValue(element)
-      if (param === null || value === '') return bag
-      return { ...bag, [param]: value }
-    }, {})
+      return param === null ? [] : [[param, readPublishedDomValue(element)] as const]
+    })
+}
+
+/**
+ * What `bindTo` holds at this instant, for a one-off read rather than a
+ * subscription (an export button reads it when pressed): what an island
+ * publisher last sent, then what each DOM publisher holds. A DOM control the
+ * reader cleared overrides what was held for its param, so a cleared filter
+ * contributes nothing.
+ */
+export function currentChannelValue(bindTo: string): PublishedValue {
+  return {
+    kind: 'bag',
+    value: { ...heldContributions(bindTo), ...Object.fromEntries(domPublisherValues(bindTo)) },
+  }
 }
 
 /**
@@ -198,4 +215,33 @@ export function sharedRequest(
     ownFilter,
     published === undefined ? EMPTY_PARAMS : selectParams(published, params)
   )
+}
+
+/** A scheme at the head of an address (`https:`), as opposed to a path. */
+const ABSOLUTE_ADDRESS = /^[a-z][a-z0-9+.-]*:/i
+
+/**
+ * `address` with what `bindTo` holds now merged into its query, as a bound data
+ * source merges it into its own read: a channel param replaces the address's
+ * param of the same name, a cleared control adds nothing so the address's own
+ * param stands, and the conditions a filter bar publishes travel as one
+ * `filter`. `params` picks the channel's params, as `sharedFilter.params` does
+ * on a subscriber. A fetch action in `mode: download` or `mode: navigate` reads
+ * it when pressed, so its request carries the filters the reader sees.
+ */
+export function channelAddress(
+  address: string,
+  bindTo: string,
+  params: readonly string[] | undefined
+): string {
+  const { filterParam, extraParams } = sharedRequest(currentChannelValue(bindTo), params, undefined)
+  const merged = Object.entries({
+    ...extraParams,
+    ...(filterParam === undefined ? {} : { filter: filterParam }),
+  })
+  if (merged.length === 0) return address
+  const url = new URL(address, window.location.href)
+  merged.forEach(([name, value]) => url.searchParams.set(name, value))
+  // A path stays a path, so the safe-address check reads what was written.
+  return ABSOLUTE_ADDRESS.test(address) ? url.href : `${url.pathname}${url.search}${url.hash}`
 }

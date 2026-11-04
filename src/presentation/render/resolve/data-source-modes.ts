@@ -32,6 +32,7 @@ import {
   type DataSourceDb,
   type DataSourceSectionResult,
 } from './data-source-contracts'
+import { withDrawnContent } from './drawn-island-content'
 import { applyFieldLevelPermissions } from './field-permission-filter'
 import {
   boundManyToManyFields,
@@ -39,6 +40,7 @@ import {
   withManyToManyLinks,
 } from './form-bound-record'
 import { ftsFirstRows, ftsSearchProps } from './fts-search-binding'
+import { bindRecordToButtonsWithin } from './page-record-buttons'
 import { gateInheritedRecord, holdsInheritedRecord, withheldFieldsProps } from './read-plan-gates'
 import { restrictedColumnsForReader } from './reader-row-admission'
 import { labelledPageRows, withRecordLabels } from './record-display-labels'
@@ -72,7 +74,12 @@ function applySingleRecordToComponent(
   ctx: Pick<SingleModeOptions, 'tableName' | 'plan' | 'db' | 'session'> & { pageFields: RecordRow }
 ): Component {
   const pageRecord = pageRecordOf(ctx.pageFields, ctx.tableName, ctx.db.recordText)
-  const substituted = substituteBoundRecord(component, pageRecord, ctx.tableName)
+  // Its `crud` buttons act on this record, by the record's own id, as on a page bound to one.
+  const substituted = bindRecordToButtonsWithin(
+    substituteBoundRecord(component, pageRecord, ctx.tableName),
+    record,
+    ctx.tableName
+  )
   const existingChildren = substituted.children ?? []
   return rewriteComponent(substituted, {
     children: [...existingChildren, ...favoritesStar(ctx.tableName, record, ctx.session)],
@@ -203,7 +210,9 @@ async function resolveListMode(
   const own = await bindReadRows(component, rows, ctx)
   const addressed = await addressRowAttachments({ ...own, app: ctx.app, tableName, sign })
   const pageRows = await labelledPageRows(addressed.rows, { ...ctx, tableName })
-  return expandBoundRows(addressed.component, pageRows, paginationMeta, ctx)
+  // A KPI or a grid draws its first answer from these rows (`drawn-island-content.ts`).
+  const drawn = withDrawnContent(addressed.component, pageRows)
+  return expandBoundRows(drawn, pageRows, paginationMeta, ctx)
 }
 
 function buildSearchProps(
@@ -282,7 +291,7 @@ export async function resolveByMode(ctx: {
   // shows her on every row her list admits.
   const restricted = await restrictedColumnsForReader({ ...ctx, tableName })
   const viewed = await withCallerTableView(withWritePermissionGates(ctx), ctx)
-  const gated = withChannelFilter(viewed, ctx.table, restricted, ctx.app.auth?.scopeTables)
+  const gated = withChannelFilter(viewed, ctx.table, restricted)
   if (isReadWithheld(gated)) return gated
   const { component: fc, fields: ff } = applyFieldLevelPermissions(
     gated,

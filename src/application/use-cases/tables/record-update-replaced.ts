@@ -15,6 +15,7 @@ import { Effect } from 'effect'
 import { StorageService } from '@/application/ports/services/storage-service'
 import { SYSTEM_BUCKET_NAME } from '@/domain/models/app/buckets/bucket-identity'
 import { resolveFieldBucket } from '@/domain/models/app/buckets/field-bucket'
+import { isSignatureNamespaceKey } from '@/domain/models/app/signatures/signature-capture-service'
 import { findTableByName } from '@/domain/models/app/tables/table-lookup-service'
 import { logError } from '@/infrastructure/logging/logger'
 import { rawGetRecordProgram } from './read-record-programs'
@@ -53,14 +54,16 @@ export function collectReplacedAttachments(
 
 /**
  * Delete stored files, one at a time, each failure logged and swallowed: a file
- * already gone must never fail the update that superseded it.
+ * already gone must never fail the update that superseded it. A file under the
+ * signature namespace (a request's evidence, or a record's signature mark) is
+ * kept: it leaves only with its own retention, record or signer.
  */
 export const deleteStoredFiles = (
   refs: readonly ReplacedAttachment[],
   forgetDerivedVariants: (key: string) => void
 ) =>
   Effect.forEach(
-    refs,
+    refs.filter(({ key }) => !isSignatureNamespaceKey(key)),
     ({ key, bucket }) =>
       Effect.gen(function* () {
         const storage = yield* StorageService

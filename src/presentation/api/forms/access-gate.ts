@@ -25,10 +25,12 @@ import { getUserRole } from '@/application/use-cases/tables/user-role'
 import { ApiErrorCode } from '@/domain/models/api/error'
 import {
   evaluateFormAccess,
+  toFormAccessSession,
   type FormAccessDecision,
 } from '@/domain/models/app/forms/form-access-flow'
 import { errorBody, notFound } from '@/presentation/api/runtime/auth-helpers'
 import { getSessionContext } from '@/presentation/api/runtime/context-helpers'
+import type { App } from '@/domain/models/app'
 import type { Form } from '@/domain/models/app/forms'
 import type { Context } from 'hono'
 
@@ -75,10 +77,21 @@ export const resolveFormOptionVisitor = (session: FormRequestSession | undefined
  * Evaluate a form's `access.require` for the current request. Returns the
  * resolved session (when present) alongside the access decision so the
  * caller can both gate the request and capture the submitter identity.
+ *
+ * The app is read for the admin-equivalent role: an `admin` entry in the form's
+ * role array admits the app's top role here exactly as it does on the page
+ * that embeds the form.
  */
-export const evaluateFormAccessForRequest = (c: Context, form: Readonly<Form>) =>
+export const evaluateFormAccessForRequest = (
+  c: Context,
+  form: Readonly<Form>,
+  app: Readonly<App>
+) =>
   Effect.map(resolveFormSession(c), (session) => ({
-    decision: evaluateFormAccess(form.access?.require, session),
+    decision: evaluateFormAccess(
+      form.access?.require,
+      session === undefined ? undefined : toFormAccessSession(session, app)
+    ),
     session,
   }))
 

@@ -103,6 +103,8 @@ export interface CollectionNavData {
   readonly tabsPlacement?: 'header' | 'sidebar' | undefined
   /** `sidebar` draws the docs search field at the top of the sidebar (`contentDir.nav.search`). */
   readonly search?: 'sidebar' | undefined
+  /** The name of the page listing the collection, whose articles alone that field searches. */
+  readonly pageName?: string | undefined
 }
 
 /**

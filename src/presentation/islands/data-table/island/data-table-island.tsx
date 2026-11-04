@@ -6,6 +6,7 @@
  */
 
 import { useMemo } from 'react'
+import { DrawnGrid } from '@/presentation/design/drawn-grid'
 import { AccountSessionsContext, isAccountSessionsEndpoint } from '../account-sessions'
 import { usePasteImport } from '../paste-preview/use-paste-import'
 import { useViewLayout } from '../view-options/view-layout'
@@ -149,6 +150,9 @@ export default function DataTableIsland(islandProps: DataTableIslandProps) {
     searching,
     clearReadError: setup.clearReadError,
   })
+  // Until its own read answers, the grid shows the page the server drew, as the
+  // server drew it: text only, no row to act on (`design/drawn-grid.tsx`).
+  if (props.drawn !== undefined && setup.isLoading) return <DrawnGrid {...props.drawn} />
   const viewProps = toDataTableViewProps({
     props,
     setup,

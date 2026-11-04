@@ -58,6 +58,7 @@
 import { EXPORT_NODE_ID_KEY, exportNodeIdOf } from '@/domain/models/app/pages/node-identity'
 import { extractComponentReference } from '@/presentation/render/registry/component-reference-handler'
 import { resolveComponent } from '@/presentation/render/registry/component-resolution'
+import { stampAuthoredEmptyTexts } from '@/presentation/render/resolve/authored-empty-text'
 import {
   EXPANDED_REFERENCE_KEY,
   isComponentReferenceNode,
@@ -213,13 +214,16 @@ function expandPageReferences(page: Page, templates: Components | undefined): Pa
 
 /**
  * {@link expandPageReferences} over a route match, passing a miss through —
- * the shape `renderPageByPath` holds at the point the page is first read.
+ * the shape `renderPageByPath` holds at the point the page is first read. The
+ * texts written empty are stamped on the expanded tree, the one moment they
+ * can still be told from a reference that will resolve to nothing
+ * (`authored-empty-text.ts`).
  */
 export function expandMatchedPageReferences<T extends { readonly page: Page }>(
   match: T | undefined,
   templates: Components | undefined
 ): T | undefined {
   if (match === undefined) return undefined
-  const page = expandPageReferences(match.page, templates)
+  const page = stampAuthoredEmptyTexts(expandPageReferences(match.page, templates))
   return page === match.page ? match : { ...match, page }
 }

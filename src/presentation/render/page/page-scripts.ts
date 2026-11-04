@@ -11,6 +11,7 @@ import type { PageConsent } from './analytics-beacon-script'
 import type { PrivacySignalSettings } from '@/domain/models/app/analytics/privacy-signals-service'
 import type { Components } from '@/domain/models/app/components'
 import type { Page } from '@/domain/models/app/pages'
+import type { Tables } from '@/domain/models/app/tables'
 
 /**
  * External script configuration
@@ -73,7 +74,21 @@ export type GroupedScripts = {
   readonly consentChoice: PrivacySignalSettings | undefined
   /** The app's `consent` block: the page draws the banner and holds what it gates. */
   readonly consent: PageConsent | undefined
+  /**
+   * The app declares a `datetime` field on `timeZone: local`, so the body-end
+   * enhancer that writes such a moment in the reader's zone ships with its pages.
+   */
+  readonly writesReaderZone: boolean
 }
+
+/** Whether any `datetime` field of the app asks for each reader's own zone. */
+const declaresReaderZone = (tables: Tables | undefined): boolean =>
+  (tables ?? []).some((table) =>
+    table.fields.some(
+      (field) =>
+        field.type === 'datetime' && (field as { readonly timeZone?: unknown }).timeZone === 'local'
+    )
+  )
 
 /**
  * Removes entries whose `src` was already declared by an earlier entry
@@ -97,12 +112,14 @@ function dedupeBySrc(scripts: ReadonlyArray<ExternalScript>): ReadonlyArray<Exte
  * @param components - The app's component templates, which a page may reference
  * @param privacySignals - The privacy signals the app's analytics honours, at
  *   their documented defaults when omitted
+ * @param tables - The app's tables: a `local` datetime field ships the reader-zone enhancer
  * @returns Scripts grouped by position
  */
 export function groupScriptsByPosition(
   page: Page,
   components?: Components,
-  privacySignals?: PrivacySignalSettings & { readonly consent?: PageConsent }
+  privacySignals?: PrivacySignalSettings & { readonly consent?: PageConsent },
+  tables?: Tables
 ): Readonly<GroupedScripts> {
   // `scripts.external` is an ALIAS of `scripts.externalScripts` — the two keys
   // name ONE list, not two independent ones. Merge them and drop any src the
@@ -144,5 +161,6 @@ export function groupScriptsByPosition(
       ? (privacySignals ?? resolvePrivacySignals(undefined))
       : undefined,
     consent: privacySignals?.consent,
+    writesReaderZone: declaresReaderZone(tables),
   }
 }

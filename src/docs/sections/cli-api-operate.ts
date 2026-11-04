@@ -8,7 +8,6 @@
 import backupBody from '@/cli/commands/backup.docs.md' with { type: 'file' }
 import bundleBody from '@/cli/commands/bundle.docs.md' with { type: 'file' }
 import cliAdminBody from '@/cli/commands/cli-admin.docs.md' with { type: 'file' }
-import clientBody from '@/cli/commands/client.docs.md' with { type: 'file' }
 import deployBody from '@/cli/commands/deploy.docs.md' with { type: 'file' }
 import envBody from '@/cli/commands/env.docs.md' with { type: 'file' }
 import initFromBundleBody from '@/cli/commands/init/from-bundle.docs.md' with { type: 'file' }
@@ -17,41 +16,18 @@ import loginBody from '@/cli/commands/login.docs.md' with { type: 'file' }
 import previewBody from '@/cli/commands/preview.docs.md' with { type: 'file' }
 import reindexBody from '@/cli/commands/reindex.docs.md' with { type: 'file' }
 import usageBody from '@/cli/commands/usage.docs.md' with { type: 'file' }
-import { defineArticle } from './define'
+import { defineArticle, defineSection } from './define'
 import type { DocArticle } from './define'
 
 /**
- * The operating commands, as articles of the CLI section.
- *
- * Administering a deployment, backing it up, bundling it (and opening a bundle
- * or a published config back as a project), shipping it to a cloud and writing a typed client for it live in their own module
- * rather than in `cli-api.ts` because that file reached its line ceiling. They stay part of the CLI section, in their
- * published order, and the section assembles them by spread — the same split
- * `fields-derived.ts` makes for the Fields section.
+ * The operating commands of the CLI section: rebuilding the AI knowledge
+ * index, administering a deployment, backing it up, measuring it, and opening
+ * a bundle or a published config as a project. They live in their own module
+ * so `cli-api.ts` stays under its line ceiling, and the section assembles them
+ * by spread. The commands that ship an app to a cloud form their own section,
+ * `cli-ship`, declared at the end of this file.
  */
 export const operateCliArticles: readonly DocArticle[] = [
-  defineArticle({
-    slug: 'cli-client',
-    title: 'Call the API from Your Own Front-End',
-    description:
-      'Write one typed, dependency-free TypeScript client for the records API with sovrium client, and call your app from a React site, a mobile app or a script.',
-    keywords: [
-      'sovrium client',
-      'typed client',
-      'front-end',
-      'fetch',
-      'SDK',
-      'records API',
-      'SOVRIUM_CORS_ORIGINS',
-      'x-api-key',
-      '--check',
-    ],
-    order: 1423,
-    sidebarLabel: 'Typed API Client',
-    body: clientBody,
-    documents: [],
-    stories: ['US-CLI-COMMANDS-CLIENT'],
-  }),
   defineArticle({
     slug: 'cli-reindex',
     title: 'Rebuilding the AI Knowledge Index',
@@ -134,27 +110,6 @@ export const operateCliArticles: readonly DocArticle[] = [
     stories: ['US-CLI-COMMANDS-USAGE'],
   }),
   defineArticle({
-    slug: 'bundle',
-    title: 'Bundle an App',
-    description:
-      'Package an app for deployment with sovrium bundle: the config resolved and validated into JSON, static files and seed data, each checksummed in one archive.',
-    keywords: [
-      'sovrium bundle',
-      'bundle',
-      'deploy',
-      'deployment archive',
-      'manifest.json',
-      'project/app.json',
-      'sha256',
-      '--output',
-    ],
-    order: 1437,
-    sidebarLabel: 'Bundle',
-    body: bundleBody,
-    documents: [],
-    stories: ['US-CLI-COMMANDS-BUNDLE'],
-  }),
-  defineArticle({
     slug: 'cli-init-from-bundle',
     title: 'Opening a Bundle',
     description:
@@ -196,99 +151,134 @@ export const operateCliArticles: readonly DocArticle[] = [
     documents: [],
     stories: [],
   }),
-  defineArticle({
-    slug: 'login',
-    title: 'Sign In to a Sovrium Cloud',
-    description:
-      'Sign the CLI in with sovrium login: approve a short code in the browser and keep an API key here for sovrium deploy, or paste a key, check it and sign out.',
-    keywords: [
-      'sovrium login',
-      'sign in',
-      'device code',
-      'API key',
-      'credentials.json',
-      '--api-key',
-      '--status',
-      '--logout',
-    ],
-    order: 1438,
-    sidebarLabel: 'Sign In',
-    body: loginBody,
-    documents: [],
-    stories: ['US-CLI-COMMANDS-LOGIN'],
-  }),
-  defineArticle({
-    slug: 'deploy',
-    title: 'Deploy to a Sovrium Cloud',
-    description:
-      'Ship an app with sovrium deploy: the app found or created by name, its required variables checked, the bundle uploaded once, each state printed until it is up.',
-    keywords: [
-      'sovrium deploy',
-      'deploy',
-      'deployment',
-      'Sovrium Cloud',
-      'Idempotency-Key',
-      '--app',
-      '--no-wait',
-      '--yes',
-      '--env',
-      'waking up',
-      '.sovrium/cloud.json',
-      'requiredEnv',
-      '--seed',
-      'sovrium seed --app',
-      '--from-preview',
-    ],
-    order: 1439,
-    sidebarLabel: 'Deploy',
-    body: deployBody,
-    documents: [],
-    stories: ['US-CLI-COMMANDS-DEPLOY', 'US-CLI-COMMANDS-SEED-REMOTE'],
-  }),
-  defineArticle({
-    slug: 'cloud-env',
-    title: "A Hosted App's Variables",
-    description:
-      "Set, list and remove an app's environment variables on Sovrium Cloud with sovrium env: from a file, names only, secret by default, never a value printed.",
-    keywords: [
-      'sovrium env',
-      'sovrium env push',
-      'sovrium env list',
-      'sovrium env unset',
-      'environment variables',
-      'secrets',
-      '--overwrite',
-      '--plain',
-      '--redeploy',
-    ],
-    order: 1441,
-    sidebarLabel: 'Cloud variables',
-    body: envBody,
-    documents: [],
-    stories: ['US-CLI-COMMANDS-ENV'],
-  }),
-  defineArticle({
-    slug: 'preview',
-    title: 'Share a Preview',
-    description:
-      'Put a change online with sovrium preview, at its own share address until it expires, while the live app stays as it is; promote it with deploy --from-preview.',
-    keywords: [
-      'sovrium preview',
-      'preview',
-      'share',
-      'share address',
-      'feedback',
-      'Expires',
-      '--from-preview',
-      'sovrium deploy --from-preview',
-      '--app',
-      '--no-wait',
-      '--env',
-    ],
-    order: 1442,
-    sidebarLabel: 'Preview',
-    body: previewBody,
-    documents: [],
-    stories: ['US-CLI-COMMANDS-PREVIEW'],
-  }),
 ]
+
+/**
+ * Shipping an app: bundling it, signing in to a Sovrium Cloud, deploying,
+ * setting a hosted app's variables and sharing a preview. Its own rail group
+ * so the CLI groups stay short enough to scan; article slugs are unchanged.
+ */
+export const cliShip = defineSection({
+  slug: 'cli-ship',
+  title: 'Cloud Deployment',
+  order: 1401,
+  tab: 'platform',
+  articles: [
+    defineArticle({
+      slug: 'bundle',
+      title: 'Bundle an App',
+      description:
+        'Package an app for deployment with sovrium bundle: the config resolved and validated into JSON, static files and seed data, each checksummed in one archive.',
+      keywords: [
+        'sovrium bundle',
+        'bundle',
+        'deploy',
+        'deployment archive',
+        'manifest.json',
+        'project/app.json',
+        'sha256',
+        '--output',
+      ],
+      order: 1437,
+      sidebarLabel: 'Bundle',
+      body: bundleBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-BUNDLE'],
+    }),
+    defineArticle({
+      slug: 'login',
+      title: 'Sign In to a Sovrium Cloud',
+      description:
+        'Sign the CLI in with sovrium login: approve a short code in the browser and keep an API key here for sovrium deploy, or paste a key, check it and sign out.',
+      keywords: [
+        'sovrium login',
+        'sign in',
+        'device code',
+        'API key',
+        'credentials.json',
+        '--api-key',
+        '--status',
+        '--logout',
+      ],
+      order: 1438,
+      sidebarLabel: 'Sign In',
+      body: loginBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-LOGIN'],
+    }),
+    defineArticle({
+      slug: 'deploy',
+      title: 'Deploy to a Sovrium Cloud',
+      description:
+        'Ship an app with sovrium deploy: the app found or created by name, its required variables checked, the bundle uploaded once, each state printed until it is up.',
+      keywords: [
+        'sovrium deploy',
+        'deploy',
+        'deployment',
+        'Sovrium Cloud',
+        'Idempotency-Key',
+        '--app',
+        '--no-wait',
+        '--yes',
+        '--env',
+        'waking up',
+        '.sovrium/cloud.json',
+        'requiredEnv',
+        '--seed',
+        'sovrium seed --app',
+        '--from-preview',
+      ],
+      order: 1439,
+      sidebarLabel: 'Deploy',
+      body: deployBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-DEPLOY', 'US-CLI-COMMANDS-SEED-REMOTE'],
+    }),
+    defineArticle({
+      slug: 'cloud-env',
+      title: "A Hosted App's Variables",
+      description:
+        "Set, list and remove an app's environment variables on Sovrium Cloud with sovrium env: from a file, names only, secret by default, never a value printed.",
+      keywords: [
+        'sovrium env',
+        'sovrium env push',
+        'sovrium env list',
+        'sovrium env unset',
+        'environment variables',
+        'secrets',
+        '--overwrite',
+        '--plain',
+        '--redeploy',
+      ],
+      order: 1441,
+      sidebarLabel: 'Cloud variables',
+      body: envBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-ENV'],
+    }),
+    defineArticle({
+      slug: 'preview',
+      title: 'Share a Preview',
+      description:
+        'Put a change online with sovrium preview, at its own share address until it expires, while the live app stays as it is; promote it with deploy --from-preview.',
+      keywords: [
+        'sovrium preview',
+        'preview',
+        'share',
+        'share address',
+        'feedback',
+        'Expires',
+        '--from-preview',
+        'sovrium deploy --from-preview',
+        '--app',
+        '--no-wait',
+        '--env',
+      ],
+      order: 1442,
+      sidebarLabel: 'Preview',
+      body: previewBody,
+      documents: [],
+      stories: ['US-CLI-COMMANDS-PREVIEW'],
+    }),
+  ],
+})

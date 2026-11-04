@@ -79,6 +79,9 @@ import type {
   LinkDbError,
   LinkRepository,
 } from '@/application/ports/repositories/links/link-repository'
+import type { SignatureRequestRepository } from '@/application/ports/repositories/signatures/signature-request-repository'
+import type { DataSourceRepository } from '@/application/ports/repositories/tables/data-source-repository'
+import type { TableRepository } from '@/application/ports/repositories/tables/table-repository'
 import type {
   TablesOverviewError,
   TablesOverviewRepository,
@@ -104,6 +107,7 @@ import type { StorageService } from '@/application/ports/services/storage-servic
 import type { TemplateEngine } from '@/application/ports/services/template-engine'
 import type { AdminAttentionServices } from '@/application/use-cases/admin/attention'
 import type { AdminOverviewServices } from '@/application/use-cases/admin/overview'
+import type { DatabaseError, UncompilableFilterOperatorError } from '@/domain/errors'
 import type { Logger } from '@/infrastructure/logging/logger'
 
 /** The store failures an admin read can surface. Extend as areas join. */
@@ -129,6 +133,8 @@ export type AdminReadError =
   | AccountDatabaseError
   | CSSCompilationError
   | DesignKitAssetReadError
+  | DatabaseError
+  | UncompilableFilterOperatorError
 
 /** The services an admin read requires. Extend as areas join. */
 export type AdminReadServices =
@@ -166,3 +172,6 @@ export type AdminReadServices =
   | PageRenderer
   | CSSCompiler
   | DesignKitAssets
+  | SignatureRequestRepository
+  | TableRepository
+  | DataSourceRepository

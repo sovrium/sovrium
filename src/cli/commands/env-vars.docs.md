@@ -13,7 +13,7 @@ DATABASE_URL=postgresql://user:password@localhost:5432/dbname
 SOVRIUM_ENCRYPTION_KEY=<64 hex characters>
 ```
 
-That is a complete deployed configuration: one secret, not two. The variables here are the app's own settings: the server it binds, the database it opens, and the two secrets that protect it. The _paths_ (the project directory a supervisor hands over, and the data directory the engine writes into) are in **Env Vars: Directories**. Storage, email and observability are in **Env Vars: Services**, the AI provider and its limits in **Env Vars: AI**, and running under a supervisor in **Env Vars: Hosting**.
+That is a complete deployed configuration: one secret, not two. The variables here are the app's own settings: the server it binds, the database it opens, and the two secrets that protect it. The _paths_ (the project directory a supervisor hands over, and the data directory the engine writes into) are in **Env Vars: Directories**. Storage, email and observability are in **Env Vars: Services**, the AI provider and its limits in **Env Vars: AI**, running under a supervisor in **Env Vars: Hosting**, and the seal, timestamp authority and one-time-code secret of signing flows in **Signing Keys**.
 
 ## Application and server
 
@@ -192,7 +192,7 @@ The generated key sits beside the SQLite database it protects, so on a persisten
 
 Set it explicitly whenever the key and the data it protects **do not share a fate**: an external database on a host whose filesystem resets on deploy or restart, or any deployment where the data directory is not a persistent volume. There the database outlives the key that encrypted it, so every stored connection token becomes unreadable on the next restart, and again on the one after. Sovrium says so at boot when it recognises the shape.
 
-An install that already supplies the variable cannot simply unset it: the next start would find no key file, generate one, and orphan everything. `sovrium secret adopt` writes the key the process already has into the file the server reads, so removing the variable then changes nothing.
+An install that already supplies the variable cannot unset it straight away: the next start would find no key file, generate one, and orphan everything. `sovrium secret adopt` writes the key the process already has into the file the server reads, so removing the variable then changes nothing.
 
 **Back the key up with the database.** A credential encrypted under a key you no longer have cannot be recovered: the affected users have to reconnect. Setting or rotating the auth secret signs every active session out.
 

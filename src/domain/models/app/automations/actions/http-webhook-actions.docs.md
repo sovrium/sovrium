@@ -103,7 +103,7 @@ The `url` may not point at a private, loopback or link-local address, and neithe
     body: { email: '{{trigger.data.email}}', name: '{{trigger.data.name}}' }
 ```
 
-Prefer `connection` over inlining a secret in a header. With one referenced, Sovrium attaches the right `Authorization` header and, for OAuth2, refreshes the token before it expires. The credential goes only to the connection's own service: the step's `url` must write its scheme and host in the config, and the request must go to the origin of the connection's `baseUrl` or one of its `allowedOrigins`, or the step fails and nothing is sent (see **Connections**).
+Prefer `connection` over inlining a secret in a header. With one referenced, Sovrium attaches the right `Authorization` header and, for OAuth2, refreshes the token before it expires. The credential goes only to the connection's own service: the step's `url` must write its scheme and host in the config, and the request must go to the origin of the connection's `baseUrl` or one of its `allowedOrigins`, or the step fails and nothing is sent (see [Connections](/en/docs/automation-connections)).
 
 ## Webhook: sending and responding
 

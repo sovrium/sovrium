@@ -31,8 +31,8 @@
 //! exactly that entry (ADR-036 A2, `claude_desktop.rs`).
 
 use std::collections::BTreeMap;
-use std::sync::Mutex;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Manager, Runtime};
@@ -215,7 +215,9 @@ pub async fn create_project<R: Runtime>(
     // slugs from the bundled catalogue, so this is a backstop rather than the
     // gate — but a backstop on the one argument that reaches a subprocess.
     if crate::deeplink::parse(&format!("sovrium://new?template={template}")).is_err() {
-        return Err(format!("“{template}” is not a template name Sovrium recognises."));
+        return Err(format!(
+            "“{template}” is not a template name Sovrium recognises."
+        ));
     }
 
     let dir = PathBuf::from(&parent_dir).join(&folder_name);
@@ -594,7 +596,11 @@ fn snippet_env(project: Option<&ProjectRef>, writes_enabled: bool) -> BTreeMap<S
 /// One server entry: `command`, `args`, and `env` only when there is something
 /// in it. The snippet and the Claude Desktop write both use this, so the entry
 /// written is the entry the snippet shows.
-fn server_entry(command: &str, args: &[String], env: &BTreeMap<String, String>) -> serde_json::Value {
+fn server_entry(
+    command: &str,
+    args: &[String],
+    env: &BTreeMap<String, String>,
+) -> serde_json::Value {
     let mut server = serde_json::json!({ "command": command, "args": args });
     if !env.is_empty() {
         let env: serde_json::Map<String, serde_json::Value> = env
@@ -668,7 +674,11 @@ fn server_inputs(project: Option<&ProjectRef>, settings: &Settings) -> ServerInp
     // not see a toggle made since.
     let writes_supported = project.is_some_and(ProjectRef::ai_writes_supported);
     let writes_enabled = writes_supported
-        && project.is_some_and(|p| settings.project(&p.dir).is_some_and(|known| known.ai_writes));
+        && project.is_some_and(|p| {
+            settings
+                .project(&p.dir)
+                .is_some_and(|known| known.ai_writes)
+        });
     let command = sidecar::engine_path()
         .map(|p| p.to_string_lossy().into_owned())
         .unwrap_or_else(|| "sovrium".into());
@@ -712,7 +722,9 @@ fn entry_name_for(
 /// The `mcpServers` object of Claude Desktop's file, for naming only. Any
 /// failure to read or parse it is "nothing known"; the write itself refuses
 /// on its own terms.
-fn claude_desktop_servers(path: Option<&Path>) -> Option<serde_json::Map<String, serde_json::Value>> {
+fn claude_desktop_servers(
+    path: Option<&Path>,
+) -> Option<serde_json::Map<String, serde_json::Value>> {
     let path = claude_desktop::resolve_target(path?);
     let bytes = claude_desktop::read(&path).ok()??;
     claude_desktop::servers_of(Some(&bytes))
@@ -786,7 +798,11 @@ pub struct PendingClientWrite(Mutex<Option<PendingWrite>>);
 
 /// Everything the consent dialog shows (A2 rule 1), or why there is no dialog.
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum ClaudeDesktopPreview {
     Ready {
         /// The file that will be written.
@@ -825,8 +841,9 @@ pub fn claude_desktop_preview<R: Runtime>(
     action: ClientWriteAction,
     dir: Option<String>,
 ) -> Result<ClaudeDesktopPreview, String> {
-    let path = claude_desktop::config_path()
-        .ok_or_else(|| "Claude Desktop's configuration file has no known place on this computer.".to_string())?;
+    let path = claude_desktop::config_path().ok_or_else(|| {
+        "Claude Desktop's configuration file has no known place on this computer.".to_string()
+    })?;
     let settings = settings::load(&app);
     let project = match (action, dir) {
         (ClientWriteAction::Remove, Some(dir)) => settings
@@ -857,11 +874,14 @@ pub fn claude_desktop_preview<R: Runtime>(
     let servers = claude_desktop::servers_of(original.as_deref());
     let entry_name = entry_name_for(Some(&project), &settings, servers.as_ref());
     let entry = match action {
-        ClientWriteAction::Connect => Some(server_entry(&inputs.command, &inputs.args, &inputs.env)),
+        ClientWriteAction::Connect => {
+            Some(server_entry(&inputs.command, &inputs.args, &inputs.env))
+        }
         ClientWriteAction::Remove => None,
     };
     let stamp = claude_desktop::backup_stamp(std::time::SystemTime::now());
-    let plan = match claude_desktop::plan(&target, original.as_deref(), &entry_name, entry, &stamp) {
+    let plan = match claude_desktop::plan(&target, original.as_deref(), &entry_name, entry, &stamp)
+    {
         Ok(plan) => plan,
         Err(r) => return Ok(refuse(r)),
     };
@@ -891,7 +911,11 @@ pub fn claude_desktop_preview<R: Runtime>(
 
 /// What a confirmation did.
 #[derive(Debug, Clone, Serialize)]
-#[serde(tag = "kind", rename_all = "camelCase", rename_all_fields = "camelCase")]
+#[serde(
+    tag = "kind",
+    rename_all = "camelCase",
+    rename_all_fields = "camelCase"
+)]
 pub enum ClaudeDesktopApplied {
     /// Written. Claude Desktop reads the file at launch, so it must be
     /// restarted (A2 rule 9).
@@ -992,7 +1016,8 @@ fn snapshot_instant(name: &str) -> Option<String> {
     if sep_positions.iter().any(|&i| b[i] != b'-') {
         return None;
     }
-    if (0..24).any(|i| !sep_positions.contains(&i) && i != 10 && i != 23 && !b[i].is_ascii_digit()) {
+    if (0..24).any(|i| !sep_positions.contains(&i) && i != 10 && i != 23 && !b[i].is_ascii_digit())
+    {
         return None;
     }
     Some(format!(
@@ -1059,7 +1084,10 @@ fn restore_tree(from: &Path, to: &Path) -> std::io::Result<()> {
         let source = entry.path();
         let destination = to.join(entry.file_name());
         if std::fs::symlink_metadata(&source)?.is_symlink() {
-            log::warn!("skipping a symlink in the config history: {}", source.display());
+            log::warn!(
+                "skipping a symlink in the config history: {}",
+                source.display()
+            );
             continue;
         }
         if source.is_dir() {
@@ -1261,9 +1289,10 @@ mod tests {
         // ADR-036 D4 enumerates the settings surface. If this test needs a new
         // field, read that decision before adding one — the question is whether
         // the value could ever end up in the config file.
-        let patch: SettingsPatch =
-            serde_json::from_str(r#"{"port":1,"openInBrowser":true,"checkUpdates":false,"tables":[]}"#)
-                .unwrap();
+        let patch: SettingsPatch = serde_json::from_str(
+            r#"{"port":1,"openInBrowser":true,"checkUpdates":false,"tables":[]}"#,
+        )
+        .unwrap();
         assert_eq!(patch.port, Some(Some(1)));
         assert_eq!(patch.check_updates, Some(false));
         // `tables` is ignored, not stored. serde's default is to skip unknown
@@ -1310,8 +1339,13 @@ mod tests {
         // `connect-desktop-ai.md`: no `env` key at all until writing is on.
         let env = snippet_env(Some(&yaml_project()), false);
         assert!(env.is_empty());
-        let (json, cli) =
-            render_snippet("sovrium-crm", "sovrium", &args_for("/Users/me/apps/crm"), &env).unwrap();
+        let (json, cli) = render_snippet(
+            "sovrium-crm",
+            "sovrium",
+            &args_for("/Users/me/apps/crm"),
+            &env,
+        )
+        .unwrap();
         let value: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert_eq!(
             value,
@@ -1320,7 +1354,10 @@ mod tests {
                 "args": ["mcp", "--project", "/Users/me/apps/crm"],
             }}})
         );
-        assert_eq!(cli, "claude mcp add sovrium-crm -- sovrium mcp --project /Users/me/apps/crm");
+        assert_eq!(
+            cli,
+            "claude mcp add sovrium-crm -- sovrium mcp --project /Users/me/apps/crm"
+        );
     }
 
     #[test]
@@ -1328,8 +1365,13 @@ mod tests {
         // `mcp-write.docs.md`: `"env": { "MCP_CONFIG_WRITE": "1" }` beside an
         // explicit `--project`.
         let env = snippet_env(Some(&yaml_project()), true);
-        let (json, cli) =
-            render_snippet("sovrium-crm", "sovrium", &args_for("/Users/me/apps/crm"), &env).unwrap();
+        let (json, cli) = render_snippet(
+            "sovrium-crm",
+            "sovrium",
+            &args_for("/Users/me/apps/crm"),
+            &env,
+        )
+        .unwrap();
         let value: serde_json::Value = serde_json::from_str(&json).unwrap();
         assert_eq!(
             value,
@@ -1359,7 +1401,10 @@ mod tests {
         let project = ProjectRef::new(dir.clone(), None);
 
         let reads = snippet_env(Some(&project), false);
-        assert_eq!(reads.get("SOVRIUM_CONFIG_FILE").map(String::as_str), Some("app.json"));
+        assert_eq!(
+            reads.get("SOVRIUM_CONFIG_FILE").map(String::as_str),
+            Some("app.json")
+        );
         assert!(!reads.contains_key("MCP_CONFIG_WRITE"));
 
         let writes = snippet_env(Some(&project), true);
@@ -1375,7 +1420,9 @@ mod tests {
     fn no_open_project_means_no_environment() {
         assert!(snippet_env(None, false).is_empty());
         assert_eq!(
-            snippet_env(None, true).get("MCP_CONFIG_WRITE").map(String::as_str),
+            snippet_env(None, true)
+                .get("MCP_CONFIG_WRITE")
+                .map(String::as_str),
             Some("1"),
             "the caller gates the switch; this only renders it"
         );
@@ -1385,12 +1432,21 @@ mod tests {
     fn a_path_with_a_space_is_quoted_for_the_shell_one_liner() {
         // Unquoted, `~/My Projects/crm` becomes two arguments and the client
         // registers a command that cannot run.
-        assert_eq!(shell_arg("/Applications/Sovrium.app/sovrium"), "/Applications/Sovrium.app/sovrium");
-        assert_eq!(shell_arg("/Users/me/My Projects/crm"), "'/Users/me/My Projects/crm'");
+        assert_eq!(
+            shell_arg("/Applications/Sovrium.app/sovrium"),
+            "/Applications/Sovrium.app/sovrium"
+        );
+        assert_eq!(
+            shell_arg("/Users/me/My Projects/crm"),
+            "'/Users/me/My Projects/crm'"
+        );
         assert_eq!(shell_arg("mcp"), "mcp");
         assert_eq!(shell_arg("--project"), "--project");
         // The placeholder shown before a project is open.
-        assert_eq!(shell_arg("<your project folder>"), "'<your project folder>'");
+        assert_eq!(
+            shell_arg("<your project folder>"),
+            "'<your project folder>'"
+        );
         // A single quote inside a single-quoted string has to be closed,
         // escaped and reopened, or the rest of the command line is inside the
         // user's path.
@@ -1403,9 +1459,14 @@ mod tests {
         let args = args_for("/Users/me/apps/crm");
         let (json, _) = render_snippet("sovrium-crm", "sovrium", &args, &env).unwrap();
         let value: serde_json::Value = serde_json::from_str(&json).unwrap();
-        assert_eq!(value["mcpServers"]["sovrium-crm"], server_entry("sovrium", &args, &env));
+        assert_eq!(
+            value["mcpServers"]["sovrium-crm"],
+            server_entry("sovrium", &args, &env)
+        );
         // No `env` key at all while it would be empty.
-        assert!(server_entry("sovrium", &args, &BTreeMap::new()).get("env").is_none());
+        assert!(server_entry("sovrium", &args, &BTreeMap::new())
+            .get("env")
+            .is_none());
     }
 
     #[test]
@@ -1418,7 +1479,13 @@ mod tests {
 
         let name = entry_name_for(Some(&other), &settings, None);
         assert_eq!(name, "sovrium-crm-2");
-        let (json, cli) = render_snippet(&name, "sovrium", &args_for("/Users/me/home/crm"), &BTreeMap::new()).unwrap();
+        let (json, cli) = render_snippet(
+            &name,
+            "sovrium",
+            &args_for("/Users/me/home/crm"),
+            &BTreeMap::new(),
+        )
+        .unwrap();
         assert!(json.contains("\"sovrium-crm-2\""));
         assert!(cli.starts_with("claude mcp add sovrium-crm-2 -- "));
         // No project open: the generic name the manual prints.

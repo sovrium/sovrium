@@ -37,6 +37,7 @@ import { isReadonlyComputedFieldType } from '@/domain/models/app/tables/fields/f
 import { logError } from '@/infrastructure/logging/logger'
 import { triggerRecordEventAutomations } from '../trigger-record-event'
 import type { CommentEventChannel } from './comment-event-channel'
+import type { SignatureEventChannel } from './signature-event-channel'
 import type { StepContext } from './types'
 import type { App } from '@/domain/models/app'
 
@@ -72,6 +73,7 @@ export interface RecordEventChannel {
   ) => string | undefined
   readonly dispatch: (write: RecordWriteEvent) => void
   readonly comments?: CommentEventChannel // the same depth, for the comments a step writes
+  readonly signatures?: SignatureEventChannel // the same depth, for the signing requests a step moves
 }
 
 /**

@@ -9,7 +9,8 @@ import { Effect, Layer } from 'effect'
 import { makeAuthHookPolicies } from '@/infrastructure/server/auth-hook-policies'
 import { createAuthInstance } from './auth'
 import { AuthError } from './auth-error'
-import { Auth } from './auth-service'
+import { Auth, type AuthAccountWriter } from './auth-service'
+import { runAsServerWrite } from './server-write-context'
 import type { Auth as AuthConfig } from '@/domain/models/app/auth'
 import type { DatabaseService } from '@/infrastructure/database/drizzle/layer'
 
@@ -55,7 +56,14 @@ export const createAuthLayer = (
       handler: authInstance.handler,
       accountWriter: async () => {
         const context = await authInstance.$context
-        return { ...context.internalAdapter, hashPassword: context.password.hash }
+        const createUser: AuthAccountWriter['createUser'] = async (user, source) =>
+          await runAsServerWrite(context, () => context.internalAdapter.createUser(user, source))
+        return {
+          ...context.internalAdapter,
+          // A server-side creation runs outside any request: see runAsServerWrite.
+          createUser,
+          hashPassword: context.password.hash,
+        }
       },
 
       getSession: (headers) =>

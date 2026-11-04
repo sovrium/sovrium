@@ -12,6 +12,11 @@ import { DnsPrefetchSchema } from './dns-prefetch'
 import { FaviconSchema, FaviconSetSchema, FaviconsConfigSchema } from './favicon'
 import { OpenGraphSchema } from './open-graph'
 import { PreloadSchema } from './preload'
+import {
+  isItemListCarrier,
+  isItemListSource,
+  type ItemListCarrier,
+} from './structured-data-item-list'
 import { StructuredDataFieldSchema } from './structured-data-synthesis'
 import { TwitterCardSchema } from './twitter'
 
@@ -126,12 +131,27 @@ export const MetaSchema = Schema.Struct({
   openGraph: Schema.optional(OpenGraphSchema),
   twitter: Schema.optional(TwitterCardSchema),
   schema: Schema.optionalKey(
-    // `Schema.Unknown` discards its own annotations when emitted to JSON
-    // Schema, so the description rides on the `UndefinedOr` wrapper that
-    // `Schema.optional` would have built anyway.
-    Schema.UndefinedOr(Schema.Unknown).annotate({
+    // A pass-through for every authored document, with one recognised key:
+    // `itemList` is not JSON-LD but a source the renderer reads rows from, so
+    // an object carrying it is checked against `ItemListSourceSchema` and a
+    // mistake is reported rather than emitted. The node stays `Unknown` in the
+    // published JSON Schema (free-form JSON-LD lives below it); the itemList
+    // options are documented from `ItemListSourceSchema` itself. The
+    // description rides on the `UndefinedOr` wrapper because `Unknown` drops
+    // its own.
+    Schema.UndefinedOr(
+      Schema.Unknown.pipe(
+        Schema.check(
+          Schema.makeFilter((value) =>
+            !isItemListCarrier(value) || isItemListSource((value as ItemListCarrier).itemList)
+              ? true
+              : '`itemList` takes `dataSource` (a `table`, with an optional `filter` and `sort` in the grammar of a list dataSource) and `item` (a `name` and a `url`, both strings).'
+          )
+        )
+      )
+    ).annotate({
       description:
-        'Schema.org structured data describing this page, either in the shorthand form (organization, faqPage, …) or as a full Schema.org object. Passed through to the page as JSON-LD without validation; the shorthand keys are in `sovrium docs seo-structured-data`.',
+        "Schema.org structured data describing this page, either in the shorthand form (organization, faqPage, …) or as a full Schema.org object, passed through to the page as JSON-LD. One key is read rather than passed through: `itemList` builds an ItemList from a table's rows for each reader. The shorthand keys are in `sovrium docs seo-structured-data`.",
     })
   ),
   preload: Schema.optional(PreloadSchema),

@@ -8,6 +8,7 @@
 import { isRecord } from '@/domain/kernel/config-parsing/plain-object'
 import {
   SOVRIUM_SELF_SEED_VAR,
+  parseSovriumSelfSeed,
   selfSeedGateAllows,
   type SelfSeedGate,
 } from '@/domain/models/process-env/self-seed'
@@ -100,4 +101,17 @@ export const withholdSelfSeedAutomations = <T extends App>(
     .filter((verdict) => verdict.refusedModes.length === 0)
     .map((verdict) => verdict.automation)
   return { app: { ...app, automations: kept }, withheld }
+}
+
+/**
+ * {@link withholdSelfSeedAutomations} under the host's own `SOVRIUM_SELF_SEED`,
+ * with the boot notice each withheld automation owes the operator.
+ */
+export const withholdSelfSeedAutomationsForHost = <T extends App>(
+  app: T,
+  env: Readonly<Record<string, string | undefined>>
+): { readonly app: T; readonly notices: readonly string[] } => {
+  const gate = parseSovriumSelfSeed(env)
+  const { app: kept, withheld } = withholdSelfSeedAutomations(app, gate)
+  return { app: kept, notices: withheld.map((entry) => selfSeedBootNotice(entry, gate)) }
 }

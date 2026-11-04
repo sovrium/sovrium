@@ -14,7 +14,12 @@
 import { canonicalAcceptAttribute } from '@/domain/models/app/forms/form-file-upload-validation'
 import { computeFormFieldClasses } from '@/presentation/design/form-layout-classes'
 import { AudioRecorderControls } from './form-audio-recorder'
-import { ariaRequired, FIELD_LABEL_CLASS, fieldWrapperAttributes } from './form-field-chrome'
+import {
+  ariaRequired,
+  describedByHelpOf,
+  FIELD_LABEL_CLASS,
+  fieldWrapperAttributes,
+} from './form-field-chrome'
 import { ChipsInput, SelectInput } from './form-field-elements-design'
 import { RequiredMark } from './form-field-elements-typed'
 import { HelpText } from './form-help-text'
@@ -64,6 +69,15 @@ export const UserInput = ({
   )
 }
 
+/** The size and count limits the runtime checks a file input's picks against. */
+const fileLimitAttributes = (
+  field: ResolvedFormField,
+  multiple: boolean
+): Readonly<Record<string, string>> => ({
+  ...(field.maxFileSize === undefined ? {} : { 'data-max-file-size': String(field.maxFileSize) }),
+  ...(multiple && field.maxFiles !== undefined ? { 'data-max-files': String(field.maxFiles) } : {}),
+})
+
 /**
  * File-input component for `single-attachment` / `multiple-attachments`
  * columns and standalone `attachment` fields. Emits a vanilla `<input
@@ -111,16 +125,12 @@ export const FileInput = ({
       name={field.name}
       required={field.required}
       {...ariaRequired(field.required)}
+      {...describedByHelpOf(field)}
       disabled={field.conditionHidden}
       multiple={multiple}
       accept={field.accept ? canonicalAcceptAttribute(field.accept) || undefined : undefined}
       data-form-file-input={field.name}
-      {...(field.maxFileSize !== undefined
-        ? { 'data-max-file-size': String(field.maxFileSize) }
-        : {})}
-      {...(multiple && field.maxFiles !== undefined
-        ? { 'data-max-files': String(field.maxFiles) }
-        : {})}
+      {...fileLimitAttributes(field, multiple)}
     />
     {field.recordAudioMaxSeconds !== undefined && (
       <AudioRecorderControls
@@ -133,6 +143,6 @@ export const FileInput = ({
       className="form-file-chips"
       data-form-file-chips={field.name}
     />
-    <HelpText html={field.helpTextHtml} />
+    <HelpText field={field} />
   </div>
 )

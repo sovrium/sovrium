@@ -5,12 +5,16 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
+import { toDate } from '@/domain/kernel/format/day-relative-time'
 import { RECORD_TEXT_KEY } from '@/domain/models/app/pages/substitute-record-vars'
-import {
-  formatCellValue,
-  type CellFormatOptions,
-} from '@/domain/models/app/tables/cell-value-format'
+import { dateTimeGlueOf } from '@/domain/models/app/tables/cell-value-format'
 import { fieldLiteralOf } from '@/domain/models/app/tables/checkbox-literal-service'
+import {
+  clockRecipeOf,
+  dateTimeColumnRecipe,
+  formatFieldColumnValue,
+  timeColumnRecipe,
+} from '@/domain/models/app/tables/datetime-display-service'
 import { columnReadsAsDay, readDriverValue } from '@/domain/models/app/tables/driver-value-service'
 import {
   fieldFormatOptionsOf,
@@ -29,6 +33,7 @@ import { parseSovriumTimezone } from '@/domain/models/process-env/timezone'
 import { renderNow } from '@/presentation/render/page/render-clock'
 import { optionLabelsOf } from '@/presentation/render/props/option-labels'
 import { resolveValueCurrency } from './resolve-chart-field-context'
+import type { DateRecipe } from '@/domain/kernel/format/date-recipe'
 import type { Languages } from '@/domain/models/app/languages'
 import type { ColumnFormat } from '@/domain/models/app/pages/components/component-types/data/table/schema'
 import type { Tables } from '@/domain/models/app/tables'
@@ -79,7 +84,7 @@ const formatOptionsOf = (
   table: TableDefinition | undefined,
   fieldName: string | undefined,
   context: FieldTextContext
-): CellFormatOptions => ({
+): Parameters<typeof formatFieldColumnValue>[3] => ({
   ...fieldFormatOptionsOf(table, fieldName, resolversOf(context)),
   now: context.now,
 })
@@ -144,7 +149,7 @@ export const formatRecordValue = (
   const context = serverTextContext(binding.locale, binding.languages, binding.tables)
   if (binding.format !== undefined) {
     const options = formatOptionsOf(binding.table, binding.fieldName, context)
-    return formatCellValue(value, binding.format, binding.locale, options)
+    return formatFieldColumnValue(value, binding.format, binding.locale, options)
   }
   const field =
     binding.fieldName === undefined
@@ -153,6 +158,60 @@ export const formatRecordValue = (
   return field === undefined
     ? undefined
     : formatRecordText(value, field, binding.locale, context.now)
+}
+
+/** A moment a browser writes again in its reader's zone: the instant, and how it reads. */
+export interface ReaderZoneReading {
+  readonly dateTime: string
+  readonly recipe: DateRecipe
+}
+
+/** How an explicitly formatted moment reads, as a recipe, for the formats that print one. */
+const formatRecipeOf = (
+  format: ColumnFormat,
+  field: Readonly<Record<string, unknown>> | undefined,
+  locale: string
+): DateRecipe | undefined => {
+  if (format === 'datetime') return dateTimeColumnRecipe(dateTimeGlueOf(locale))
+  if (format === 'time') return timeColumnRecipe(clockRecipeOf(field))
+  return format === 'long-date'
+    ? [{ f: { month: 'long', day: 'numeric', year: 'numeric' } }]
+    : undefined
+}
+
+/**
+ * The reading a browser writes again for a value whose field asks for each
+ * reader's own zone (`timeZone: local`), or `undefined` for any other value. The
+ * server cannot know that zone: it prints the moment at the operator's, and the
+ * page carries the instant and its recipe so the browser writes it at the
+ * reader's (`reader-zone-time-script.ts`) before it is ever read.
+ */
+export const readerZoneReadingOf = (
+  value: unknown,
+  binding: Parameters<typeof formatRecordValue>[1]
+): ReaderZoneReading | undefined => {
+  const field = planFieldOf(binding.table, binding.fieldName)
+  const date = toDate(value)
+  if (field?.['timeZone'] !== 'local' || date === undefined) return undefined
+  const recipe =
+    binding.format === undefined
+      ? typeDefaultRecipeOf(binding)
+      : formatRecipeOf(binding.format, field, binding.locale)
+  return recipe === undefined ? undefined : { dateTime: date.toISOString(), recipe }
+}
+
+/** How a moment shown with no format reads, as a recipe: its field's own, else the `datetime` spelling. */
+const typeDefaultRecipeOf = (
+  binding: Parameters<typeof formatRecordValue>[1]
+): DateRecipe | undefined => {
+  if (binding.fieldName === undefined) return undefined
+  const context = serverTextContext(binding.locale, binding.languages, binding.tables)
+  const plan = recordTextFieldOf(binding.table, binding.fieldName, context)
+  if (plan?.format !== 'datetime') return undefined
+  return (
+    ('recipe' in plan ? plan.recipe : undefined) ??
+    dateTimeColumnRecipe('glue' in plan ? plan.glue : undefined)
+  )
 }
 
 /**

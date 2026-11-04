@@ -1,0 +1,29 @@
+# The Add contract dialog on the Contracts page opens this form. It drafts a
+# contract and nothing more: sending it is a separate, deliberate step.
+id: 3
+name: add-contract
+title: Add contract
+access:
+  require: [admin]
+  redirectTo: /sign-in
+submitTo:
+  table: contracts
+display:
+  submitLabel: Add contract
+onSuccess:
+  type: redirect
+  url: /contracts
+  delaySeconds: 0
+fields:
+  - kind: table-field
+    column: title
+    label: Title
+  - kind: table-field
+    column: employee
+    label: Employee
+  - kind: table-field
+    column: manager
+    label: Countersigned by
+  - kind: table-field
+    column: draft_pdf
+    label: Contract (PDF)

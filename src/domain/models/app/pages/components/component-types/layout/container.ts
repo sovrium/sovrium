@@ -25,9 +25,13 @@ export const ContainerElementSchema = Schema.Literals([
   'header',
   'footer',
   'article',
+  'ul',
+  'ol',
+  'li',
 ]).annotate({
   title: 'Container Element',
-  description: 'HTML element to render. Defaults to "div".',
+  description:
+    'HTML element to render. Defaults to "div". `ul` and `ol` draw a list, whose direct children must each be an `li` container; an `li` is accepted only as a direct child of a `ul` or `ol` container.',
 })
 
 /**

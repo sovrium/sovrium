@@ -14,7 +14,7 @@ The headers, CSRF, rate limits and secrets that harden each response are a separ
 | A signed-in person                                         | A session cookie                                                                        | What her role, her groups and her assignments grant, narrowed by each table's row and field rules             |
 | A script or service                                        | An API key, valid one year unless minted for less                                       | What the person who minted the key may reach, resolved again on every request, except account management      |
 | An AI client                                               | An API key, or an OAuth access token a person authorised, presented to the MCP endpoint | The same as that person; an MCP tool is one more door, not a wider one                                        |
-| A person holding the `admin` role (or the top custom role) | A session                                                                               | Every row of every table, past row-level rules, and the read-only operator console at `/_admin`               |
+| A person holding the `admin` role (or the top custom role) | A session                                                                               | Every row of every table, past row-level rules, and the operator console at `/_admin`                         |
 | The operator                                               | `DATABASE_URL` or the data directory, the encryption key, the server and its backups    | Everything, directly. This is the one principal no rule constrains                                            |
 
 An API key never reaches account management (`/api/auth/admin/*`), a change to the organisation or its groups, notification preferences or account deletion: those answer a key `404` and need the person signed in. The browser never receives a database credential, a service key or a query language. What it receives is HTML and JSON the engine has already filtered for the person asking.
@@ -110,7 +110,7 @@ The two state the same rule. They differ in where it is enforced, and that diffe
 
 A database-level row policy earns its place when **clients connect to the database directly**: a public key in the browser, a query endpoint that forwards requests as written, an analyst with a connection string. The policy is then the only thing standing between those clients and every row, so it has to live in the database.
 
-In Sovrium, no client connects to the database, so that reason does not arise: the engine is the only client, and it applies the rule before the query is built. The other things database policies offer are worth stating plainly, with what Sovrium does about each:
+In Sovrium, no client connects to the database, so that reason does not arise: the engine is the only client, and it applies the rule before the query is built. Database policies offer three other things, and this is what Sovrium does about each:
 
 - **Defence in depth.** A second lock at the database level still holds if the application layer has a bug. Sovrium has one enforcement layer for rows, the engine, and relies on a single composed read plan, shared by every door, so that one fix covers every surface.
 - **A rule a database tool can read.** A policy is visible to anyone who inspects the schema. A Sovrium rule lives in your config file, under version control, and `sovrium validate` refuses a rule it cannot evaluate before the app starts.
@@ -129,7 +129,7 @@ What follows for you as the operator:
 - Record ids count up, so they are guessable. The `404` hides whether a row exists and what it holds; it does not make an id secret.
 - When sign-up is open (`auth.allowSignUp: true`), a sign-up answer can reveal whether an address already has an account: registering a known address is refused, a new one is not. The default, closed sign-up gives nobody that answer, and the password-reset, sign-in link and sign-in code requests answer a known and an unknown address alike, in the same time: the mail goes out after the answer.
 - Automations nobody started, outgoing webhooks and scheduled jobs act for the app and read whatever their configuration names.
-- The operator console is read-only and admin-only, but an admin sees every row it shows.
+- The operator console is admin-only and offers only the writes the app's config grants, but an admin sees every row it shows.
 
 ## Related reading
 

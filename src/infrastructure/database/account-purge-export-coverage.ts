@@ -61,6 +61,8 @@ export const EXPORT_COVERAGE: Readonly<Record<string, ExportStatus>> = {
   'system.notifications': 'exported',
   'system.notification_preferences': 'exported',
   'system.email_suppressions': 'exported',
+  // Her contact details as a signer, in clear, with each signature she gave (`signatures`).
+  'system.signature_subjects': 'exported',
 
   // Deliberately withheld — credentials and pure derivations.
   'auth.two_factor': 'withheld',

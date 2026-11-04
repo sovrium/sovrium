@@ -125,6 +125,7 @@ const drawnPageOfBoard = (drawing: ParsedPageDrawing, text: string): DrawnPage =
     ...(drawing.drawings === undefined ? {} : { drawings: drawing.drawings }),
     ...(drawing.paints === undefined ? {} : { paints: drawing.paints }),
     ...(drawing.rules === undefined ? {} : { rules: drawing.rules }),
+    ...(drawing.drawnAs === undefined ? {} : { drawnAs: drawing.drawnAs }),
     ...(drawing.declares === undefined ? {} : { declares: drawing.declares }),
     ...(title === undefined ? {} : { title }),
     reported: {

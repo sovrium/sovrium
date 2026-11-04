@@ -70,22 +70,40 @@ export const DEFAULT_TOAST_DISMISS_LABEL = 'Dismiss'
 
 /** Whether a toast of this variant interrupts the screen reader. */
 function isAssertiveToastVariant(variant?: string): boolean {
-  return variant !== undefined && ASSERTIVE_VARIANTS.has(variant)
+  return ASSERTIVE_VARIANTS.has(variant ?? '')
+}
+
+/** One `data-toast-<name>` attribute the server wrote on `<html>`, or `null`. */
+const pageToastAttribute = (name: string): string | null =>
+  document.documentElement.getAttribute(`data-toast-${name}`)
+
+/**
+ * Read the localized dismiss label the server wrote for this page.
+ *
+ * The label reaches the browser as an SSR attribute — the same server→client
+ * channel every other island label uses — because a control whose accessible
+ * name is hard-coded English announces the wrong word on a French page. A page
+ * that declares `page.toasts` serves it on its container (`PageToastContainer`);
+ * every page serves it on `<html>` as `data-toast-dismiss-label` when it is not
+ * the English default, so a container built on the client names the control in
+ * the page language too (`page-toast-attributes.ts`).
+ */
+export function resolveToastDismissLabel(container: Element): string {
+  const declared =
+    container.getAttribute('data-dismiss-label') ?? pageToastAttribute('dismiss-label')
+  return declared?.trim() ? declared : DEFAULT_TOAST_DISMISS_LABEL
 }
 
 /**
- * Read the localized dismiss label a server-rendered container carries.
- *
- * The label reaches the browser as an SSR attribute — the same server→client
- * channel every other island label uses — because the console ships French and
- * a control whose accessible name is hard-coded English announces the wrong
- * word to the operator it matters most to. A page that declares `page.toasts`
- * is served the attribute by `PageToastContainer`; a container built on the
- * client has nowhere to have read one from, so it falls back to English.
+ * Put `design.components.toast` on a toast: the variant's classes when the page
+ * declared some for it, else the classes every toast takes (a toast with no
+ * variant asks for `class-undefined`, which no page writes). The server writes
+ * both on `<html>` (`page-toast-attributes.ts`), since no renderer here can
+ * read the app's `design`.
  */
-export function resolveToastDismissLabel(container: Element): string {
-  const declared = container.getAttribute('data-dismiss-label')
-  return declared !== null && declared.trim() !== '' ? declared : DEFAULT_TOAST_DISMISS_LABEL
+export function applyToastDesign(toast: Element, variant?: string): void {
+  const classes = pageToastAttribute(`class-${variant}`) ?? pageToastAttribute('class')
+  if (classes) toast.setAttribute('class', classes)
 }
 
 /**
@@ -131,7 +149,7 @@ export function markToastPoliteness(toast: Element, variant?: string): void {
  */
 export function appendToastDismissControl(toast: Element, label: string): void {
   const button = document.createElement('button')
-  button.setAttribute('type', 'button')
+  button.type = 'button'
   button.setAttribute('data-toast-dismiss', '')
   button.setAttribute('aria-label', label)
   button.textContent = '×'
@@ -164,7 +182,7 @@ export interface ToastControls {
  */
 export function appendToastRetry(toast: Element, retry: ToastRetry): void {
   const button = document.createElement('button')
-  button.setAttribute('type', 'button')
+  button.type = 'button'
   button.setAttribute('data-toast-action', '')
   button.textContent = retry.label
   button.addEventListener('click', () => {
@@ -218,9 +236,7 @@ export function installToastEscapeDismiss(): void {
  * was pressed for.
  */
 function dismissMostRecentToast(): void {
-  const dismissible = Array.from(document.querySelectorAll('[data-toast]')).filter(
-    (toast) => toast.querySelector('[data-toast-dismiss]') !== null
-  )
+  const dismissible = document.querySelectorAll('[data-toast]:has([data-toast-dismiss])')
   dismissible[dismissible.length - 1]?.remove()
 }
 

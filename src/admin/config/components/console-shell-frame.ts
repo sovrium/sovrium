@@ -5,7 +5,7 @@
  * found in the LICENSE.md file in the root directory of this source tree.
  */
 
-// sovrium-library: block/console-shell@0.37.0#19b66afccf77
+// sovrium-library: block/console-shell@0.37.0#bfb2ee3c15fa
 
 // The console shell's frame: the sidebar and the content column with its sticky header.
 // `./console-shell.ts` places it first in the shell.
@@ -71,7 +71,6 @@ export const consoleShellFrame: TemplateNodeEncoded = {
             href: '/',
             className:
               'flex h-12 w-full min-w-0 items-center gap-2 overflow-hidden rounded-md p-2 text-left text-sm text-sidebar-foreground no-underline ring-sidebar-ring outline-hidden hover:bg-sidebar-accent hover:text-sidebar-accent-foreground hover:no-underline focus-visible:ring-2 group-data-[collapsible=icon]/sidebar:size-8! group-data-[collapsible=icon]/sidebar:p-0! [&_svg]:size-4 [&_svg]:shrink-0',
-            'aria-label': '$t:admin.shell.home',
           },
           children: [
             {
@@ -127,6 +126,16 @@ export const consoleShellFrame: TemplateNodeEncoded = {
                   content: 'Sovrium v$app.engineVersion',
                 },
               ],
+            },
+            // The link's job, after what it shows: a name that opens with the visible
+            // text is one a voice-control user can say aloud (WCAG 2.5.3).
+            {
+              type: 'text',
+              element: 'span',
+              props: {
+                className: 'sr-only',
+              },
+              content: '$t:admin.shell.home',
             },
           ],
         },
@@ -417,6 +426,15 @@ export const consoleShellFrame: TemplateNodeEncoded = {
                 itemProps: {
                   'data-testid': 'data-nav-files-{name}',
                 },
+              },
+            },
+            {
+              label: '$t:admin.crumb.signatures',
+              href: '/signatures',
+              icon: 'signature',
+              activeMatch: 'prefix',
+              props: {
+                'data-testid': 'data-nav-signatures',
               },
             },
             {

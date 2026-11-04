@@ -24,12 +24,22 @@
  * a folder past `MAX_FILES` token files or `MAX_ENTRIES` entries are refused
  * rather than truncated: a token export is never that large, and a silently
  * shortened read would be a design with a hole in it.
+ *
+ * ─── A DESIGN.MD IS READ WITH ITS SIDECAR ──────────────────────────────────
+ *
+ * A Markdown file named on the command line has its YAML front matter parsed
+ * here (the domain parses no YAML): front matter that does not parse is no
+ * front matter, and the file is then not a token file. The sidecar at
+ * `.impeccable/design.json` beside it is read too when it is a regular file,
+ * under the same link and size rules; its absence is the common case.
  */
 
 import { lstat, readdir, stat } from 'node:fs/promises'
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import { refuse } from '@/cli/commands/app-prelude'
+import { SKILL_FRONTMATTER_BLOCK } from '@/domain/kernel/markdown/skill-frontmatter'
 import { parseJson } from '@/domain/models/app/design/adapters/import/canonical-tokens-service'
+import { DESIGN_MD_SIDECAR } from '@/domain/models/app/design/adapters/import/design-md-import-service'
 import {
   isDtcgResolver,
   resolverFileRefs,
@@ -278,14 +288,47 @@ const resolverSiblings = async (root: string, entry: string, text: string) => {
   return readFiles(root, present.flat())
 }
 
+/** A Markdown file's YAML front matter, parsed; `undefined` when it has none or it does not parse. */
+const frontMatterOf = (text: string): unknown => {
+  const block = SKILL_FRONTMATTER_BLOCK.exec(text)?.[1]
+  if (block === undefined) return undefined
+  try {
+    return Bun.YAML.parse(block) as unknown
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * The DESIGN.md sidecar beside a Markdown file, when it is a regular file in a
+ * real folder there: neither the folder nor the file may be a link.
+ */
+const designMdSidecar = async (root: string) => {
+  const folder = await lstat(join(root, dirname(DESIGN_MD_SIDECAR))).catch(unlessAbsent)
+  if (folder?.isDirectory() !== true) return []
+  const info = await lstat(join(root, DESIGN_MD_SIDECAR)).catch(unlessAbsent)
+  return info?.isFile() === true ? readFiles(root, [DESIGN_MD_SIDECAR]) : []
+}
+
+/** The file named on the command line, and what it brings beside it. */
+const readEntry = async (root: string, entry: string, text: string) => {
+  if (/\.md$/i.test(entry)) {
+    return [
+      { path: entry, text, frontMatter: frontMatterOf(text) },
+      ...(await designMdSidecar(root)),
+    ]
+  }
+  const siblings = isDtcgResolver(parseJson(text)) ? await resolverSiblings(root, entry, text) : []
+  return [{ path: entry, text }, ...siblings]
+}
+
 const readFile = async (path: string): Promise<ReadSource> => {
   const root = dirname(path)
   const entry = basename(path)
   const text = await readTokenFile(root, entry, true)
-  const siblings = isDtcgResolver(parseJson(text)) ? await resolverSiblings(root, entry, text) : []
   return {
     path,
-    source: { entry, files: [{ path: entry, text }, ...siblings] },
+    source: { entry, files: await readEntry(root, entry, text) },
     components: await countComponents(root),
     isFolder: false,
   }

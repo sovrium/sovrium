@@ -163,7 +163,9 @@ const languageOf = (app: App): PrototypeLanguage | undefined => {
       keys.flatMap((key) => {
         const written = resolveTranslation(key, languages.default, languages)
         const translated = resolveTranslation(key, code, languages)
-        return written === key || written === translated ? [] : [[written, translated] as const]
+        return written === key || written === '' || written === translated
+          ? []
+          : [[written, translated] as const]
       })
     )
   return {

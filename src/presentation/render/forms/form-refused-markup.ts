@@ -111,3 +111,23 @@ export const markRefusedFields = (
   const marked = markForm(pageHtml.slice(start, end), formName, refusal)
   return `${pageHtml.slice(0, start)}${marked}${pageHtml.slice(end)}`
 }
+
+/**
+ * `pageHtml` with a notice about the posted form as a whole (a refusal no field
+ * explains, such as too many submissions) drawn above it, as the browser
+ * runtime draws its error banner; `undefined` when the page draws no such form.
+ */
+export const withFormNotice = (
+  pageHtml: string,
+  formName: string,
+  message: string
+): string | undefined => {
+  const name = escapeHtmlAttribute(formName)
+  const marker = pageHtml.indexOf(`data-form-name="${name}"`)
+  const start = marker < 0 ? -1 : pageHtml.lastIndexOf('<form', marker)
+  if (start < 0) return undefined
+  const notice =
+    `<div data-form-error-message="${name}" role="alert" class="form-error-banner">` +
+    `${escapeHtmlAttribute(message)}</div>`
+  return `${pageHtml.slice(0, start)}${notice}${pageHtml.slice(start)}`
+}

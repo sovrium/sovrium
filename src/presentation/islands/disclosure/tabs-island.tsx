@@ -6,13 +6,14 @@
  */
 
 import { Tabs } from '@base-ui/react/tabs'
-import { useId, useMemo, useRef, type ReactElement } from 'react'
+import { useId, useMemo, useRef, useState, type ReactElement } from 'react'
 import { resolveClasses } from '@/presentation/design/resolve-classes'
 import {
   computeTabsFillPanelClasses,
   computeTabsFillShellClasses,
   type TabsLayout,
 } from '@/presentation/design/tabs-fill-default-classes'
+import { arrivalTabAtWidth } from './tabs-arrival'
 import {
   computeTabPanelClasses,
   computeTabsListClasses,
@@ -83,6 +84,8 @@ interface TabsIslandProps {
    * the host's templates, so switching stays instant and offline-safe.
    */
   readonly lazyParam?: string
+  /** `responsive.<bp>.defaultTab`: the tab open on arrival from that width up. */
+  readonly arrivalTabs?: Readonly<Record<string, string>>
 }
 
 /**
@@ -156,7 +159,8 @@ function useTabsIslandModel(props: TabsIslandProps): {
 } {
   const { items = NO_ITEMS, defaultTab, ssrHtml, lazyParam } = props
   const orientation = props.tabsOrientation ?? 'horizontal'
-  const defaultValue = defaultTab ?? items[0]?.id
+  const [arrival] = useState(() => arrivalTabAtWidth(props.arrivalTabs))
+  const defaultValue = arrival ?? defaultTab ?? items[0]?.id
   const rootRef = useRef<HTMLDivElement>(null)
   const rescanNestedIslands = useNestedIslandMount(rootRef)
   const panelIds = useMemo(() => items.map((tab) => tab.id), [items])

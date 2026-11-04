@@ -46,6 +46,7 @@ import {
   permitsBucketFileAction,
   type BucketFileCaller,
 } from '@/domain/models/app/buckets/bucket-file-access-validation'
+import { isSignatureNamespaceKey } from '@/domain/models/app/signatures/signature-capture-service'
 import {
   isFilePublic,
   resolveStoragePublicAccess,
@@ -307,8 +308,12 @@ function createHandleDeleteBucketFile(app: App) {
             key,
           })
           if (refusal) return refusal
-          // A chat attachment is deleted with its conversation only: here it is absent.
-          if (isChatAttachmentKey(key)) return notFound(c, 'File not found')
+          // A chat attachment is deleted with its conversation only, and a file of
+          // the signature namespace (evidence or a record's mark) with its own
+          // retention, record or signer: here both are absent.
+          if (isChatAttachmentKey(key) || isSignatureNamespaceKey(key)) {
+            return notFound(c, 'File not found')
+          }
 
           const result = yield* Effect.result(removeBucketFile({ key, bucket: bucket.name }))
           if (result._tag === 'Failure') return deleteFailureResponse(c, result.failure)

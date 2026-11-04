@@ -12,6 +12,7 @@ import {
   type DeprecatedKey,
 } from '@/domain/models/app/app-deprecated-keys'
 import { collectAttachmentTokenWarnings } from '@/domain/models/app/attachment-token-validation'
+import { collectNavigationDepthWarnings } from '@/domain/models/app/pages/navigation-menu-depth-validation'
 import { collectSharedChannelWarnings } from '@/domain/models/app/pages/shared-channel-warnings-validation'
 import { collectTemplateWarnings } from '@/domain/models/app/pages/template-warnings-validation'
 import { printStderr } from '@/infrastructure/logging/cli-output'
@@ -82,6 +83,8 @@ export const printConfigDeprecationWarnings = (config: unknown): void => {
     ...collectSharedChannelWarnings(config),
     // A template named like the console's own, and guidance a transparent one never draws.
     ...collectTemplateWarnings(config),
+    // A navigation menu nesting a third level, which it never draws.
+    ...collectNavigationDepthWarnings(config),
   ]
   if (warnings.length === 0) return
   printStderr(warnings.map((warning) => `Warning: ${warning.message}`).join('\n'))
